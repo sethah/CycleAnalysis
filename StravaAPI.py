@@ -2,6 +2,9 @@ import numpy as np
 import pandas as pd
 import requests as r
 import pymongo
+from datetime import date
+import time
+import calendar
 
 ACCESS_TOKEN = '535848c783c374e8f33549d22f089c1ce0d56cd6'
 
@@ -20,8 +23,11 @@ class StravaAPI(object):
 
     def list_activities(self):
         url = 'athlete/activities'
-        payload = {}
+        after = calendar.timegm(time.strptime('2014-01-01', '%Y-%m-%d'))
+        before = calendar.timegm(time.gmtime())
+        payload = {'before': before, 'after': after, 'per_page': 100}
         response = self.execute(url, payload)
+        # print len(response.json())
         
         return response.json()
 
@@ -37,8 +43,6 @@ class StravaAPI(object):
             print 'Stored activity for %s on %s' % (
                                                     activity['athlete']['id'],
                                                     activity['start_date'])
-
-
 
     def get_stream(self, stream_id, types=None, stream_type='activity'):
         payload = {'resolution': 'medium'}
@@ -103,7 +107,7 @@ if __name__ == '__main__':
     strava = StravaAPI()
     # r = strava.list_activities()
     table = strava.db.activities
-    # strava.store_activities()
+    strava.store_activities()
     
     for activity in table.find():
         # print activity['streams'].keys()

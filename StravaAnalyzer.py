@@ -1,24 +1,57 @@
 import numpy as np
 import pandas as pd
-import requests as r
 import pymongo
 import matplotlib.pyplot as plt
 import matplotlib.cm as cmx
 import matplotlib.colors as colors
 import seaborn as sns
-from math import factorial
+from datetime import datetime
+from SignalProc import weighted_average, smooth, diff
+import brewer2mpl
+cmap = brewer2mpl.get_map('Set1', 'Qualitative', 9).mpl_colors
 
 
 class StravaAnalyzer(object):
 
     def __init__(self, query={}):
+        # some constants
+        self.meters_per_mile = 1609.34
+        self.feet_per_meter = 3.280
+
+        # db params
         self.client = pymongo.MongoClient()
         self.db = self.client.mydb
         self.table = self.db.activities
 
+        # structure the data
+        self.get_activities()
+        self.stream_matrices(self.activities)
+
+        self.df = None
+        
+
+    def get_activities(self, query={}):
+        min_length = 990
         result = self.table.find(query)
         activities = [activity for activity in result]
-        self.stream_matrices(activities)
+        print len(activities)
+        # self.activities = [activity for activity in activities\
+        #     if len(activity['streams']['distance']['data']) > min_length]
+        # activities = []
+        self.activities = []
+        for activity in activities:
+            if self.is_ride(activity) and len(activity['streams']['distance']['data']) > min_length:
+                self.activities.append(activity)
+        # self.activities = activities
+
+    def is_ride(self, activity):
+        min_vel = 8. / 3600 * self.meters_per_mile
+        max_vel = 30. / 3600 * self.meters_per_mile
+        # vel = activity['streams']['velocity_smooth']['data']
+        avg_vel = np.mean(activity['streams']['velocity_smooth']['data'])
+        # print avg_vel
+
+        return avg_vel >= min_vel and avg_vel <= max_vel
 
     def stream_matrices(self, activities):
         self.dist = self.construct_matrix(activities, 'distance')
@@ -27,17 +60,15 @@ class StravaAnalyzer(object):
         self.vel = self.construct_matrix(activities, 'velocity_smooth')
         self.watt = self.construct_matrix(activities, 'watts')
         self.alt = self.construct_matrix(activities, 'altitude')
-        self.accel = self.diff(self.vel, self.time)
+        self.accel = diff(self.vel, self.time)
 
     def py_matrix(self, activities, metric):
         min_length = 990
         l = []
-        for activity in activities:
+        for idx, activity in enumerate(activities):
             if metric not in activity['streams']:
                 l.append([0]*min_length)
             else:
-                if len(activity['streams'][metric]['data']) < min_length:
-                    continue
                 l.append(activity['streams'][metric]['data'])
 
         min_length = min(map(len, l))
@@ -69,106 +100,150 @@ class StravaAnalyzer(object):
 
         return mat
 
-    def diff(self, x, t):
-        dxdt = np.diff(x, axis=0) / np.diff(t, axis=0).astype(float)
-        dxdt_flat = np.append(dxdt, dxdt[-1])
-        return dxdt_flat.reshape(dxdt.shape[0] + 1, dxdt.shape[1])
+    def strava_date(date_string):
+        s = date_string.split('T')[0]
+        return datetime.strptime(date_string, '%Y-%m-%d')
 
-    def savitzky_golay(self, y, window_size, order, deriv=0, rate=1):
-        try:
-            window_size = np.abs(np.int(window_size))
-            order = np.abs(np.int(order))
-        except ValueError, msg:
-            raise ValueError("window_size and order have to be of type int")
-        if window_size % 2 != 1 or window_size < 1:
-            raise TypeError("window_size size must be a positive odd number")
-        if window_size < order + 2:
-            raise TypeError("window_size is too small for the polynomials order")
-        order_range = range(order+1)
-        half_window = (window_size -1) // 2
-        # precompute coefficients
-        b = np.mat([[k**i for i in order_range] for k in range(-half_window, half_window+1)])
-        m = np.linalg.pinv(b).A[deriv] * rate**deriv * factorial(deriv)
-        # pad the signal at the extremes with
-        # values taken from the signal itself
-        firstvals = y[0] - np.abs( y[1:half_window+1][::-1] - y[0] )
-        lastvals = y[-1] + np.abs(y[-half_window-1:-1][::-1] - y[-1])
-        y = np.concatenate((firstvals, y, lastvals))
-        return np.convolve( m[::-1], y, mode='valid')
+    def hill_score(self, ride_idx, hill_indices):
+        start = hill_indices[0]
+        stop = hill_indices[1]
+        grade_vec = self.grade[start:stop, ride_idx]
+        dist_vec = self.dist[start:stop, ride_idx]
+        mean_grade = weighted_average(grade_vec, dist_vec)
+        distance = distance = self.dist[stop][ride_idx] - self.dist[start][ride_idx]
+        
+        return distance*mean_grade*self.meters_per_mile
 
-    def hill_analysis(self, d_alt, idx):
-        min_grade = 0
-        time_dev_window = 45
-        # grade = np.where(self.grade[:, idx] > 4)
-        # print grade
+    def merge_hills(self, hill1, hill2):
+        hill = self.construct_hill(hill1['ride_idx'], hill1['start'], hill2['stop'], hill1['previous_climb'])
+        return hill
+
+    def clean_hills(self, hills):
+        min_score = 8000
+        min_separation = 0.5
+        clean_hills = []
+        for k, hill in enumerate(hills):
+            if len(clean_hills) != 0:
+                if hill['distance'][0] - clean_hills[-1]['distance'][1] < min_separation:
+                    hill = self.merge_hills(clean_hills[-1], hill)
+                    clean_hills.pop()
+            if hill['score'] > min_score:
+                clean_hills.append(hill)
+
+        return clean_hills
+
+    def construct_hill(self, ride_idx, start, stop, climb_total, previous_hill=None):
+        hill = {}
+        mean_grade = weighted_average(self.grade[start:stop + 1, ride_idx],
+                                                   self.dist[start:stop + 1, ride_idx])
+        mean_velocity = weighted_average(self.vel[start:stop + 1, ride_idx],
+                                              self.dist[start:stop + 1, ride_idx])
+        hill['ride_idx'] = ride_idx
+        hill['velocity'] = mean_velocity / self.meters_per_mile * 3600
+        hill['previous_distance'] = self.dist[start][ride_idx]
+        hill['previous_climb'] = climb_total
+        hill['start'] = start
+        hill['stop'] = stop
+        hill['time_riding'] = self.time[start][ride_idx] - self.time[0][ride_idx]
+        hill['distance'] = (self.dist[start][ride_idx], self.dist[stop][ride_idx])
+        hill['score'] = self.hill_score(ride_idx, (start, stop))
+        hill['activity_id'] = self.activities[ride_idx]['id']
+        
+        return hill
+
+    def hill_analysis(self, idx):
+        d_alt = smooth(diff(self.alt[:,idx][:, np.newaxis],
+                         self.dist[:, idx][:, np.newaxis]))
+
         hills = []
-        filtered_grade = np.copy(self.savitzky_golay(self.grade[:, idx], 51, 3))
-        # print filtered_grade[k]
         hill_start = False
         hill_start_idx = 0
+        climb_total = np.zeros(self.dist.shape[0])
         for k in xrange(self.dist.shape[0]):
             time_elapsed = self.time[k][idx] - self.time[hill_start_idx][idx]
-            if d_alt[k] > min_grade and not hill_start:
+            if k != 0:
+                climb_total[k] = climb_total[k - 1] + \
+                             np.max([self.alt[k][idx] - self.alt[k - 1][idx], 0])
+
+            if d_alt[k] > 0 and not hill_start:
                 hill_start = True
                 hill_start_idx = k
-                # print filtered_grade[k]
 
             elif hill_start and (d_alt[k] < 0 or k == self.dist.shape[0] - 1):
                 hill_start = False
-                distance = self.dist[k][idx] - self.dist[hill_start_idx][idx]
-                if distance < 5:
-                    continue
-
-                grade = 3
-                score = distance*grade
-                hill = {}
-                # hill['avg_grade'] = np.mean()
-                hill['index'] = (hill_start_idx, k)
-                hill['distance'] = (self.dist[hill_start_idx][idx], self.dist[k][idx])
+                hill = self.construct_hill(idx, hill_start_idx, k, climb_total[hill_start_idx])
                 hills.append(hill)
 
-        return hills
+        return self.clean_hills(hills)
+
+    def plot_hills(self, ride_idx, ax, hills):
+        # fig, axs = plt.subplots(1,1, figsize=(12, 8))
+        # ax = axs
+
+        # plot the altitude profile
+        ax.plot(self.dist[:, ride_idx], self.alt[:, ride_idx]*self.feet_per_meter, c=cmap[0], label='Altitude')
+        ax.set_title(self.activities[ride_idx]['name']+', '+self.activities[ride_idx]['start_date'])
+        xmin, xmax = np.min(self.dist[:, ride_idx]), np.max(self.dist[:, ride_idx])
+        ax.set_xlim([xmin, xmax])
+
+        for hill_idx, hill in enumerate(hills):
+            color = 'r'
+            label = 'Score: %0.0f, Speed: %0.2f' % (hill['score'], hill['velocity'])
+            ax.plot(self.dist[hill['index'][0]:hill['index'][1], ride_idx],
+                    self.alt[hill['index'][0]:hill['index'][1], ride_idx]*self.feet_per_meter,
+                    c=cmap[hill_idx + 1], linewidth=3,
+                    label=label)
+        ax.set_ylabel('Altitude (feet)')
+        ax.set_xlabel('Distance (mile)')
+        # plt.legend()
+        # ax2 = ax.twinx()
+        # ax2.grid(b=False)
+        # ax2.plot(self.dist[:, ride_idx], self.filter(self.vel[:, ride_idx]) / self.meters_per_mile * 3600)
+    def subplot_dims(self, n):
+        if n == 0:
+            return (0, 0)
+        rows = int(round(np.sqrt(n)))
+        cols = int(np.ceil(n/rows))
+
+        return (rows, cols)
+
+    def fill_df(self):
+        for idx in xrange(self.dist.shape[1]):
+            hills = self.hill_analysis(idx)
+            if len(hills) != 0:
+                if self.df is None:
+                    self.df = pd.DataFrame(hills)
+                else:
+                    self.df = self.df.append(pd.DataFrame(hills))
+
+        self.df.to_csv('hills.csv')
+
+
+    def plot_activities(self, indices):
+        hills_list = []
+        for activity in xrange(indices[0], indices[1]):
+            hills = self.hill_analysis(activity)
+            if len(hills) != 0:
+                hills_list.append((activity, hills))
+
+
+        r, c = self.subplot_dims(len(hills_list))
+        fig, axs = plt.subplots(r, c, figsize=(15,12))
+
+        for k, ax in enumerate(axs.reshape(-1)):
+            # hills = self.hill_analysis(ride_idx)
+            self.plot_hills(hills_list[k][0], ax, hills_list[k][1])
+            ax.legend()
 
 def rect(x, y, w, h, c, ax):
-    # ax = plt.gca()
     polygon = plt.Rectangle((x, y), w, h, color=c)
     ax.add_patch(polygon)
 
 if __name__ == '__main__':
     s = StravaAnalyzer()
-    # print s.dist.shape
-    
-
-    fig, axs = plt.subplots(1,1)
-    ax = axs
-    ax.plot(s.dist[:, 3], s.alt[:, 3])
-    ax1 = ax.twinx()
-    # ax1.plot(s.dist[:, 3],
-    #              s.savitzky_golay(s.grade[:, 3], 51, 3),
-    #              c='r', label=str(3))
-    d_alt = s.diff(s.alt[:,3][:, np.newaxis], s.dist[:, 3][:, np.newaxis])
-    print d_alt.shape
-    ax1.plot(s.dist[:, 3], s.savitzky_golay(d_alt.ravel(),51,3), c='g')
-    ax1.grid(b=False)
-    hills = s.hill_analysis(s.savitzky_golay(d_alt.ravel(),51,3), 3)
-    for hill in hills:
-        color = 'r'
-        for sample in xrange(hill['index'][0], hill['index'][1]):
-            w = s.dist[sample+1,3] - s.dist[sample,3]
-            rect(s.dist[sample,3], 0, w, s.alt[sample,3], color, ax)
-            
+    # num_plots = 
+    # s.plot_activities((0,20))
+    s.fill_df()
+    # s.plot_hills(3)
 
     plt.show()
-
-    # fig, axs = plt.subplots(5, 3)
-
-    # for idx, ax in enumerate(axs.reshape(-1)):
-    #     ax.plot(s.dist[:, idx], s.alt[:, idx])
-    #     ax1 = ax.twinx()
-    #     ax1.plot(s.dist[:, idx],
-    #              s.savitzky_golay(s.grade[:, idx], 51, 3),
-    #              c='r', label=str(idx))
-    #     ax1.grid(b=False)
-    #     ax1.legend()
-
-    # plt.show()
