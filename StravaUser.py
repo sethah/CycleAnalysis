@@ -2,6 +2,9 @@ import numpy as np
 import pymongo
 from SignalProc import weighted_average, smooth, diff
 from datetime import datetime
+import matplotlib.pyplot as plt
+from PlotTools import PlotTool
+import seaborn as sns
 
 # global vars
 meters_per_mile = 1609.34
@@ -20,7 +23,7 @@ class StravaUser(object):
         client = pymongo.MongoClient()
         db = client.mydb
         table = db.activities
-        
+
         result = table.find(query)
         activities = [activity for activity in result]
 
@@ -30,34 +33,52 @@ class StravaUser(object):
             if a.is_ride() and len(a.distance.raw_data) > min_length:
                 self.activities.append(a)
 
+class StravaEffort(object):
 
-class StravaActivity(object):
+    def __init__(self, effort_dict):
+        self.init(effort_dict)
 
-    def __init__(self, activity_dict):
-        self.id = activity_dict['id']
-        self.name = activity_dict['name']
-        self.athlete = activity_dict['athlete']
-        self.city = activity_dict['location_city']
-        self.date = self.strava_date(activity_dict['start_date'])
-        self.total_distance = activity_dict['distance']
-        stream_dict = activity_dict['streams']
+    def init(self, effort_dict):
+        self.id = effort_dict['id']
+        self.name = effort_dict['name']
+        self.athlete = effort_dict['athlete']#['id']
+        self.date = self.strava_date(effort_dict['start_date'])
+        stream_dict = effort_dict['streams']
         self.velocity = self.init_stream(stream_dict, 'velocity_smooth')
         self.distance = self.init_stream(stream_dict, 'distance')
         self.time = self.init_stream(stream_dict, 'time')
         self.grade = self.init_stream(stream_dict, 'grade_smooth')
         self.altitude = self.init_stream(stream_dict, 'altitude')
+
+    def init_stream(self, stream_dict, stream_type):
+        return StravaStream(stream_type, stream_dict[stream_type])
+
+    def stream_types(self):
+        return {'velocity_smooth', 'distance', 'time', 'grade_smooth', 'altitude'}
+
+    def strava_date(self, date_string):
+        if type(date_string) != unicode:
+            return date_string
+        return datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%SZ')
+
+class StravaActivity(StravaEffort):
+
+    def __init__(self, activity_dict):
+        self.init(activity_dict)
+        self.distance.convert_units()
+        self.velocity.convert_units()
+        self.altitude.convert_units()
+        self.city = activity_dict['location_city']
+        self.total_distance = activity_dict['distance']
         self.hills = self.hill_analysis()
         self.is_valid_ride = self.is_ride()
 
     def init_stream(self, stream_dict, stream_type):
         return StravaStream(stream_type, stream_dict[stream_type])
 
-    def strava_date(self, date_string):
-        return datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%SZ')
-
     def is_ride(self):
-        min_vel = 8. # mph
-        max_vel = 30. # mph
+        min_vel = 8.  # mph
+        max_vel = 30.  # mph
 
         avg_vel = np.mean(self.velocity.raw_data)
 
@@ -92,14 +113,27 @@ class StravaActivity(object):
                 else:
                     prev_hill = None
                 if k - hill_start_idx >= 2:
-                    hill = StravaHill(self, hill_start_idx, k, climb_total, prev_hill)
+                    stream_dict = self.make_stream_dict()
+                    for key in stream_dict:
+                        stream_dict[key]['data'] = stream_dict[key]['data'][hill_start_idx:k]
+
+                    effort_dict = {'id': len(hills),
+                                   'name': self.name,
+                                   'athlete': self.athlete,
+                                   'start_date': self.date,
+                                   'streams': stream_dict}
+                    hill = StravaHill(effort_dict, self, previous_hill=prev_hill)
                     hills.append(hill)
 
-        return self.clean_hills(hills)  
+        return self.clean_hills(hills)
+
+    def make_stream_dict(self):
+        return {stream_type: {'data': getattr(self, stream_type.replace('_smooth', '')).raw_data} \
+                for stream_type in self.stream_types()}
 
     def clean_hills(self, hills):
         min_score = 8000. / meters_per_mile
-        min_separation = 0.5 # miles
+        min_separation = 0.5  # miles
         clean_hills = []
         for k, hill in enumerate(hills):
             if len(clean_hills) != 0:
@@ -112,68 +146,106 @@ class StravaActivity(object):
         return clean_hills
 
     def merge_hills(self, hill1, hill2):
-        hill = StravaHill(hill1.activity,
-                          hill1.start,
-                          hill2.stop, 
-                          hill1.previous_climb,
-                          hill1.previous_hill)
-        return hill    
+        # stream_dict = self.make_stream_dict()
+        # for key in stream_dict:
+        #     stream_dict[key]['data'] = stream_dict[key]['data'][hill_start_idx:k]
+        stream_dict = {}
+        for stream_type in self.stream_types():
+            hill1_data = getattr(hill1, stream_type.replace('_smooth','')).raw_data
+            hill2_data = getattr(hill2, stream_type.replace('_smooth','')).raw_data
+            stream_dict[stream_type] = {}
+            stream_dict[stream_type]['data'] = np.append(hill1_data, hill2_data)
+        effort_dict = {'id': hill1.id,
+                       'name': hill1.name,
+                       'athlete': hill1.athlete,
+                       'start_date': hill1.date,
+                       'streams': stream_dict}
+        hill = StravaHill(effort_dict, self, previous_hill=hill1.previous_hill)
+        # hill = StravaHill(hill1.activity,
+        #                   hill1.start,
+        #                   hill2.stop,
+        #                   hill1.previous_climb,
+        #                   hill1.previous_hill)
+        return hill
+
+    def plot_hills(self):
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+        p = PlotTool()
+        ax.plot(self.distance.raw_data, self.altitude.raw_data,
+                c='r', label='altitude')
+        xmin, xmax = np.min(self.distance.raw_data), np.max(self.distance.raw_data)
+        ymin, ymax = np.min(self.altitude.raw_data), np.max(self.altitude.raw_data)
+        ax.set_xlim([xmin, xmax])
+        ax.set_ylim([ymin, ymax])
+        ax.set_title(self.date.date())
+        axis_label_font = 20
+        ax.set_xlabel('Distance (miles)', fontsize=axis_label_font)
+        ax.set_ylabel('Altitude (ft)', fontsize=axis_label_font)
+        ax.set_title('%s, %s, %s' % \
+                        (self.name, self.athlete['id'], self.date.date()),
+                        fontsize=24)
+
+        ax.tick_params(labelsize=16)
+
+        cmap = plt.get_cmap("YlOrRd")
+
+        for hill in self.hills:
+            label = 'Score: %0.0f' % (hill.score)
+            X = hill.distance.raw_data
+            Y = hill.altitude.raw_data
+            p.plot_fill(X, Y, hill.velocity.filtered, cmap, ax)
+
+        plt.show()
+
 
     def __repr__(self):
         return '<%s, %s, %s, %s>' % \
             (self.name, self.date, self.city, len(self.distance.raw_data))
 
+
 class StravaStream(object):
 
     def __init__(self, stream_type, stream_dict, change_units=True):
         self.raw_data = np.array(stream_dict['data'])
-        if stream_type == 'distance' and change_units:
-            self.raw_data /= meters_per_mile
-        elif stream_type == 'velocity' and change_units:
-            self.raw_data *= 3600
-            self.raw_data /= meters_per_mile
-        elif stream_type == 'altitude' and change_units:
-            self.raw_data *= feet_per_meter
         self.stream_type = stream_type
+        self.filter()
+    
+    def filter(self):
         self.filtered = smooth(self.raw_data)
 
-class StravaHill(object):
+    def convert_units(self):
+        if self.stream_type == 'distance':
+            self.raw_data /= meters_per_mile
+        elif self.stream_type == 'velocity':
+            self.raw_data *= 3600
+            self.raw_data /= meters_per_mile
+        elif self.stream_type == 'altitude':
+            self.raw_data *= feet_per_meter
 
-    def __init__(self, activity, start, stop, climb_total, previous_hill=None):
+
+class StravaHill(StravaEffort):
+
+    def __init__(self, effort_dict, activity, previous_hill=None):
+        self.init(effort_dict)
         self.activity = activity
-
-        self.velocity = self.init_stream('velocity', self.activity.velocity.raw_data[start:stop])
-        self.distance = self.init_stream('distance', self.activity.distance.raw_data[start:stop])
-        self.time = self.init_stream('time', self.activity.time.raw_data[start:stop])
-        self.grade = self.init_stream('grade', self.activity.grade.raw_data[start:stop])
-        self.altitude = self.init_stream('altitude', self.activity.altitude.raw_data[start:stop])
-        
-        self.previous_distance = self.activity.distance.raw_data[start]
-        self.previous_climb = climb_total
-        self.start = start
-        self.stop = stop
-        self.time_riding = self.activity.time.raw_data[start] - self.activity.time.raw_data[0]
         self.previous_hill = previous_hill
         self.score = self.hill_score()
-        # print self.score
-
-    def init_stream(self, stream_type, data):
-        return StravaStream(stream_type, {'data': data}, change_units=False)
 
     def hill_score(self):
         grade_vec = self.grade.raw_data
         dist_vec = self.distance.raw_data
 
         mean_grade = weighted_average(grade_vec, dist_vec)
-        distance = self.distance.raw_data[-1] - \
-                   self.distance.raw_data[0] 
+        distance = self.distance.raw_data[-1] - self.distance.raw_data[0]
 
         return distance*mean_grade
-    
+
     def __repr__(self):
         return '<%s, %s>' % \
             (self.score, len(self.distance.raw_data))
 
 if __name__ == '__main__':
     u = StravaUser('Seth')
-    print u.activities[2].hills[0]
+    u.activities[3].plot_hills()
+    # for hill in u.activities[2].hills:
+    #     print hill.score, 8000 / meters_per_mile
