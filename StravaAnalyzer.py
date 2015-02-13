@@ -7,6 +7,7 @@ import matplotlib.colors as colors
 import seaborn as sns
 from datetime import datetime
 from SignalProc import weighted_average, smooth, diff
+from PlotTools import PlotTool
 import brewer2mpl
 cmap = brewer2mpl.get_map('Set1', 'Qualitative', 9).mpl_colors
 
@@ -176,36 +177,65 @@ class StravaAnalyzer(object):
 
         return self.clean_hills(hills)
 
-    def plot_hills(self, ride_idx, ax, hills):
-        # fig, axs = plt.subplots(1,1, figsize=(12, 8))
-        # ax = axs
+    def get_hill_features(self, hill, ride_idx):
+        activity_id = self.activities[ride_idx]['id']
 
-        # plot the altitude profile
-        ax.plot(self.dist[:, ride_idx], self.alt[:, ride_idx]*self.feet_per_meter, c=cmap[0], label='Altitude')
-        ax.set_title(self.activities[ride_idx]['name']+', '+self.activities[ride_idx]['start_date'])
-        xmin, xmax = np.min(self.dist[:, ride_idx]), np.max(self.dist[:, ride_idx])
-        ax.set_xlim([xmin, xmax])
+        # get raw vectors for the hill
+        hill_alt = self.alt[hill['start']:hill['stop'], ride_idx]
+        hill_time = self.time[hill['start']:hill['stop'], ride_idx]
+        hill_distance = self.dist[hill['start']:hill['stop'], ride_idx]
 
-        for hill_idx, hill in enumerate(hills):
-            color = 'r'
-            label = 'Score: %0.0f, Speed: %0.2f' % (hill['score'], hill['velocity'])
-            ax.plot(self.dist[hill['index'][0]:hill['index'][1], ride_idx],
-                    self.alt[hill['index'][0]:hill['index'][1], ride_idx]*self.feet_per_meter,
-                    c=cmap[hill_idx + 1], linewidth=3,
-                    label=label)
-        ax.set_ylabel('Altitude (feet)')
-        ax.set_xlabel('Distance (mile)')
-        # plt.legend()
-        # ax2 = ax.twinx()
-        # ax2.grid(b=False)
-        # ax2.plot(self.dist[:, ride_idx], self.filter(self.vel[:, ride_idx]) / self.meters_per_mile * 3600)
-    def subplot_dims(self, n):
-        if n == 0:
-            return (0, 0)
-        rows = int(round(np.sqrt(n)))
-        cols = int(np.ceil(n/rows))
+        # start from zero
+        time_elapsed = (hill_time - hill_time[0])
+        distance_elapsed = (hill_distance - hill_distance[0])
+        climb_elapsed = (hill_alt - hill_alt[0])
 
-        return (rows, cols)
+        # filter the grade and velocity
+        grade_smooth = smooth(self.grade[:, ride_idx])[hill['start']:hill['stop']]
+        velocity_smooth = smooth(self.vel[:, ride_idx])[hill['start']:hill['stop']]
+
+        df = pd.DataFrame({'hill_grade_smooth': grade_smooth,
+                          'time_elapsed': time_elapsed,
+                          'distance_elapsed': distance_elapsed,
+                          'climb_elapsed': climb_elapsed,
+                          'velocity_smooth': velocity_smooth,
+                          'activity_id': [activity_id]*len(grade_smooth),
+                          'start': [hill['start']]*len(grade_smooth)},
+                         index=np.arange(grade_smooth.shape[0]))
+        
+
+        return df
+
+    def hills_df(self, ride_idx):
+        hill_summary_df = self.hill_summary()
+        hills = self.hill_analysis(ride_idx)
+        
+        for i, hill in enumerate(hills):
+            hill_df = self.get_hill_features(hill, ride_idx)
+            if i == 0:
+                hills_df = hill_df
+            else:
+                hills_df = hills_df.append(hill_df, ignore_index=True)
+
+        hills_df = pd.merge(hills_df, hill_summary_df, on=['activity_id', 'start'], suffixes=['','_'])
+        return hills_df, hill_summary_df
+
+    def hill_summary(self):
+        df = pd.read_csv('hills.csv')
+        df = df.drop(['Unnamed: 0', 'distance'], 1)
+
+        df = pd.merge(df, df[['stop', 'activity_id']].shift(1),
+                      left_index=True, right_index=True, suffixes=['', '_prev'])
+
+        # get the stop index of the previous hill
+        df['stop_prev'] = np.where(df['activity_id_prev'] == df['activity_id'], df['stop_prev'], np.nan)
+        df['stop_prev'] = df['stop_prev'].fillna(0)
+        
+        # get attributes of the last climb
+        df['time_since_last_climb'] = self.time[df['stop_prev'], df['ride_idx']]
+        df['score_last_climb'] = np.where(df['stop_prev'] != 0, df['score'].shift(1), 0)
+        
+        return df
 
     def fill_df(self):
         for idx in xrange(self.dist.shape[1]):
@@ -241,9 +271,7 @@ def rect(x, y, w, h, c, ax):
 
 if __name__ == '__main__':
     s = StravaAnalyzer()
-    # num_plots = 
-    # s.plot_activities((0,20))
-    s.fill_df()
-    # s.plot_hills(3)
-
-    plt.show()
+    # s.fill_df()
+    # hills_df = s.hills_df(2)
+    # hills_df.head()
+    print s.activities[0].keys()

@@ -31,7 +31,10 @@ def smooth(vec, copy=True):
 
 def weighted_average(vals, weights):
     w = np.diff(weights)
+
     avg = np.dot(vals[0:vals.shape[0] - 1], w) / np.sum(w)
+    if np.sum(w) == 0:
+        print weights, w
 
     return avg
 
