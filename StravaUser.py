@@ -1,10 +1,13 @@
 import numpy as np
+import pandas as pd
 import pymongo
 from SignalProc import weighted_average, smooth, diff
 from datetime import datetime
 import matplotlib.pyplot as plt
 from PlotTools import PlotTool
 import seaborn as sns
+
+"""Need to rethink the filtering function"""
 
 # global vars
 meters_per_mile = 1609.34
@@ -16,7 +19,6 @@ class StravaUser(object):
     def __init__(self, name):
         self.activities = None
         self.name = name
-
         self.get_activities()
 
     def get_activities(self, query={}, min_length=990):
@@ -77,11 +79,10 @@ class StravaActivity(StravaEffort):
         return StravaStream(stream_type, stream_dict[stream_type])
 
     def is_ride(self):
-        min_vel = 8.  # mph
+        min_vel = 4.  # mph
         max_vel = 30.  # mph
 
         avg_vel = np.mean(self.velocity.raw_data)
-
         return avg_vel >= min_vel and avg_vel <= max_vel
 
     def hill_analysis(self):
@@ -141,14 +142,15 @@ class StravaActivity(StravaEffort):
                     hill = self.merge_hills(clean_hills[-1], hill)
                     clean_hills.pop()
             if hill.score > min_score:
+                if hill.previous_hill is not None:
+
+                    if hill.previous_hill.score < min_score:
+                        hill.previous_hill = None
                 clean_hills.append(hill)
 
         return clean_hills
 
     def merge_hills(self, hill1, hill2):
-        # stream_dict = self.make_stream_dict()
-        # for key in stream_dict:
-        #     stream_dict[key]['data'] = stream_dict[key]['data'][hill_start_idx:k]
         stream_dict = {}
         for stream_type in self.stream_types():
             hill1_data = getattr(hill1, stream_type.replace('_smooth','')).raw_data
@@ -161,11 +163,7 @@ class StravaActivity(StravaEffort):
                        'start_date': hill1.date,
                        'streams': stream_dict}
         hill = StravaHill(effort_dict, self, previous_hill=hill1.previous_hill)
-        # hill = StravaHill(hill1.activity,
-        #                   hill1.start,
-        #                   hill2.stop,
-        #                   hill1.previous_climb,
-        #                   hill1.previous_hill)
+
         return hill
 
     def plot_hills(self):
@@ -197,6 +195,36 @@ class StravaActivity(StravaEffort):
 
         plt.show()
 
+    def plot_each_hill(self):
+        p = PlotTool()
+        r, c = p.subplot_dims(len(self.hills))
+        fig, axs = plt.subplots(r, c, figsize=(15, 12))
+        
+        if r == 1 and c == 1:
+            axs = np.array([axs])
+
+        cmap = plt.get_cmap("autumn")
+        for k, ax in enumerate(axs.reshape(-1)):
+            hill = self.hills[k]
+            label = 'Score: %0.0f' % (hill.score)
+            X = hill.distance.raw_data
+            Y = hill.altitude.raw_data
+            p.plot_fill(X, Y, hill.velocity.filtered, cmap, ax)
+            ax.set_xlabel('Distance (miles)')
+            ax.set_ylabel('Altitude (feet)')
+        fig.suptitle('Hills for %s on %s' % (self.name, self.date.date()),
+                     fontsize=20)
+        plt.show()
+
+    def hills_df(self):
+        df = None
+        for hill in self.hills:
+            if df is None:
+                df = hill.make_df()
+            else:
+                df = df.append(hill.make_df(), ignore_index=True)
+
+        return df
 
     def __repr__(self):
         return '<%s, %s, %s, %s>' % \
@@ -239,6 +267,47 @@ class StravaHill(StravaEffort):
         distance = self.distance.raw_data[-1] - self.distance.raw_data[0]
 
         return distance*mean_grade
+
+    def hill_features(self):
+        self.previous_climb = self.past_climb()
+        # self.time_elapsed = self.time.raw_data[0]
+        # self.distance_elapsed = self.distance.raw_data[0]
+        if self.previous_hill is not None:
+            self.time_since_last_climb = self.time.raw_data[0] - self.previous_hill.time.raw_data[-1]
+            self.score_last_climb = self.previous_hill.score
+        else:
+            self.time_since_last_climb = 100000
+            self.score_last_climb = 0
+
+    def start_index(self):
+        hill_start_time = self.time.raw_data[0]
+        start = (np.abs(self.activity.time.raw_data-hill_start_time)).argmin()
+        return start
+
+    def past_climb(self):
+        start = self.start_index()
+        # print start
+        diff = np.diff(self.activity.altitude.raw_data[0:start])
+        return np.sum(np.where(diff < 0, 0, diff))
+
+    def make_df(self):
+        self.hill_features()
+        n = self.grade.filtered.shape[0]
+        d = {'activity_id': [self.activity.id]*n,
+             'hill_id': [self.id]*n,
+             'previous_climb': [self.previous_climb]*n,
+             'time_since_last_climb': [self.time_since_last_climb]*n,
+             'score_last_climb': [self.score_last_climb]*n,
+             'grade': self.grade.filtered,
+             'time': self.time.raw_data,
+             'distance': self.distance.raw_data,
+             'altitude': self.altitude.raw_data,
+             'velocity': self.velocity.filtered
+             }
+        # for key in d:
+        #     print key, len(d[key])
+
+        return pd.DataFrame(d)
 
     def __repr__(self):
         return '<%s, %s>' % \
