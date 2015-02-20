@@ -4,7 +4,9 @@ from SignalProc import weighted_average, smooth, diff
 from datetime import datetime
 import matplotlib.pyplot as plt
 from PlotTools import PlotTool
+import pymongo
 import seaborn as sns
+import time
 
 # global vars
 meters_per_mile = 1609.34
@@ -12,8 +14,9 @@ feet_per_meter = 3.280
 
 class StravaEffort(object):
 
-    def __init__(self, effort_dict):
-        self.init(effort_dict)
+    def __init__(self, effort_dict=None):
+        if effort_dict is not None:
+            self.init(effort_dict)
 
     def init(self, effort_dict):
         self.id = effort_dict['id']
@@ -26,8 +29,32 @@ class StravaEffort(object):
         self.time = self.init_stream(stream_dict, 'time')
         self.grade = self.init_stream(stream_dict, 'grade_smooth')
         self.altitude = self.init_stream(stream_dict, 'altitude')
+        self.watts = self.init_stream(stream_dict, 'watts')
+        self.moving = self.init_stream(stream_dict, 'moving')
+
+        if self.moving is not None:
+            # print self.id
+            self.get_moving()
+
+    def get_moving(self):
+        not_moving = np.where(~self.moving.raw_data)[0]
+        for ind in not_moving:
+            self.time.raw_data[ind:] -= (self.time.raw_data[ind] - \
+                                         self.time.raw_data[ind -1])
+
+        dd = np.diff(self.distance.raw_data)
+        dt = np.diff(self.time.raw_data)
+        not_moving = np.where(dd/dt < 1)[0]
+        for ind in not_moving:
+            ind += 1
+            self.time.raw_data[ind:] -= (self.time.raw_data[ind] - \
+                                         self.time.raw_data[ind -1])
+
+        self.time.filter()
 
     def init_stream(self, stream_dict, stream_type):
+        if stream_type not in stream_dict:
+            return None
         return StravaStream(stream_type, stream_dict[stream_type])
 
     def stream_types(self):
@@ -38,20 +65,46 @@ class StravaEffort(object):
             return date_string
         return datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%SZ')
 
+    def get_effort(self, query={}):
+        client = pymongo.MongoClient()
+        db = client.mydb
+        table = db.efforts
+
+        effort = table.find(query)[0]
+
+        effort['athlete'] = effort['athlete_id']
+        effort['id'] = effort['effort_id']
+        effort['name'] = effort['athlete_name']
+        self.init(effort)
+
+    def past_grade(self):
+        behind = np.vstack([np.append([self.grade.filtered[0]]*3, self.grade.filtered[:-3]),
+                            np.append([self.grade.filtered[0]]*2, self.grade.filtered[:-2]), 
+                            np.append(self.grade.filtered[0], self.grade.filtered[:-1])])
+        # ahead = np.append(self.grade.filtered[1:], self.grade.filtered[-1])
+        ahead = np.vstack([np.append(self.grade.filtered[3:], [self.grade.filtered[-1]]*3),
+                            np.append(self.grade.filtered[2:], [self.grade.filtered[-1]]*2), 
+                            np.append(self.grade.filtered[1:], [self.grade.filtered[-1]]*1)])
+        
+        return np.mean(behind, axis=0), np.mean(ahead, axis=0)
+
 
 class StravaActivity(StravaEffort):
 
     def __init__(self, activity_dict):
         self.init(activity_dict)
-        self.distance.convert_units()
-        self.velocity.convert_units()
-        self.altitude.convert_units()
+        # self.distance.convert_units()
+        # self.velocity.convert_units()
+        # self.altitude.convert_units()
         self.city = activity_dict['location_city']
         self.total_distance = activity_dict['distance']
+        self.moving_time = activity_dict['moving_time']
         self.hills = self.hill_analysis()
         self.is_valid_ride = self.is_ride()
 
     def init_stream(self, stream_dict, stream_type):
+        if stream_type not in stream_dict:
+            return None
         return StravaStream(stream_type, stream_dict[stream_type])
 
     def is_ride(self):
@@ -212,18 +265,65 @@ class StravaActivity(StravaEffort):
 
         return df
 
+    def make_df(self, window=2):
+        n = self.grade.filtered.shape[0]
+        back, ahead = self.past_grade()
+        alt_diff = np.diff(self.altitude.filtered-self.altitude.filtered[0])
+        climb = np.cumsum(np.where(alt_diff < 0, 0, alt_diff))
+        climb = np.append([0], climb)
+
+        # d = {'activity_id': [self.id]*n,
+             # 'date': [time.mktime(self.date.timetuple())]*n,
+             # 'ride_difficulty': [self.distance.raw_data[-1]*climb[-1]]*n,
+             # 'grade': self.grade.filtered,
+             # 'grade_ahead': ahead,
+             # 'grade_behind': back,
+             # 'time': self.time.raw_data - self.time.raw_data[0],
+             # 'distance': self.distance.raw_data - self.distance.raw_data[0],
+             # 'climb': climb,
+             # 'altitude': smooth(self.altitude.raw_data, 'scipy', window_len=20),
+             # 'prev_velocity': np.append(self.velocity.filtered[0], self.velocity.filtered[:-1]),
+             # 'velocity': self.velocity.filtered,
+             # }
+        mytime = self.time.raw_data - self.time.raw_data[0]
+        mydist = self.distance.raw_data - self.distance.raw_data[0]
+        d = {'ride_difficulty': [self.distance.raw_data[-1]*climb[-1]]*n,
+             'grade': self.grade.filtered,
+             'climb': climb,
+             'date': [time.mktime(self.date.timetuple())]*n,
+             'time_int': np.append(np.diff(mytime), 0),
+             'dist_int': np.append(np.diff(mydist), 0),
+             'velocity': self.velocity.filtered,
+             }
+        df = pd.DataFrame(d)
+        if window != 0:
+            for i in xrange(-window // 2, window // 2 + 1):
+                if i == 0:
+                    continue
+                df['%s_%s' % ('grade', -i)] = df['grade'].shift(i)
+
+                if i > 0:
+                    df['%s_%s' % ('velocity', -i)] = df['velocity'].shift(i)
+        df.fillna(0, inplace=True)
+        return df
+
     def __repr__(self):
         return '<%s, %s, %s, %s>' % \
             (self.name, self.date, self.city, len(self.distance.raw_data))
 
 
 class StravaHill(StravaEffort):
+    """
+    Possible features: variance of grade/altitude, date (getting better over time?)
+    """
 
     def __init__(self, effort_dict, activity, previous_hill=None):
         self.init(effort_dict)
         self.activity = activity
         self.previous_hill = previous_hill
         self.score = self.hill_score()
+        self.rating = np.mean(self.velocity.filtered)*self.score/50.
+        self.date = time.mktime(self.activity.date.timetuple())
 
     def hill_score(self):
         grade_vec = self.grade.raw_data
@@ -236,8 +336,8 @@ class StravaHill(StravaEffort):
 
     def hill_features(self):
         self.previous_climb = self.past_climb()
-        # self.time_elapsed = self.time.raw_data[0]
-        # self.distance_elapsed = self.distance.raw_data[0]
+        self.time_elapsed = self.time.raw_data[0]
+        self.distance_elapsed = self.distance.raw_data[0]
         if self.previous_hill is not None:
             self.time_since_last_climb = self.time.raw_data[0] - self.previous_hill.time.raw_data[-1]
             self.score_last_climb = self.previous_hill.score
@@ -262,6 +362,9 @@ class StravaHill(StravaEffort):
         d = {'activity_id': [self.activity.id]*n,
              'hill_id': [self.id]*n,
              'previous_climb': [self.previous_climb]*n,
+             'time_elapsed': [self.time_elapsed]*n,
+             'date': [self.date]*n,
+             'distance_elapsed': [self.distance_elapsed]*n,
              'time_since_last_climb': [self.time_since_last_climb]*n,
              'score_last_climb': [self.score_last_climb]*n,
              'grade': self.grade.filtered,
@@ -270,8 +373,8 @@ class StravaHill(StravaEffort):
              'altitude': self.altitude.raw_data - self.altitude.raw_data[0],
              'velocity': self.velocity.filtered
              }
-        # for key in d:
-        #     print key, len(d[key])
+        if d['time'][0] != 0:
+            print d['time']
 
         return pd.DataFrame(d)
 
@@ -297,6 +400,8 @@ class StravaStream(object):
             self.raw_data /= meters_per_mile
         elif self.stream_type == 'altitude':
             self.raw_data *= feet_per_meter
+
+        self.filter()
 
 if __name__ == '__main__':
     pass
