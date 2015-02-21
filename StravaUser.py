@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 from PlotTools import PlotTool
 import seaborn as sns
 
-"""Need to rethink the filtering function"""
 
 # global vars
 meters_per_mile = 1609.34
@@ -34,6 +33,7 @@ class StravaUser(object):
 
         self.activities = []
         for activity in activities:
+            # print activity['streams'].keys()
             a = StravaActivity(activity)
             if a.is_ride() and len(a.distance.raw_data) > min_length:
                 self.activities.append(a)
@@ -49,16 +49,16 @@ class StravaUser(object):
         df = None
         for a in self.activities[start:stop]:
             if df is None:
-                df = a.hills_df()
+                df = a.make_df()
             else:
-                df = df.append(a.hills_df(), ignore_index=True)
+                df = df.append(a.make_df(), ignore_index=True)
 
         return df
 
 
 if __name__ == '__main__':
     u = StravaUser('Seth')
-    df = u.make_df()
+    df = u.make_df((0,30))
     df = df[df['velocity'] > 3]
     y = df.pop('velocity')
     # df.pop('altitude')
@@ -68,8 +68,9 @@ if __name__ == '__main__':
     rf = RandomForestRegressor()
     rf.fit(X_train, y_train)
     # rf.score(X_test, y_test)
-    cvscore = cross_val_score(rf, X_train, y_train, cv=10, scoring='r2')
-    print np.mean(cvscore)
-    importances = sorted(zip(rf.feature_importances_, df.columns), key=lambda x: x[0])
-    for feature in importances:
-        print feature
+    # cvscore = cross_val_score(rf, X_train, y_train, cv=10, scoring='r2')
+    # print np.mean(cvscore)
+    # importances = sorted(zip(rf.feature_importances_, df.columns),
+    #                      key=lambda x: x[0], reverse=True)
+    # for feature in importances:
+    #     print feature

@@ -7,6 +7,20 @@ import time
 import calendar
 
 ACCESS_TOKEN = '535848c783c374e8f33549d22f089c1ce0d56cd6'
+# ACCESS_TOKEN = 'c12c290c0e9241b09314c850cd24ce97e036ac4f'
+
+"""
+Compare segments: power distribution vs distance, grade, etc...    
+"""
+
+
+"""
+Predict optimal way to tackle a ride. Work within the limits of an athletes
+past power spectrum. e.g. 3 percent of time at or above 400 watts. 
+
+Not sure how to train the model? Look at power spectrum of the best athletes?
+How does power spectrum relate to velocity/time,grade,distance?
+"""
 
 class StravaAPI(object):
 
@@ -19,6 +33,7 @@ class StravaAPI(object):
         self.db = self.client.mydb
 
     def execute(self, url, payload={}):
+        # print self.base_url + url
         return r.get(self.base_url + url, headers=self.header, params=payload)
 
     def list_activities(self):
@@ -27,6 +42,7 @@ class StravaAPI(object):
         before = calendar.timegm(time.gmtime())
         payload = {'before': before, 'after': after, 'per_page': 100}
         response = self.execute(url, payload)
+        print response.json()
         # print len(response.json())
         
         return response.json()
@@ -47,7 +63,7 @@ class StravaAPI(object):
     def get_stream(self, stream_id, types=None, stream_type='activity'):
         payload = {'resolution': 'medium'}
         if types is None:
-            types = ['time','latlng','distance','altitude',
+            types = ['time','latlng','distance','altitude', 'moving',
                      'watts', 'velocity_smooth', 'moving', 'grade_smooth']
         
         if stream_type == 'activity':
@@ -66,15 +82,21 @@ class StravaAPI(object):
         payload = {'per_page': 10}
         response = self.execute(url, payload)
         data = response.json()
-        effort_ids = [(entry['effort_id'], entry['athlete_name']) for entry in data['entries']]
-
+        # effort_ids = [(entry['effort_id'], entry['athlete_name']) for entry in data['entries']]
+        print data['entries'][0].keys()
         efforts = []
-        for eid in effort_ids:
-            efforts.append(get_effort(eid[0], eid[1]))
+        for effort in data['entries']:
+            # efforts.append(get_effort(eid[0], eid[1]))
+            # effort = get_effort
+            streams = self.get_effort_streams(effort['effort_id'])
+            # print streams
+            effort['streams'] = streams
+            efforts.append(effort)
+            # break
         
         return efforts
 
-    def get_effort(self, effort_id, name, types=None):
+    def get_effort_streams(self, effort_id, types=None):
         if types is None:
             types = ['time','latlng','distance','altitude',
                      'watts', 'velocity_smooth', 'moving', 'grade_smooth']
@@ -83,19 +105,20 @@ class StravaAPI(object):
         response = self.execute(url, payload)
         data = response.json()
         data = {x['type']:x for x in data}
-        data['name'] = name
+        # data['name'] = name
 
         return data
 
     def store_efforts(self, segment_id):
-        table = db.efforts
-        efforts = get_efforts(segment_id)
+        table = self.db.efforts
+        # table.remove()
+        efforts = self.get_efforts(segment_id)
 
         for effort in efforts:
             effort['segment_id'] = segment_id
-            if table.find({'segment_id': segment_id, 'name': effort['name']}).count() != 0:
-                print 'Duplicate! ', effort['name']
-                continue
+            # if table.find({'segment_id': segment_id, 'name': effort['name']}).count() != 0:
+            #     print 'Duplicate! ', effort['name']
+            #     continue
             table.insert(effort)
 
 
@@ -103,17 +126,20 @@ def main():
     segment_ids = [7673423, 4980024]
 
 
+
 if __name__ == '__main__':
     strava = StravaAPI()
+    # strava.store_efforts(7673423)
     # r = strava.list_activities()
     table = strava.db.activities
+    table.remove()
     strava.store_activities()
     
-    for activity in table.find():
-        # print activity['streams'].keys()
-        for stream in activity['streams']:
-            print stream, len(activity['streams'][stream]['data'])
-            break
+    # for activity in table.find():
+    #     # print activity['streams'].keys()
+    #     for stream in activity['streams']:
+    #         print stream, len(activity['streams'][stream]['data'])
+    #         break
     
 
 

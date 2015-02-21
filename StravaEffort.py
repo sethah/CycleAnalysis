@@ -304,6 +304,7 @@ class StravaActivity(StravaEffort):
 
                 if i > 0:
                     df['%s_%s' % ('velocity', -i)] = df['velocity'].shift(i)
+            df.rename(columns={'velocity': 'velocity_0', 'grade': 'grade_0'}, inplace=True)
         df.fillna(0, inplace=True)
         return df
 

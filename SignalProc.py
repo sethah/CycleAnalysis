@@ -13,8 +13,8 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     if window_size < order + 2:
         raise TypeError("window_size is too small for the polynomials order")
     
-    order_range = range(order+1)
-    half_window = (window_size -1) // 2
+    order_range = range(order + 1)
+    half_window = (window_size - 1) // 2
     
     # precompute coefficients
     b = np.mat([[k**i for i in order_range] for k in range(-half_window, half_window+1)])
@@ -22,8 +22,8 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     
     # pad the signal at the extremes with
     # values taken from the signal itself
-    firstvals = y[0] - np.abs(y[1:half_window+1][::-1] - y[0])
-    lastvals = y[-1] + np.abs(y[-half_window-1:-1][::-1] - y[-1])
+    firstvals = y[0] - np.abs(y[1:half_window + 1][::-1] - y[0])
+    lastvals = y[-1] + np.abs(y[-half_window - 1:-1][::-1] - y[-1])
     y_new = np.concatenate((firstvals, y, lastvals))
     
     output = np.convolve(m[::-1], y_new, mode='valid')
@@ -33,7 +33,8 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
 
     return output
 
-def scipy_smooth(x,window_len=11,window='hanning'):
+
+def scipy_smooth(x, window_len=11, window='hanning'):
     """smooth the data using a window with requested size.
     
     This method is based on the convolution of a scaled window with the signal.
@@ -72,39 +73,38 @@ def scipy_smooth(x,window_len=11,window='hanning'):
         # print "Input vector needs to be bigger than window size."
         return x
 
-
     if window_len<3:
         return x
-
 
     if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
         raise ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
 
 
-    s=np.r_[x[window_len-1:0:-1],x,x[-1:-window_len:-1]]
+    s = np.r_[x[window_len-1:0:-1],x,x[-1:-window_len:-1]]
     #print(len(s))
     if window == 'flat': #moving average
-        w=np.ones(window_len,'d').astype(float)
+        w = np.ones(window_len,'d').astype(float)
     else:
-        w=eval('np.'+window+'(window_len)').astype(float)
+        w = eval('np.' + window + '(window_len)').astype(float)
 
-    y=np.convolve(w/w.sum(),s,mode='valid')
-    output = y[(window_len/2):-(window_len/2)]
+    y = np.convolve(w / w.sum(), s, mode='valid')
+    output = y[(window_len/2 - 1):-(window_len/2)]
 
     if output.shape[0] != x.shape[0]:
-        print x.shape[0], output.shape[0]
+        # print x.shape[0], output.shape[0]
+        output = output[:-1]
 
     return output
 
 
-def smooth(vec, filt_type, copy=True):
+def smooth(vec, filt_type, window_len=11, copy=True):
     if copy:
         vec = np.copy(vec)
 
     if filt_type == 'savgol':
         smoothed = savitzky_golay(vec.ravel(), 51, 3)
     elif filt_type == 'scipy':
-        smoothed = scipy_smooth(vec.ravel())
+        smoothed = scipy_smooth(vec.ravel(), window_len=window_len)
 
     return smoothed
 
@@ -118,13 +118,16 @@ def weighted_average(vals, weights):
 
     return avg
 
+
 def diff(x, t):
     dxdt = np.diff(x, axis=0) / np.diff(t, axis=0).astype(float)
     dxdt_flat = np.append(dxdt, dxdt[-1])
     return dxdt_flat.reshape(dxdt.shape[0] + 1, dxdt.shape[1])
 
+
 def main():
     pass
+
 
 if __name__ == '__main__':
     main()
