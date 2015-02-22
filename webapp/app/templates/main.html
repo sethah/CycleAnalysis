@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+	<form action="https://www.strava.com/oauth/authorize?
+  client_id=4554
+  &response_type=code
+  &redirect_uri=http://testapp.com/token_exchange
+  &scope=write
+  &approval_prompt=force">
+	<input type="image" id="authenticate" src="static/img/ConnectWithStrava.png" />
+	</form>
+	<a href="/rides">Analyze my rides!</a>
+	<!-- https://www.strava.com/oauth/authorize?
+  client_id=9
+  &response_type=code
+  &redirect_uri=http://testapp.com/token_exchange
+  &scope=write
+  &state=mystate
+  &approval_prompt=force" -->
+{% endblock %}

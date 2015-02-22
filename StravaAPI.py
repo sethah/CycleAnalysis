@@ -28,7 +28,6 @@ class StravaAPI(object):
         self.base_url = 'https://www.strava.com/api/v3/'
         self.header = {'Authorization': 'Bearer %s' % ACCESS_TOKEN}
         self.access_token = ACCESS_TOKEN
-        self.db = None
         self.client = pymongo.MongoClient()
         self.db = self.client.mydb
 

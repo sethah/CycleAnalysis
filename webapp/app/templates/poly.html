@@ -1,73 +1,104 @@
-<html> 
-<head> 
-<title>Clusters</title> 
-<script type="text/javascript" src="http://maps.google.com/maps/api/js?libraries=geometry&amp;sensor=false"></script>
-<style type="text/css"> 
-#map {width:100%;height:100%;}
-</style> 
-<script type='text/javascript'>
+{% extends "base.html" %}
+{% block content %}
+    <!-- <body> -->
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>Animating Symbols</title>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true"></script>
+    <script>
+// This example adds an animated symbol to a polyline.
+
+var line;
+
 function initialize() {
-    var myLatlng = new google.maps.LatLng(37.6, -122.2);
-    var myOptions = {
-        zoom: 9,
-        center: myLatlng,
-        mapTypeId: google.maps.MapTypeId.ROAD
-    }
-    var styles = [{
-        stylers: [
-            { hue: "#3c636b" },
-            { saturation: -65 }
-        ]
-    },{
-        featureType: "road",
-        elementType: "geometry",
-        stylers: [
-            { visibility: "simplified" }
-        ]
+  var mapOptions = {
+    center: new google.maps.LatLng({{start[0]}}, {{start[1]}}),
+    zoom: 11,
+    mapTypeId: google.maps.MapTypeId.TERRAIN
+  };
+
+  var map = new google.maps.Map(document.getElementById('map-canvas'),
+      mapOptions);
+
+  var coords = [];
+  var points = {{points|safe}}
+  // for ( var i =0; i < '')
+  {% for point in points %}
+    coords.push(new google.maps.LatLng({{point[0]}}, {{point[1]}}))
+  {% endfor %}
+
+  // Define the symbol, using one of the predefined paths ('CIRCLE')
+  // supplied by the Google Maps JavaScript API.
+  var lineSymbol = {
+    path: google.maps.SymbolPath.CIRCLE,
+    scale: 8,
+    strokeColor: '#888'
+  };
+  var lineSymbolA = {
+    path: google.maps.SymbolPath.CIRCLE,
+    scale: 8,
+    strokeColor: '#393'
+  };
+
+  // Create the polyline and add the symbol to it via the 'icons' property.
+  line = new google.maps.Polyline({
+    path: coords,
+    icons: [{
+      icon: lineSymbol,
+      offset: '100%'
     },
     {
-        featureType: "all",
-        elementType: "labels",
-        stylers: [
-            { visibility: "off" }
-        ]
+      icon: lineSymbolA,
+      offset: '100%'
+    }],
+    map: map
+  });
+  // animateCircle()
+  
+}
+
+var distance_vec = {{distance|safe}};
+var time_vec = {{time|safe}};
+var total_distance = distance_vec[distance_vec.length - 1];
+// Use the DOM setInterval() function to change the offset of the symbol
+// at fixed intervals.
+function animateCircle() {
+    for (var i = 0; i < 450; i++) {
+        window.setTimeout(function() {
+          addMarker(i)
+        }, i*1000);
     }
-    ];
-    var map = new google.maps.Map(document.getElementById("map"), myOptions);
-    map.setOptions({styles: styles});
-    var Colors = ["#008000", "000000", "#0000FF", "#ff0000"];
-    
-    var polylines = [];
-    var infos = [];
-'{% for label, poly, segments, grade, distance, elevation in data %}'
-  //     var contentString = '<div style="font-family:futura;"><dl><dd>Total distance(mi): {{distance}}</dd><dd>Average gradient: {{grade}}</dd><dd>Total elevation(ft): {{elevation}}</dd></dl><p><a href="http://www.strava.com/segments/+{{segments}}" target="_blank"> Strava page</a></p></div>';
-  // var infowindow = new google.maps.InfoWindow({
-  //     content: contentString
-  // });
-    infos.push(infowindow);
-    var decodedPath1 = google.maps.geometry.encoding.decodePath('{{poly}}');
-    var setRegion = new google.maps.Polyline({
-        path: decodedPath1,
-        strokeColor: Colors['{{label}}'],
-        strokeOpacity: 1.0,
-        strokeWeight: 3,
-        map: map
-    });
-    polylines.push(setRegion);
-'{% endfor %}'
-  for ( var i = 0; i < polylines.length; i++) {
-     google.maps.event.addListener(polylines[i], 'click', (function(i) {
-        var closure = function(e) {
-            infos[i].setPosition(e.latLng);
-            infos[i].open(map);
-        };
-        return closure;
-    })(i));
+}
+function do_loop() {
+  for (var i = 0; i < distance_vec.length; i++) {
+      var t = time_vec[i];
+      var d = distance_vec[i];
+
+      (function(time, dist){
+        setTimeout(function() { 
+          // alert(i);
+          // document.write(count)
+          
+            var icons = line.get('icons');
+            console.log(dist*1.0/total_distance)
+            icons[0].offset = dist*100.0/total_distance + '%';
+            icons[1].offset = 20 + dist*100.0/total_distance + '%';
+            line.set('icons', icons);
+          }, time*3);
+     }(t, d));
   }
-};
-</script> 
-</head> 
-<body onload="initialize()"> 
-<div id="map"></div>
-</body> 
-</html>
+}
+
+
+
+google.maps.event.addDomListener(window, 'load', initialize);
+
+    </script>
+  
+    <div><button id="loop" onclick="do_loop()">Play Ride</button>
+    </div>
+    <div id="map-canvas" style="width:500px;height:380px;"></div>
+  <!-- </body> -->
+
+
+{% endblock %}
