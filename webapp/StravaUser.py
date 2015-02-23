@@ -18,12 +18,12 @@ feet_per_meter = 3.280
 
 class StravaUser(object):
 
-    def __init__(self, name):
+    def __init__(self, name, get_streams=False):
         self.activities = None
         self.name = name
-        self.get_activities()
+        self.get_activities(get_streams)
 
-    def get_activities(self, query={}, min_length=990):
+    def get_activities(self, get_streams, query={}, min_length=990):
         client = pymongo.MongoClient()
         db = client.mydb
         table = db.activities
@@ -34,8 +34,8 @@ class StravaUser(object):
         self.activities = []
         for activity in activities:
             # print activity['streams'].keys()
-            a = StravaActivity(activity)
-            if a.is_ride() and len(a.distance.raw_data) > min_length:
+            a = StravaActivity(activity, get_streams)
+            if a.is_ride(activity['streams']['velocity_smooth']['data']) and len(activity['streams']['velocity_smooth']['data']) > min_length:
                 self.activities.append(a)
 
     def make_df(self, activities=None):

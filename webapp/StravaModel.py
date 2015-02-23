@@ -10,9 +10,7 @@ class StravaModel(object):
     def __init__(self, model):
         self.model = model
 
-    def predict(self, X, cols, subset=None, window_len=2):
-        # df.pop('velocity')
-        # df.pop('time_int')
+    def predict(self, X, cols, window_len=2):
         pred = np.zeros(X.shape[0])
         prev_vel = np.ones(window_len)
         replace_indices = [i for i, col in enumerate(cols) if 'velocity' in col]
@@ -25,7 +23,6 @@ class StravaModel(object):
             vel = row[dist_idx] / (time_int + 1e-10)
             prev_vel = np.roll(prev_vel, 1)
             prev_vel[0] = vel
-            # print prev_vel
             pred[i] = time_int
         return pred
 

@@ -14,27 +14,30 @@ feet_per_meter = 3.280
 
 class StravaEffort(object):
 
-    def __init__(self, effort_dict=None):
+    def __init__(self, effort_dict=None, get_streams=False):
         if effort_dict is not None:
-            self.init(effort_dict)
+            self.init(effort_dict, get_streams)
 
-    def init(self, effort_dict):
+    def init(self, effort_dict, get_streams):
         self.id = effort_dict['id']
         self.name = effort_dict['name']
         self.athlete = effort_dict['athlete']#['id']
         self.date = self.strava_date(effort_dict['start_date'])
-        stream_dict = effort_dict['streams']
-        self.velocity = self.init_stream(stream_dict, 'velocity_smooth')
-        self.distance = self.init_stream(stream_dict, 'distance')
-        self.time = self.init_stream(stream_dict, 'time')
-        self.grade = self.init_stream(stream_dict, 'grade_smooth')
-        self.altitude = self.init_stream(stream_dict, 'altitude')
-        self.watts = self.init_stream(stream_dict, 'watts')
-        self.moving = self.init_stream(stream_dict, 'moving')
+        if get_streams:
+            stream_dict = effort_dict['streams']
+            self.velocity = self.init_stream(stream_dict, 'velocity_smooth')
+            self.distance = self.init_stream(stream_dict, 'distance')
+            self.time = self.init_stream(stream_dict, 'time')
+            self.predicted_time = self.init_stream(stream_dict, 'predicted_time')
+            self.grade = self.init_stream(stream_dict, 'grade_smooth')
+            self.altitude = self.init_stream(stream_dict, 'altitude')
+            self.watts = self.init_stream(stream_dict, 'watts')
+            self.latlng = self.init_stream(stream_dict, 'latlng')
+            self.moving = self.init_stream(stream_dict, 'moving')
 
-        if self.moving is not None:
-            # print self.id
-            self.get_moving()
+            if self.moving is not None:
+                # print self.id
+                self.get_moving()
 
     def get_moving(self):
         not_moving = np.where(~self.moving.raw_data)[0]
@@ -88,30 +91,50 @@ class StravaEffort(object):
         
         return np.mean(behind, axis=0), np.mean(ahead, axis=0)
 
+    def to_dict(self):
+        # attrs = [a for a in dir(self) if not a.startswith('__') and not callable(getattr(self,a))]
+        js = {}
+        js['name'] = self.name
+        js['date'] = '2014-01-01'
+        js['athlete'] = self.athlete['id']
+        js['altitude'] = self.altitude.filtered.tolist()
+        js['distance'] = (self.distance.raw_data - self.time.raw_data[0]).tolist()
+        js['velocity'] = self.velocity.filtered.tolist()
+        js['latlng'] = self.latlng.raw_data.tolist()
+        js['time'] = (self.time.raw_data - self.time.raw_data[0]).tolist()
+        js['predicted_time'] = self.predicted_time.raw_data.tolist()
+        js['total_distance'] = self.total_distance
+        js['moving_time'] = self.moving_time
+        js['grade'] = self.grade.filtered.tolist()
+        js['id'] = self.id
+
+        return js
+
 
 class StravaActivity(StravaEffort):
 
-    def __init__(self, activity_dict):
-        self.init(activity_dict)
+    def __init__(self, activity_dict, get_streams=False):
+        self.init(activity_dict, get_streams)
         # self.distance.convert_units()
         # self.velocity.convert_units()
         # self.altitude.convert_units()
         self.city = activity_dict['location_city']
         self.total_distance = activity_dict['distance']
         self.moving_time = activity_dict['moving_time']
-        self.hills = self.hill_analysis()
-        self.is_valid_ride = self.is_ride()
+        # self.hills = self.hill_analysis()
+
+        self.is_valid_ride = self.is_ride(activity_dict['streams']['velocity_smooth']['data'])
 
     def init_stream(self, stream_dict, stream_type):
         if stream_type not in stream_dict:
             return None
         return StravaStream(stream_type, stream_dict[stream_type])
 
-    def is_ride(self):
+    def is_ride(self, velocity):
         min_vel = 4.  # mph
         max_vel = 30.  # mph
 
-        avg_vel = np.mean(self.velocity.raw_data)
+        avg_vel = np.mean(velocity)
         return avg_vel >= min_vel and avg_vel <= max_vel
 
     def hill_analysis(self):
@@ -310,7 +333,7 @@ class StravaActivity(StravaEffort):
 
     def __repr__(self):
         return '<%s, %s, %s, %s>' % \
-            (self.name, self.date, self.city, len(self.distance.raw_data))
+            (self.name, self.date, self.city)
 
 
 class StravaHill(StravaEffort):

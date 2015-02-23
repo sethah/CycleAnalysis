@@ -1,24 +1,23 @@
 <!DOCTYPE html>
 <html>
   <head>
-    {% if title %}
-    <title>{{ title }} - microblog</title>
-    {% else %}
-    <title>microblog</title>
-    {% endif %}
+    <title>Stravalicious</title>
     <link href="/static/css/bootstrap.css" rel="stylesheet" media="screen">
     <link href="/static/css/bootstrap-responsive.css" rel="stylesheet">
-<!--     <link href="/static/css/tablecloth.css" rel="stylesheet" type="text/css" media="screen"> -->
+    <link href="/static/css/tablecloth.css" rel="stylesheet" type="text/css" media="screen">
     <!-- <link href="/static/css/prettify.css" rel="stylesheet"> -->
     <!-- <link href="/static/css/jq.css" rel="stylesheet"> -->
-    <style>
-      #map-canvas {
-        width: 500px;
-        height: 200px;
-      }
-    </style>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   </head>
   <body>
+
+    <script src="/static/js/jquery-1.7.2.min.js"></script>
+    <script src="/static/js/bootstrap.js"></script>
+    <script src="/static/js/jquery.tablesorter.min.js"></script>
+    <script src="/static/js/jquery.tablecloth.js"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
      <!-- <div class="container"> -->
         <header class="navbar navbar-default navbar-static-top" role="banner">
             <div class="navbar">
@@ -33,10 +32,7 @@
             </div>
         </header>
 
-        <!-- {% block header %}{% endblock %} -->
-            <!-- <div class='span8 main'> -->
-                {% block content %}{% endblock %}
-            <!-- </div> -->
-    <!-- </div> -->
+        {% block content %}{% endblock %}
+
   </body>
 </html>

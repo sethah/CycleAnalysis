@@ -1,18 +1,27 @@
 {% extends "base.html" %}
 {% block content %}
-    <!-- <body> -->
-    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
-    <meta charset="utf-8">
-    <title>Animating Symbols</title>
+
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true"></script>
     <script>
 // This example adds an animated symbol to a polyline.
-
 var line;
 
+
 function initialize() {
+  translate('{{activity.id}}', '#activity{{ activity.id }}');
+  
+  // setMap(points);
+}
+
+
+function setMap(a) {
+  var distance_vec = a['distance'];
+  var time_vec = a['time'];
+  var predicted_time_vec = a['predicted_time'];
+  var total_distance = distance_vec[distance_vec.length - 1];
+  var points = a['latlng'];
   var mapOptions = {
-    center: new google.maps.LatLng({{start[0]}}, {{start[1]}}),
+    center: new google.maps.LatLng(points[0][0], points[0][1]),
     zoom: 11,
     mapTypeId: google.maps.MapTypeId.TERRAIN
   };
@@ -21,14 +30,12 @@ function initialize() {
       mapOptions);
 
   var coords = [];
-  var points = {{points|safe}}
-  // for ( var i =0; i < '')
-  {% for point in points %}
-    coords.push(new google.maps.LatLng({{point[0]}}, {{point[1]}}))
-  {% endfor %}
+  
+  for (var i = 0; i < points.length; i++) {
+    // console.log(i);
+    coords.push(new google.maps.LatLng(points[i][0], points[i][1]));
+  }
 
-  // Define the symbol, using one of the predefined paths ('CIRCLE')
-  // supplied by the Google Maps JavaScript API.
   var lineSymbol = {
     path: google.maps.SymbolPath.CIRCLE,
     scale: 8,
@@ -39,8 +46,7 @@ function initialize() {
     scale: 8,
     strokeColor: '#393'
   };
-
-  // Create the polyline and add the symbol to it via the 'icons' property.
+  console.log('set the markers')
   line = new google.maps.Polyline({
     path: coords,
     icons: [{
@@ -53,51 +59,98 @@ function initialize() {
     }],
     map: map
   });
-  // animateCircle()
-  
+  var legend = document.getElementById('legend');
+        for (var key in icons) {
+          var type = icons[key];
+          var name = type.name;
+          var icon = type.icon;
+          var div = document.createElement('div');
+          div.innerHTML = '<img src="' + icon + '"> ' + name;
+          legend.appendChild(div);
+        }
 }
+function simRide(a) {
+  console.log(a)
+  for (var i = 0; i < a['distance'].length; i++) {
+      var t = a['time'][i];
+      var d = a['distance'][i];
+      var pt = a['predicted_time'][i];
+      var total_distance = a['distance'][a['distance'].length - 1];
+      console.log(total_distance);
 
-var distance_vec = {{distance|safe}};
-var time_vec = {{time|safe}};
-var total_distance = distance_vec[distance_vec.length - 1];
-// Use the DOM setInterval() function to change the offset of the symbol
-// at fixed intervals.
-function animateCircle() {
-    for (var i = 0; i < 450; i++) {
-        window.setTimeout(function() {
-          addMarker(i)
-        }, i*1000);
-    }
-}
-function do_loop() {
-  for (var i = 0; i < distance_vec.length; i++) {
-      var t = time_vec[i];
-      var d = distance_vec[i];
-
-      (function(time, dist){
+      (function(time, ptime, dist){
+        console.log('asdf')
+        console.log(time)
         setTimeout(function() { 
-          // alert(i);
-          // document.write(count)
-          
             var icons = line.get('icons');
-            console.log(dist*1.0/total_distance)
             icons[0].offset = dist*100.0/total_distance + '%';
-            icons[1].offset = 20 + dist*100.0/total_distance + '%';
             line.set('icons', icons);
           }, time*3);
-     }(t, d));
+        setTimeout(function() { 
+            var icons = line.get('icons');
+            icons[1].offset = dist*100.0/total_distance + '%';
+            line.set('icons', icons);
+          }, ptime*3);
+     }(t, pt, d));
   }
 }
 
+function translate(aid, activityElement) {
+        console.log(aid)
+        $.post('/change', {
+            id: aid
+        }).done(function(response) {
+            activity = response
+            console.log(response['name'])
+            $(activityElement).text(response['name']);
+            setMap(response)
+            // $(textid).show();
+        }).fail(function() {
+            console.log('fail');
+        });
+        console.log('theothertext')
+    }
 
 
 google.maps.event.addDomListener(window, 'load', initialize);
 
+    
     </script>
-  
-    <div><button id="loop" onclick="do_loop()">Play Ride</button>
+    <div><button id="loop" onclick="simRide(activity)">Play Ride</button>
     </div>
-    <div id="map-canvas" style="width:500px;height:380px;"></div>
+    <div><span id="translation{{activity.id}}"><a href="javascript:translate('asdff', '#activity{{ activity.id }}');">Translate</a></span></div>
+    <p><strong><span id="activity{{ activity.id }}">{{activity.name}}</span></strong></p>
+
+    <div class='span5 main' id="map-canvas" style="width:500px;height:380px;"><div id="legend"><h3>Legend</h3></div></div>
+    
+<!--       <div class='span5 main'>
+        Some text
+      </div> -->
+      <div class='span5 main'>
+      <table align="right">
+        <thead>
+          <td>Ride Name</td>
+          <td>Date</td>
+        </thead>
+      {% for a in activities %}
+      <tr>
+        <td><a href="javascript:translate({{a.id}}, '#activity{{ activity.id }}');">{{a.name}}</a></td>
+        <td>{{a.date}}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+    <script type="text/javascript" charset="utf-8">
+      $(document).ready(function() {
+        $("table").tablecloth({
+          theme: "stats",
+          striped: true,
+          sortable: true,
+          condensed: true,
+          clean: true
+        });
+      });
+    </script>
   <!-- </body> -->
 
 
