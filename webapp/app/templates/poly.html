@@ -6,9 +6,8 @@
 // This example adds an animated symbol to a polyline.
 var line;
 
-
 function initialize() {
-  translate('{{activity.id}}', '#activity{{ activity.id }}');
+  getActivity('{{activity.id}}', '#activity{{ activity.id }}');
   
   // setMap(points);
 }
@@ -41,6 +40,7 @@ function setMap(a) {
     scale: 8,
     strokeColor: '#888'
   };
+  
   var lineSymbolA = {
     path: google.maps.SymbolPath.CIRCLE,
     scale: 8,
@@ -59,15 +59,30 @@ function setMap(a) {
     }],
     map: map
   });
-  var legend = document.getElementById('legend');
-        for (var key in icons) {
-          var type = icons[key];
-          var name = type.name;
-          var icon = type.icon;
-          var div = document.createElement('div');
-          div.innerHTML = '<img src="' + icon + '"> ' + name;
-          legend.appendChild(div);
-        }
+  
+      
+}
+
+google.load('visualization', '1.0', {'packages':['corechart']});
+google.setOnLoadCallback(drawChart);
+
+function drawChart(a) {
+  var data_array = [['Distance', 'Altitude']]
+  for (var i = 0; i <= a['distance'].length; i++) {
+    data_array.push([a['distance'][i], a['altitude'][i]])
+  }
+  console.log(data_array)
+  var data = google.visualization.arrayToDataTable(data_array);
+
+  var options = {
+    title: 'Company Performance',
+    curveType: 'function',
+    legend: { position: 'bottom' }
+  };
+
+  var chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
+
+  chart.draw(data, options);
 }
 function simRide(a) {
   console.log(a)
@@ -76,7 +91,6 @@ function simRide(a) {
       var d = a['distance'][i];
       var pt = a['predicted_time'][i];
       var total_distance = a['distance'][a['distance'].length - 1];
-      console.log(total_distance);
 
       (function(time, ptime, dist){
         console.log('asdf')
@@ -86,7 +100,7 @@ function simRide(a) {
             icons[0].offset = dist*100.0/total_distance + '%';
             line.set('icons', icons);
           }, time*3);
-        setTimeout(function() { 
+        setTimeout(function() {
             var icons = line.get('icons');
             icons[1].offset = dist*100.0/total_distance + '%';
             line.set('icons', icons);
@@ -95,51 +109,93 @@ function simRide(a) {
   }
 }
 
-function translate(aid, activityElement) {
+function getActivity(aid, activityElement) {
         console.log(aid)
         $.post('/change', {
             id: aid
         }).done(function(response) {
             activity = response
             console.log(response['name'])
-            $(activityElement).text(response['name']);
+            $(document.getElementById('activity_desc')).text(response['name']);
+            $(document.getElementById('activity_date')).text(response['date']);
+            $(document.getElementById('activity_moving_time')).text(response['moving_time']);
+            $(document.getElementById('activity_pred_time')).text(response['predicted_total_time']);
             setMap(response)
-            // $(textid).show();
+            drawChart(response)
         }).fail(function() {
             console.log('fail');
         });
-        console.log('theothertext')
     }
 
 
-google.maps.event.addDomListener(window, 'load', initialize);
+      google.maps.event.addDomListener(window, 'load', initialize);
 
     
     </script>
-    <div><button id="loop" onclick="simRide(activity)">Play Ride</button>
+    <div class="row">
+    <div class='span6 main' style="margin-left: 52px">
+      <button id="loop" onclick="simRide(activity)">Play Ride</button>
+      
+        <table>
+          <thead>
+            <th colspan="2">
+              Ride Summary
+            </th>
+          </thead>
+          <tr>
+            <td>
+              Ride:
+            </td>
+            <td>
+              <span id="activity_desc"></span>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              Date:
+            </td>
+            <td>
+              <span id="activity_date"></span>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              Total Time:
+            </td>
+            <td>
+              <span id="activity_moving_time"></span>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              Predicted Time:
+            </td>
+            <td>
+              <span id="activity_pred_time"></span>
+            </td>
+          </tr>
+        </table>
+      <div id="map-canvas" style="width:500px;height:380px;"></div>
+      <div id="curve_chart" style="width: 500px; height: 380px"></div>
     </div>
-    <div><span id="translation{{activity.id}}"><a href="javascript:translate('asdff', '#activity{{ activity.id }}');">Translate</a></span></div>
-    <p><strong><span id="activity{{ activity.id }}">{{activity.name}}</span></strong></p>
 
-    <div class='span5 main' id="map-canvas" style="width:500px;height:380px;"><div id="legend"><h3>Legend</h3></div></div>
-    
-<!--       <div class='span5 main'>
-        Some text
-      </div> -->
-      <div class='span5 main'>
+      <div class='span6 main'>
       <table align="right">
         <thead>
-          <td>Ride Name</td>
-          <td>Date</td>
+          <th>Ride Name</th>
+          <th>Date</th>
+          <th>Distance</th>
         </thead>
       {% for a in activities %}
       <tr>
-        <td><a href="javascript:translate({{a.id}}, '#activity{{ activity.id }}');">{{a.name}}</a></td>
-        <td>{{a.date}}</td>
+        <td><a href="javascript:getActivity({{a.id}}, '#activity{{ activity.id }}');">{{a.name}}</a></td>
+        <td>{{a.dt.strftime("%B %d, %Y")}}</td>
+        <td>{{(a.total_distance / 1609.34)|round(0, 'floor')}}</td>
       </tr>
       {% endfor %}
     </table>
   </div>
+</div>
     <script type="text/javascript" charset="utf-8">
       $(document).ready(function() {
         $("table").tablecloth({

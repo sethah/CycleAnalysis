@@ -4,6 +4,7 @@ from SignalProc import weighted_average, smooth, diff
 from datetime import datetime
 import matplotlib.pyplot as plt
 from PlotTools import PlotTool
+from datetime import datetime
 import pymongo
 import seaborn as sns
 import time
@@ -21,8 +22,8 @@ class StravaEffort(object):
     def init(self, effort_dict, get_streams):
         self.id = effort_dict['id']
         self.name = effort_dict['name']
-        self.athlete = effort_dict['athlete']#['id']
-        self.date = self.strava_date(effort_dict['start_date'])
+        self.athlete = effort_dict['athlete']
+        self.dt = self.strava_date(effort_dict['start_date'])
         if get_streams:
             stream_dict = effort_dict['streams']
             self.velocity = self.init_stream(stream_dict, 'velocity_smooth')
@@ -36,7 +37,6 @@ class StravaEffort(object):
             self.moving = self.init_stream(stream_dict, 'moving')
 
             if self.moving is not None:
-                # print self.id
                 self.get_moving()
 
     def get_moving(self):
@@ -92,10 +92,9 @@ class StravaEffort(object):
         return np.mean(behind, axis=0), np.mean(ahead, axis=0)
 
     def to_dict(self):
-        # attrs = [a for a in dir(self) if not a.startswith('__') and not callable(getattr(self,a))]
         js = {}
         js['name'] = self.name
-        js['date'] = '2014-01-01'
+        js['date'] = datetime.strftime(self.dt.date(), '%A %B %d, %Y')
         js['athlete'] = self.athlete['id']
         js['altitude'] = self.altitude.filtered.tolist()
         js['distance'] = (self.distance.raw_data - self.time.raw_data[0]).tolist()
@@ -104,7 +103,8 @@ class StravaEffort(object):
         js['time'] = (self.time.raw_data - self.time.raw_data[0]).tolist()
         js['predicted_time'] = self.predicted_time.raw_data.tolist()
         js['total_distance'] = self.total_distance
-        js['moving_time'] = self.moving_time
+        js['predicted_total_time'] = time.strftime('%H:%M:%S', time.gmtime(js['predicted_time'][-1]))
+        js['moving_time'] = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
         js['grade'] = self.grade.filtered.tolist()
         js['id'] = self.id
 
@@ -173,7 +173,7 @@ class StravaActivity(StravaEffort):
                     effort_dict = {'id': len(hills),
                                    'name': self.name,
                                    'athlete': self.athlete,
-                                   'start_date': self.date,
+                                   'start_date': self.dt,
                                    'streams': stream_dict}
                     hill = StravaHill(effort_dict, self, previous_hill=prev_hill)
                     hills.append(hill)
@@ -227,12 +227,12 @@ class StravaActivity(StravaEffort):
         ymin, ymax = np.min(self.altitude.raw_data), np.max(self.altitude.raw_data)
         ax.set_xlim([xmin, xmax])
         ax.set_ylim([ymin, ymax])
-        ax.set_title(self.date.date())
+        ax.set_title(self.dt.date())
         axis_label_font = 20
         ax.set_xlabel('Distance (miles)', fontsize=axis_label_font)
         ax.set_ylabel('Altitude (ft)', fontsize=axis_label_font)
         ax.set_title('%s, %s, %s' % \
-                        (self.name, self.athlete['id'], self.date.date()),
+                        (self.name, self.athlete['id'], self.dt.date()),
                         fontsize=24)
 
         ax.tick_params(labelsize=16)
@@ -264,7 +264,7 @@ class StravaActivity(StravaEffort):
             p.plot_fill(X, Y, hill.velocity.filtered, cmap, ax)
             ax.set_xlabel('Distance (miles)')
             ax.set_ylabel('Altitude (feet)')
-        fig.suptitle('Hills for %s on %s' % (self.name, self.date.date()),
+        fig.suptitle('Hills for %s on %s' % (self.name, self.dt.date()),
                      fontsize=20)
         plt.show()
 
@@ -296,7 +296,7 @@ class StravaActivity(StravaEffort):
         climb = np.append([0], climb)
 
         # d = {'activity_id': [self.id]*n,
-             # 'date': [time.mktime(self.date.timetuple())]*n,
+             # 'date': [time.mktime(self.dt.timetuple())]*n,
              # 'ride_difficulty': [self.distance.raw_data[-1]*climb[-1]]*n,
              # 'grade': self.grade.filtered,
              # 'grade_ahead': ahead,
@@ -313,7 +313,7 @@ class StravaActivity(StravaEffort):
         d = {'ride_difficulty': [self.distance.raw_data[-1]*climb[-1]]*n,
              'grade': self.grade.filtered,
              'climb': climb,
-             'date': [time.mktime(self.date.timetuple())]*n,
+             'date': [time.mktime(self.dt.timetuple())]*n,
              'time_int': np.append(np.diff(mytime), 0),
              'dist_int': np.append(np.diff(mydist), 0),
              'velocity': self.velocity.filtered,
@@ -333,7 +333,7 @@ class StravaActivity(StravaEffort):
 
     def __repr__(self):
         return '<%s, %s, %s, %s>' % \
-            (self.name, self.date, self.city)
+            (self.name, self.dt, self.city)
 
 
 class StravaHill(StravaEffort):
@@ -347,7 +347,7 @@ class StravaHill(StravaEffort):
         self.previous_hill = previous_hill
         self.score = self.hill_score()
         self.rating = np.mean(self.velocity.filtered)*self.score/50.
-        self.date = time.mktime(self.activity.date.timetuple())
+        self.dt = time.mktime(self.activity.date.timetuple())
 
     def hill_score(self):
         grade_vec = self.grade.raw_data
@@ -387,7 +387,7 @@ class StravaHill(StravaEffort):
              'hill_id': [self.id]*n,
              'previous_climb': [self.previous_climb]*n,
              'time_elapsed': [self.time_elapsed]*n,
-             'date': [self.date]*n,
+             'date': [self.dt]*n,
              'distance_elapsed': [self.distance_elapsed]*n,
              'time_since_last_climb': [self.time_since_last_climb]*n,
              'score_last_climb': [self.score_last_climb]*n,
