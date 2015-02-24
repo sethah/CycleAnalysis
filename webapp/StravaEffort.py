@@ -23,7 +23,7 @@ class StravaEffort(object):
         self.id = effort_dict['id']
         self.name = effort_dict['name']
         self.athlete = effort_dict['athlete']
-        self.dt = self.strava_date(effort_dict['start_date'])
+        self.dt = self.strava_date(effort_dict['start_date_local'])
         if get_streams:
             stream_dict = effort_dict['streams']
             self.velocity = self.init_stream(stream_dict, 'velocity_smooth')
@@ -91,19 +91,43 @@ class StravaEffort(object):
         
         return np.mean(behind, axis=0), np.mean(ahead, axis=0)
 
+    def get_center(self):
+        latlng = self.latlng.raw_data
+
+        max_left, max_up = np.max(latlng, axis=0)
+        max_right, max_down = np.min(latlng, axis=0)
+
+        ne = [max_left, max_up]
+        sw = [max_right, max_down]
+
+        return np.array([sw, ne])
+
     def to_dict(self):
         js = {}
         js['name'] = self.name
         js['date'] = datetime.strftime(self.dt.date(), '%A %B %d, %Y')
+        js['start_time'] = datetime.strftime(self.dt, '%H:%M:%S %p')
         js['athlete'] = self.athlete['id']
         js['altitude'] = self.altitude.filtered.tolist()
-        js['distance'] = (self.distance.raw_data - self.time.raw_data[0]).tolist()
+        d = (self.distance.raw_data - self.time.raw_data[0])
+        t = (self.time.raw_data - self.time.raw_data[0])
+        step = t[-1] / (t.shape[0] - 1)
+        pt = self.predicted_time.raw_data
+        new_t = np.arange(0, pt[-1] + step, step)
+        
+        # new_pt = np.linspace(np.min(pt), np.max(pt), t.shape[0])
+        js['distance'] = d.tolist()
+        js['distance_interp'] = np.interp(new_t, t, d).tolist()
         js['velocity'] = self.velocity.filtered.tolist()
         js['latlng'] = self.latlng.raw_data.tolist()
-        js['time'] = (self.time.raw_data - self.time.raw_data[0]).tolist()
-        js['predicted_time'] = self.predicted_time.raw_data.tolist()
+        print self.get_center()
+        js['center'] = self.get_center().tolist()
+        js['time'] = t.tolist()
+        js['time_interp'] = new_t.tolist()
+        js['predicted_time'] = pt.tolist()
+        js['predicted_distance'] = np.interp(new_t, pt, d).tolist()
         js['total_distance'] = self.total_distance
-        js['predicted_total_time'] = time.strftime('%H:%M:%S', time.gmtime(js['predicted_time'][-1]))
+        js['predicted_total_time'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
         js['moving_time'] = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
         js['grade'] = self.grade.filtered.tolist()
         js['id'] = self.id

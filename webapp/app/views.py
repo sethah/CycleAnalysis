@@ -4,7 +4,7 @@ from flask import Flask, jsonify, make_response
 from StravaEffort import StravaActivity
 from StravaUser import StravaUser
 from StravaModel import StravaModel
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 import numpy as np
 import requests
 import pymongo
@@ -21,11 +21,12 @@ def index():
 
     # train a model on all of the data
     name = 'Seth'
-    u = StravaUser(name)
+    u = StravaUser(name, get_streams=True)
     all_rides_df = u.make_df()
     y = all_rides_df.pop('time_int')
     X = all_rides_df.values
-    model = RandomForestRegressor(max_depth=8)
+    # model = RandomForestRegressor(max_depth=8)
+    model = GradientBoostingRegressor()
     model.fit(X, y)
     m = StravaModel(model)
     for a in u.activities:
