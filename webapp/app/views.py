@@ -8,7 +8,6 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 import numpy as np
 import requests
 import pymongo
-import gpolyencode
 import json
 
 
@@ -19,6 +18,10 @@ DB = CLIENT.strava
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/index')
 def index():
+    return "Hello seth"
+
+@app.route('/home')
+def home():
     # get the strava data if not already there
 
     # train a model on all of the data

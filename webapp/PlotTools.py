@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import brewer2mpl
+# import brewer2mpl
 
 class PlotTool(object):
 
@@ -86,7 +86,7 @@ class PlotTool(object):
         # ax.set_ylim([ymin, ymax])
         r, c = self.subplot_dims(len(hills))
         fig, axs = plt.subplots(r, c, figsize=(15, 12))
-        
+
         if r == 1 and c == 1:
             axs = np.array([axs])
 
@@ -122,5 +122,5 @@ class PlotTool(object):
 
 if __name__ == '__main__':
     p = PlotTools()
-    
+
     # print p.get_cmap(34)

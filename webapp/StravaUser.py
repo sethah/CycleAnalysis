@@ -24,8 +24,8 @@ class StravaUser(object):
         self.get_activities(get_streams)
 
     def get_activities(self, get_streams, query={}, min_length=990):
-        client = pymongo.MongoClient()
-        db = client.mydb
+        client = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
+        db = client.strava
         table = db.activities
 
         result = table.find(query)
