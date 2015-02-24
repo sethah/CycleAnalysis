@@ -91,6 +91,20 @@ class StravaEffort(object):
         
         return np.mean(behind, axis=0), np.mean(ahead, axis=0)
 
+    def ride_score(self):
+        ratings = ['Poor', 'Below Average', 'Average', 'Good', 'Great!', 'Excellent']
+        scores = range(len(ratings))
+        criteria = np.array([0.3, 0.15, 0, -0.1, -0.2, -0.3])
+        if self.predicted_total_time is not None:
+            predicted_time = self.predicted_total_time
+            performance = (self.moving_time - predicted_time) / predicted_time
+            print criteria
+            print performance
+            tmp = criteria-performance
+            ind = np.argmin(np.where(tmp < 0, 999, tmp))
+
+        return (scores[ind], ratings[ind])
+
     def get_center(self):
         latlng = self.latlng.raw_data
 
@@ -108,8 +122,8 @@ class StravaEffort(object):
         js['date'] = datetime.strftime(self.dt.date(), '%A %B %d, %Y')
         js['start_time'] = datetime.strftime(self.dt, '%H:%M:%S %p')
         js['athlete'] = self.athlete['id']
-        js['altitude'] = self.altitude.filtered.tolist()
-        d = (self.distance.raw_data - self.time.raw_data[0])
+        js['altitude'] = (self.altitude.filtered * feet_per_meter).tolist()
+        d = (self.distance.raw_data - self.time.raw_data[0]) / meters_per_mile
         t = (self.time.raw_data - self.time.raw_data[0])
         step = t[-1] / (t.shape[0] - 1)
         pt = self.predicted_time.raw_data
@@ -120,7 +134,7 @@ class StravaEffort(object):
         js['distance_interp'] = np.interp(new_t, t, d).tolist()
         js['velocity'] = self.velocity.filtered.tolist()
         js['latlng'] = self.latlng.raw_data.tolist()
-        print self.get_center()
+        js['performance_rating'] = self.rating
         js['center'] = self.get_center().tolist()
         js['time'] = t.tolist()
         js['time_interp'] = new_t.tolist()
@@ -145,6 +159,13 @@ class StravaActivity(StravaEffort):
         self.city = activity_dict['location_city']
         self.total_distance = activity_dict['distance']
         self.moving_time = activity_dict['moving_time']
+        predicted = activity_dict['streams'].get('predicted_time', None)
+        if predicted is not None:
+            self.predicted_total_time = predicted['data'][-1]
+            print self.predicted_total_time
+            self.rating = self.ride_score()
+        else:
+            print activity_dict.keys()
         # self.hills = self.hill_analysis()
 
         self.is_valid_ride = self.is_ride(activity_dict['streams']['velocity_smooth']['data'])

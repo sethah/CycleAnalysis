@@ -4,6 +4,8 @@
       #map-canvas {text-align: center;}
     </style>
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true"></script>
+<script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
+
     <script>
 // This example adds an animated symbol to a polyline.
 var line;
@@ -72,28 +74,29 @@ function lineChart(a) {
   
   lineData = new google.visualization.DataTable();
   lineData.addColumn('number', 'Distance');
-  lineData.addColumn({type: 'string', role:'annotation'});
+  lineData.addColumn({type: 'string', role:'style'});
   lineData.addColumn('number', 'Altitude');
   lineData.addColumn('number', 'Time');
   lineData.addColumn('number', 'Predicted Time');
   console.log(a['distance'].length)
   for (var i = 0; i <= a['distance'].length; i++) {
     lineData.addRow([a['distance'][i], 
-                    null,
+                    'point { size: 18;',
                     a['altitude'][i],
                     a['time'][i],
                     a['predicted_time'][i]])
   }
-  lineData.addRow([null, null, null, null, null]);
-  annotationRowIndex = lineData.getNumberOfRows() - 1;
+  // lineData.addRow([a['distance'][50], 'point{size: 10; shape-type: star; fill-color: #a52714', a['altitude'][50], null, null]);
+  // annotationRowIndex = lineData.getNumberOfRows() - 1;
   chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
 
-  var options = {
+  options = {
     annotation: {1: {style: 'line'}},
     title: 'Ride profile',
     curveType: 'function',
     legend: { position: 'bottom' },
-    vAxes:{0:{logScale: false},1:{logScale: false}},
+    vAxes:{0:{title: "Elevation (ft)"},1:{title: "Time (seconds)"}},
+    hAxis: {title: 'Distance (mi)'},
     series:{
        0:{targetAxisIndex:0},
        // 1:{targetAxisIndex:0},
@@ -101,110 +104,62 @@ function lineChart(a) {
        2:{targetAxisIndex:1}}
        // 4:{targetAxisIndex:1}}
   };
-  // var options = {
-  //   annotation: {1: {style: 'line'}}
-  // };
-
   
   chart.draw(lineData, options);
   
 }
-function moveAnnot(pos){
-  if(typeof pos === "undefined") {
-        var xVal = a['distance'][0]
-        lineData.setValue(annotationRowIndex, 0, xVal);
-        lineData.setValue(annotationRowIndex, 1, xVal.toFixed(2));
-    }
-  else {
-    var xVal = pos
-    lineData.setValue(annotationRowIndex, 0, xVal);
-    lineData.setValue(annotationRowIndex, 1, xVal.toFixed(2));
-  }
-  
-  chart.draw(lineData, {});
-    
-}
 
- function draw_marker() {
-     dc.fillStyle = "rgba(255, 0, 0, 0.5)";
-     var left = my_graph.toDomCoords(current_time, 0)[0] - 2;
-     var right = my_graph.toDomCoords(current_time + 2, 0)[0] + 2;
-     dc.fillRect(left, my_area.y, right - left, my_area.h);
- };
-  // var chart = new google.visualization.ScatterChart(document.getElementById('curve_chart'));
-// function simRide(a) {
-//   console.log(a)
-//   for (var i = 0; i < a['distance'].length; i++) {
-//       var t = a['time'][i];
-//       var d = a['distance'][i];
-//       var pt = a['predicted_distance'][i];
-//       var total_distance = a['distance'][a['distance'].length - 1];
-//       var alt = a['altitude'][i];
-//       setInterval(function(){
-//         var icons = line.get('icons');
-//         icons[0].offset = dist*100.0/total_distance + '%';
-//         line.set('icons', icons);
-//        }, 3000);
-
-//       (function(time, ptime, dist, altitude){
-//         setTimeout(function() { 
-//             var icons = line.get('icons');
-//             icons[0].offset = dist*100.0/total_distance + '%';
-//             line.set('icons', icons);
-//             moveAnnot(dist);
-//           }, time*3);
-//         setTimeout(function() {
-//             var icons = line.get('icons');
-//             icons[1].offset = dist*100.0/total_distance + '%';
-//             line.set('icons', icons);
-//           }, ptime*3);
-//      }(t, pt, d, alt));
-//   }
-// }
 function simRide(a) {
+    document.getElementById("ride-console").style.visibility = "visible";
     var count = 0;
     d = a['distance_interp'];
     pd = a['predicted_distance'];
     total_distance = d[d.length - 1];
+    var duration = moment.duration(0, 'seconds');
 
-    var myInterval = window.setInterval(function() {
+    simInterval = window.setInterval(function() {
       count = count + 1;
       if (count >= d.length) {
-        clearInterval(myInterval)
+        clearInterval(simInterval)
       }
-      // console.log(count)
-      
-      var icons = line.get('icons');
-      console.log(d[count]/total_distance)
-      icons[0].offset = d[count]*100.0/total_distance + '%';
-      icons[1].offset = pd[count]*100.0/total_distance + '%';
-      line.set('icons', icons);
-      // moveAnnot(d[count])
-  }, 20);
+      else {
+        var icons = line.get('icons');
+        icons[0].offset = d[count]*100.0/total_distance + '%';
+        icons[1].offset = pd[count]*100.0/total_distance + '%';
+        line.set('icons', icons);
+        duration = moment.duration(a['time_interp'][count]*1000, 'seconds');
+        document.getElementById('playback-timer').innerHTML = moment(duration.asSeconds()).format('h:mm');
+        
+        document.getElementById('playback-margin').innerHTML = (d[count] - pd[count]).toFixed(2);
+        // document.getElementById('playback-margin').style.backgroundColor = 'red';
+        document.getElementById('playback-distance').innerHTML = d[count].toFixed(2);
+      }
+  }, 30);
 }
 function getActivity(aid, activityElement) {
-        console.log(aid)
-        $.post('/change', {
-            id: aid
-        }).done(function(response) {
-            activity = response
-            console.log(response['name'])
-            $(document.getElementById('activity_desc')).text(response['name']);
-            $(document.getElementById('activity_date')).text(response['date']);
-            $(document.getElementById('activity_start')).text(response['start_time']);
-            $(document.getElementById('activity_moving_time')).text(response['moving_time']);
-            $(document.getElementById('activity_pred_time')).text(response['predicted_total_time']);
-            setMap(response)
-            lineChart(response)
-            // scatterChart([response['distance'][45], response['distance'][45]])
-        }).fail(function() {
-            console.log('fail');
-        });
-    }
-
+    console.log(aid)
+    $.post('/change', {
+        id: aid
+    }).done(function(response) {
+        activity = response
+        console.log(response['name'])
+        $(document.getElementById('activity_desc')).text(response['name']);
+        $(document.getElementById('activity_date')).text(response['date']);
+        $(document.getElementById('activity_rating')).text(response['performance_rating'][1]);
+        $(document.getElementById('activity_start')).text(response['start_time']);
+        $(document.getElementById('activity_moving_time')).text(response['moving_time']);
+        $(document.getElementById('activity_pred_time')).text(response['predicted_total_time']);
+        if (typeof simInterval !== 'undefined') {
+          clearInterval(simInterval)
+        }
+        setMap(response)
+        lineChart(response)
+    }).fail(function() {
+        console.log('fail');
+    });
+}
 
       google.maps.event.addDomListener(window, 'load', initialize);
-
     
     </script>
     <style type="text/css">
@@ -223,11 +178,21 @@ function getActivity(aid, activityElement) {
         <tr><td>Start Time:</td><td><span id="activity_start"></span></td></tr>
         <tr><td>Total Time:</td><td><span id="activity_moving_time"></span></td></tr>
         <tr><td>Predicted Time:</td><td><span id="activity_pred_time"></span></td></tr>
+        <tr><td>Ride Rating:</td><td><span id="activity_rating"></span></td></tr>
       </table>
       <div class="wrapper">
           <button id="play" onclick="simRide(activity)">Play Ride</button>
       </div>
-      
+      <div id="ride-console" style="visibility: hidden;">
+        <table>
+          <tr>
+            <td>Time elapsed:</td> <td id="playback-timer"></td>
+            <td>Distance:</td> <td id="playback-distance"></td>
+            <td>Margin:</td> <td id="playback-margin"></td>
+          </tr>
+        </table>
+      </div>
+      <!-- style="width:500px;height:380px;" -->
       <div class="map" id="map-canvas" style="width:500px;height:380px;"></div>
       <div id="curve_chart" ></div>
     </div>
@@ -235,6 +200,7 @@ function getActivity(aid, activityElement) {
       <div class='span6 main'>
       <table align="right">
         <thead>
+          <th>Rating</th>
           <th>Ride Name</th>
           <th>Date</th>
           <th>Distance</th>
@@ -242,6 +208,7 @@ function getActivity(aid, activityElement) {
         </thead>
       {% for a in activities %}
       <tr>
+        <td>{{a.rating[1]}}</td>
         <td><a href="javascript:getActivity({{a.id}}, '#activity{{ activity.id }}');">{{a.name}}</a></td>
         <td>{{a.dt.strftime("%B %d, %Y")}}</td>
         <td>{{(a.total_distance / 1609.34)|round(0, 'floor')}}</td>
@@ -251,6 +218,10 @@ function getActivity(aid, activityElement) {
     </table>
   </div>
 </div>
+<script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
+       
+   
+
     <script type="text/javascript" charset="utf-8">
       $(document).ready(function() {
         $("table").tablecloth({
