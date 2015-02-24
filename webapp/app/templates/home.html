@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+
+<script>
+function addAthlete(){
+	document.getElementById("add-athlete").style.visibility = "visible";
+}
+</script>
+
+<h3>Current Athletes</h3>
+<table>
+	<thead>
+		<th>Athlete ID</th>
+	</thead>
+{% for athlete in athletes %}
+<tr>
+	<td>{{athlete['id']}}</td>
+</tr>
+{% endfor %}
+</table>
+
+
+<div id="add-athlete" style="visibility: visible; display: inline;">
+	<p>You're not here?
+	<form action="https://www.strava.com/oauth/authorize?client_id=4554
+	  &response_type=code&redirect_uri=http://hendris.pythonanwhere.com&scope=write&approval_prompt=force">
+		<input type="image" id="authenticate" src="static/img/ConnectWithStrava.png" />
+	</form>
+</p>
+</div>
+<script type="text/javascript" charset="utf-8">
+      $(document).ready(function() {
+        $("table").tablecloth({
+          theme: "stats",
+          striped: true,
+          sortable: true,
+          condensed: true,
+          clean: true
+        });
+      });
+    </script>
+{% endblock %}

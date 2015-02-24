@@ -18,10 +18,13 @@ DB = CLIENT.strava
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/index')
 def index():
-    return "Hello seth"
+    # get all users
+    athletes = DB.activities.find().distinct('athlete')[:]
 
-@app.route('/home')
-def home():
+    return render_template('home.html', athletes=athletes)
+
+@app.route('/train')
+def train():
     # get the strava data if not already there
 
     # train a model on all of the data
