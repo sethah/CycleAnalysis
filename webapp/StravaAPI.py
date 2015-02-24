@@ -9,31 +9,27 @@ import calendar
 ACCESS_TOKEN = '535848c783c374e8f33549d22f089c1ce0d56cd6'
 # ACCESS_TOKEN = 'c12c290c0e9241b09314c850cd24ce97e036ac4f'
 
-"""
-Compare segments: power distribution vs distance, grade, etc...    
-"""
-
-
-"""
-Predict optimal way to tackle a ride. Work within the limits of an athletes
-past power spectrum. e.g. 3 percent of time at or above 400 watts. 
-
-Not sure how to train the model? Look at power spectrum of the best athletes?
-How does power spectrum relate to velocity/time,grade,distance?
-"""
 
 class StravaAPI(object):
 
-    def __init__(self):
+    def __init__(self, access_token=ACCESS_TOKEN):
+        self.access_token = access_token
+        self.client_secret = '4c72c397da5890b14a7f71c02d9f5a58c24ceec5'
+        self.client_id = 4554
         self.base_url = 'https://www.strava.com/api/v3/'
-        self.header = {'Authorization': 'Bearer %s' % ACCESS_TOKEN}
-        self.access_token = ACCESS_TOKEN
-        self.client = pymongo.MongoClient()
-        self.db = self.client.mydb
+        self.header = {'Authorization': 'Bearer %s' % self.access_token}
+        self.client = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
+        self.db = self.client.strava
 
     def execute(self, url, payload={}):
         # print self.base_url + url
         return r.get(self.base_url + url, headers=self.header, params=payload)
+
+    def exchange_token(self, code):
+        payload = {'client_id': self.client_id, 'client_secret': self.client_secret, 'code': code}
+        response = r.post('https://www.strava.com/oauth/token', headers=self.header, params=payload)
+
+        return response.json()
 
     def list_activities(self):
         url = 'athlete/activities'
@@ -43,7 +39,7 @@ class StravaAPI(object):
         response = self.execute(url, payload)
         print response.json()
         # print len(response.json())
-        
+
         return response.json()
 
     def store_activities(self):
@@ -64,7 +60,7 @@ class StravaAPI(object):
         if types is None:
             types = ['time','latlng','distance','altitude', 'moving',
                      'watts', 'velocity_smooth', 'moving', 'grade_smooth']
-        
+
         if stream_type == 'activity':
             url = 'activities/%s/streams/%s' % (stream_id, ','.join(types))
         else:
@@ -92,7 +88,7 @@ class StravaAPI(object):
             effort['streams'] = streams
             efforts.append(effort)
             # break
-        
+
         return efforts
 
     def get_effort_streams(self, effort_id, types=None):
@@ -133,15 +129,15 @@ if __name__ == '__main__':
     table = strava.db.activities
     table.remove()
     strava.store_activities()
-    
+
     # for activity in table.find():
     #     # print activity['streams'].keys()
     #     for stream in activity['streams']:
     #         print stream, len(activity['streams'][stream]['data'])
     #         break
-    
 
 
 
-    
+
+
 

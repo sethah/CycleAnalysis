@@ -1,9 +1,10 @@
 from app import app
 from flask import render_template, request, flash
-from flask import Flask, jsonify, make_response
+from flask import Flask, jsonify, make_response, redirect, url_for
 from StravaEffort import StravaActivity
 from StravaUser import StravaUser
 from StravaModel import StravaModel
+from StravaAPI import StravaAPI
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 import numpy as np
 import requests
@@ -19,9 +20,22 @@ DB = CLIENT.strava
 @app.route('/index')
 def index():
     # get all users
-    athletes = DB.activities.find().distinct('athlete')[:]
-
+    athletes = DB.athletes.find()[:]
     return render_template('home.html', athletes=athletes)
+
+@app.route('/token_exchange', methods=['GET', 'POST'])
+def token_exchange():
+    code = request.args.get('code', None)
+    api = StravaAPI()
+    data = api.exchange_token(code)
+    athlete_dict = data['athlete']
+    athlete_dict['token'] = {'access_token': data['access_token'],
+                             'token_type': data['token_type']}
+    if DB.athletes.find_one({'id': athlete_dict['id']}) is None:
+        DB.athletes.insert(athlete_dict)
+
+    return redirect(url_for('index'))
+
 
 @app.route('/train')
 def train():
@@ -48,7 +62,7 @@ def train():
 
 @app.route('/rides', methods=['GET', 'POST'])
 def rides():
-    u = StravaUser('Seth')
+    u = StravaUser(4478600)
     aid = 134934515
     # if 'id' in request.form:
     a = DB.activities.find({'id': request.form.get('id', aid)})[0]

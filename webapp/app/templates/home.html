@@ -10,23 +10,23 @@ function addAthlete(){
 <h3>Current Athletes</h3>
 <table>
 	<thead>
-		<th>Athlete ID</th>
+		<th>Athlete</th>
+		<th>Location</th>
+		<th></th>
 	</thead>
 {% for athlete in athletes %}
 <tr>
-	<td>{{athlete['id']}}</td>
+	<td>{{athlete['firstname'] + ' ' + athlete['lastname']}}</td>
+	<td>{{athlete['city'] + ', ' + athlete['state']}}</td>
+	<td><a href="{{url_for('rides')}}">View my rides</a></td>
 </tr>
 {% endfor %}
 </table>
 
 
-<div id="add-athlete" style="visibility: visible; display: inline;">
-	<p>You're not here?
-	<form action="https://www.strava.com/oauth/authorize?client_id=4554
-	  &response_type=code&redirect_uri=http://hendris.pythonanwhere.com&scope=write&approval_prompt=force">
-		<input type="image" id="authenticate" src="static/img/ConnectWithStrava.png" />
-	</form>
-</p>
+<a href="https://www.strava.com/oauth/authorize?client_id=4554&response_type=code&redirect_uri=http://hendris.pythonanywhere.com/token_exchange&approval_prompt=force">
+<img src="static/img/ConnectWithStrava.png">
+</a>
 </div>
 <script type="text/javascript" charset="utf-8">
       $(document).ready(function() {

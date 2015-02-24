@@ -18,10 +18,11 @@ feet_per_meter = 3.280
 
 class StravaUser(object):
 
-    def __init__(self, name, get_streams=False):
+    def __init__(self, athlete_id, get_streams=False):
         self.activities = None
-        self.name = name
-        self.get_activities(get_streams)
+        # self.name = name
+        self.athlete_id = athlete_id
+        self.get_activities(get_streams, query={'athlete.id': self.athlete_id})
 
     def get_activities(self, get_streams, query={}, min_length=990):
         client = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
