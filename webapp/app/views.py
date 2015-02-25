@@ -62,7 +62,7 @@ def fit():
             {'$set': {'streams.predicted_time.data': np.cumsum(forecast).tolist(),
                     'predicted_moving_time': pred_time}}
             )
-    return 'Trained on %s activites' % str(len(u.activities))
+    return str(len(u.activities))
 
 @app.route('/get-data', methods=['POST'])
 def get_data():
@@ -70,6 +70,8 @@ def get_data():
     print uid
     u = StravaUser(int(uid))
     u.get_activities()
+
+    return str(len(u.activities))
 
 @app.route('/check', methods=['POST'])
 def check():
@@ -79,9 +81,11 @@ def check():
     # if the user has no activities, get them from Strava
     if len(u.activities) == 0:
         # this will take a bit
+        print 'new'
         return 'new'
 
     if not u.has_full_predictions():
+        print 'predict'
         return 'predict'
 
     return 'good'
@@ -114,7 +118,8 @@ def rides(userid):
     return render_template(
         'poly.html',
         activity = a,
-        activities = u.activities)
+        activities = u.activities,
+        athlete = u.name)
 
 @app.route('/change', methods=['POST'])
 def change():
