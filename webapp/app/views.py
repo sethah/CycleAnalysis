@@ -37,28 +37,54 @@ def token_exchange():
     return redirect(url_for('index'))
 
 
-@app.route('/train')
-def train():
+@app.route('/fit', methods=['POST'])
+def fit():
     # get the strava data if not already there
 
     # train a model on all of the data
-    uid = 4478600
-    u = StravaUser(uid, get_streams=True)
+    uid = request.form.get('userid', None)
+    print uid
+    u = StravaUser(int(uid), get_streams=True)
     all_rides_df = u.make_df()
     y = all_rides_df.pop('time_int')
     X = all_rides_df.values
     # model = RandomForestRegressor(max_depth=8)
     model = GradientBoostingRegressor()
+    print 'Fitting model'
     model.fit(X, y)
+    print 'Model fit!'
     m = StravaModel(model)
     for a in u.activities:
+        print a
         forecast, true, pred_time = m.predict_activity(a)
         DB.activities.update(
             {'id': a.id},
             {'$set': {'streams.predicted_time.data': np.cumsum(forecast).tolist(),
                     'predicted_moving_time': pred_time}}
             )
-    return render_template('train.html')
+    return 'Trained on %s activites' % str(len(u.activities))
+
+@app.route('/get-data', methods=['POST'])
+def get_data():
+    uid = request.form.get('userid', None)
+    print uid
+    u = StravaUser(int(userid))
+    u.get_activities()
+
+@app.route('/check', methods=['POST'])
+def check():
+    uid = request.form.get('userid', None)
+    u = StravaUser(int(uid))
+
+    # if the user has no activities, get them from Strava
+    if len(u.activities) == 0:
+        # this will take a bit
+        return 'new'
+
+    if not u.has_full_predictions():
+        return 'predict'
+
+    return 'good'
 
 @app.route('/rides/<userid>', methods=['GET', 'POST'])
 def rides(userid):
@@ -75,10 +101,10 @@ def rides(userid):
     if not u.has_full_predictions():
         # analyze their data!
         print 'fitting model'
-        return redirect(url_for('train'))
+        return redirect(url_for('train', userid=userid))
     
     # TODO: this is a really stupid way to do it, refactor the get_streams
-    aid = 134934515
+    aid = u.activities[0].id
     a = DB.activities.find({'id': request.form.get('id', aid)})[0]
     a = StravaActivity(a, get_streams=True)
     a.time.raw_data -= a.time.raw_data[0]
@@ -104,9 +130,9 @@ def change():
 def chart():
     return render_template('chart.html')
 
-@app.route("/loading")
-def loading():
-    return render_template('chart.html')
+@app.route("/train/<userid>")
+def train(userid):
+    return render_template('train.html', userid=userid)
 
 @app.route('/sleep', methods=['POST'])
 def sleep():

@@ -1,5 +1,33 @@
 {% extends "base.html" %}
 {% block content %}
-<p>Your rides have been analyzed!</p>
-<a href="{{ url_for('rides') }}">Show me the damn rides!</a>
+
+<script>
+function loading(uid) {
+	console.log(uid)
+    document.getElementById('loading').style.visibility = 'visible';
+    var loadText = "We're customizing a model just for you. This will take a while."
+    document.getElementById('loading').innerHTML = loadText;
+    // document.getElementById("loading").style.visibility = "visible";
+    $.post('/fit', {
+    	userid: uid
+    }).done(function(response) {
+        document.getElementById('result').style.visibility = 'visible';
+        document.getElementById('loading').innerHTML = response;
+    }).fail(function() {
+    	document.getElementById('loading').innerHTML = 'Something went wrong! Ugh.';
+        console.log('fail');
+    });
+}
+</script>
+
+
+<div>You're new here. Let's science your data.</div>
+<div class="wrapper">
+          <button id="fit" onclick="loading({{userid}})">Fit model</button>
+      </div>
+<div id="loading" style="visibility: hidden">
+</div>
+<div id="result" style="visibility: hidden">
+	<a href="{{ url_for('rides', userid=userid) }}">See my damn results!</a>
+</div>
 {% endblock %}

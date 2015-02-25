@@ -5,7 +5,7 @@
 function loading() {
     document.getElementById('loading').style.visibility = 'visible';
     // document.getElementById("loading").style.visibility = "visible";
-    $.post('/sleep', {
+    $.post('/train', {
 
     }).done(function(response) {
         document.getElementById('result').style.visibility = 'visible';
