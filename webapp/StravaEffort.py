@@ -24,6 +24,10 @@ class StravaEffort(object):
         self.name = effort_dict['name']
         self.athlete = effort_dict['athlete']
         self.dt = self.strava_date(effort_dict['start_date_local'])
+        self.has_prediction = ('predicted_moving_time' in effort_dict)
+        self.total_distance = effort_dict['distance']
+        self.moving_time = effort_dict['moving_time']
+        
         if get_streams:
             stream_dict = effort_dict['streams']
             self.velocity = self.init_stream(stream_dict, 'velocity_smooth')
@@ -38,6 +42,10 @@ class StravaEffort(object):
 
             if self.moving is not None:
                 self.get_moving()
+
+        if self.has_prediction:
+            self.predicted_moving_time = effort_dict['predicted_moving_time']
+            self.rating = self.ride_score()
 
     def get_moving(self):
         not_moving = np.where(~self.moving.raw_data)[0]
@@ -95,11 +103,10 @@ class StravaEffort(object):
         ratings = ['Poor', 'Below Average', 'Average', 'Good', 'Great!', 'Excellent']
         scores = range(len(ratings))
         criteria = np.array([0.3, 0.15, 0, -0.1, -0.2, -0.3])
-        if self.predicted_total_time is not None:
-            predicted_time = self.predicted_total_time
+        if self.predicted_moving_time is not None:
+            predicted_time = self.predicted_moving_time
             performance = (self.moving_time - predicted_time) / predicted_time
-            print criteria
-            print performance
+
             tmp = criteria-performance
             ind = np.argmin(np.where(tmp < 0, 999, tmp))
 
@@ -153,20 +160,8 @@ class StravaActivity(StravaEffort):
 
     def __init__(self, activity_dict, get_streams=False):
         self.init(activity_dict, get_streams)
-        # self.distance.convert_units()
-        # self.velocity.convert_units()
-        # self.altitude.convert_units()
         self.city = activity_dict['location_city']
-        self.total_distance = activity_dict['distance']
-        self.moving_time = activity_dict['moving_time']
-        predicted = activity_dict['streams'].get('predicted_time', None)
-        if predicted is not None:
-            self.predicted_total_time = predicted['data'][-1]
-            print self.predicted_total_time
-            self.rating = self.ride_score()
-        else:
-            print activity_dict.keys()
-        # self.hills = self.hill_analysis()
+        
 
         self.is_valid_ride = self.is_ride(activity_dict['streams']['velocity_smooth']['data'])
 
@@ -377,7 +372,7 @@ class StravaActivity(StravaEffort):
         return df
 
     def __repr__(self):
-        return '<%s, %s, %s, %s>' % \
+        return '<%s, %s, %s>' % \
             (self.name, self.dt, self.city)
 
 

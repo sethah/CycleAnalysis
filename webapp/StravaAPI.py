@@ -38,7 +38,6 @@ class StravaAPI(object):
         payload = {'before': before, 'after': after, 'per_page': 100}
         response = self.execute(url, payload)
         print response.json()
-        # print len(response.json())
 
         return response.json()
 
@@ -111,11 +110,7 @@ class StravaAPI(object):
 
         for effort in efforts:
             effort['segment_id'] = segment_id
-            # if table.find({'segment_id': segment_id, 'name': effort['name']}).count() != 0:
-            #     print 'Duplicate! ', effort['name']
-            #     continue
             table.insert(effort)
-
 
 def main():
     segment_ids = [7673423, 4980024]

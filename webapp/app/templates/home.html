@@ -18,7 +18,7 @@ function addAthlete(){
 <tr>
 	<td>{{athlete['firstname'] + ' ' + athlete['lastname']}}</td>
 	<td>{{athlete['city'] + ', ' + athlete['state']}}</td>
-	<td><a href="{{url_for('rides')}}">View my rides</a></td>
+	<td><a href="{{url_for('rides', userid=athlete['id'])}}">View my rides</a></td>
 </tr>
 {% endfor %}
 </table>

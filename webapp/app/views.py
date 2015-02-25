@@ -42,8 +42,8 @@ def train():
     # get the strava data if not already there
 
     # train a model on all of the data
-    name = 'Seth'
-    u = StravaUser(name, get_streams=True)
+    uid = 4478600
+    u = StravaUser(uid, get_streams=True)
     all_rides_df = u.make_df()
     y = all_rides_df.pop('time_int')
     X = all_rides_df.values
@@ -58,13 +58,27 @@ def train():
             {'$set': {'streams.predicted_time.data': np.cumsum(forecast).tolist(),
                     'predicted_moving_time': pred_time}}
             )
-    return render_template('main.html')
+    return render_template('train.html')
 
-@app.route('/rides', methods=['GET', 'POST'])
-def rides():
-    u = StravaUser(4478600)
+@app.route('/rides/<userid>', methods=['GET', 'POST'])
+def rides(userid):
+
+    print 'creating user'
+    u = StravaUser(int(userid))
+
+    # if the user has no activities, get them from Strava
+    if len(u.activities) == 0:
+        # this will take a bit
+        print 'storing activities'
+        u.get_activities()
+
+    if not u.has_full_predictions():
+        # analyze their data!
+        print 'fitting model'
+        return redirect(url_for('train'))
+    
+    # TODO: this is a really stupid way to do it, refactor the get_streams
     aid = 134934515
-    # if 'id' in request.form:
     a = DB.activities.find({'id': request.form.get('id', aid)})[0]
     a = StravaActivity(a, get_streams=True)
     a.time.raw_data -= a.time.raw_data[0]
@@ -87,8 +101,19 @@ def change():
     return jsonify(a.to_dict())
 
 @app.route("/chart")
-def simple():
+def chart():
     return render_template('chart.html')
+
+@app.route("/loading")
+def loading():
+    return render_template('chart.html')
+
+@app.route('/sleep', methods=['POST'])
+def sleep():
+    import time
+    time.sleep(5)
+
+    return 'Done!'
 
 if __name__ == '__main__':
     pass

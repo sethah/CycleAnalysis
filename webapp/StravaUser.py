@@ -6,6 +6,7 @@ from sklearn.cross_validation import train_test_split, cross_val_score
 from sklearn.ensemble import RandomForestRegressor
 from datetime import datetime
 from StravaEffort import StravaActivity
+from StravaAPI import StravaAPI
 import matplotlib.pyplot as plt
 from PlotTools import PlotTool
 import seaborn as sns
@@ -16,28 +17,54 @@ meters_per_mile = 1609.34
 feet_per_meter = 3.280
 
 
+CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
+DB = CLIENT.strava
+
 class StravaUser(object):
 
     def __init__(self, athlete_id, get_streams=False):
-        self.activities = None
-        # self.name = name
-        self.athlete_id = athlete_id
-        self.get_activities(get_streams, query={'athlete.id': self.athlete_id})
+        self.userid = athlete_id
+        print 'init'
+        self.init()
+        print 'loading'
+        self.load_activities(get_streams)
 
-    def get_activities(self, get_streams, query={}, min_length=990):
-        client = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
-        db = client.strava
-        table = db.activities
+    def init(self):
+        athlete = DB.athletes.find_one({'id': self.userid})
+        self.name = athlete['firstname'] + ' ' + athlete['lastname']
+        self.access_token = athlete['token']['access_token']
 
-        result = table.find(query)
-        activities = [activity for activity in result]
+
+    def load_activities(self, get_streams, min_length=990):
+
+        # find all the activities in the db for this user
+        query={'athlete.id': self.userid}
+        activities = list(DB.activities.find(query))
+        # print len(activities)
+        # activities = [activity for activity in result]
+        print len(activities)
 
         self.activities = []
         for activity in activities:
-            # print activity['streams'].keys()
             a = StravaActivity(activity, get_streams)
             if a.is_ride(activity['streams']['velocity_smooth']['data']) and len(activity['streams']['velocity_smooth']['data']) > min_length:
                 self.activities.append(a)
+
+    def has_full_predictions(self):
+        if self.activities is None:
+            return False
+        
+        for a in self.activities:
+            if not a.has_prediction:
+                return False
+
+        return True
+
+    def get_activities(self):
+        api = StravaAPI(self.access_token)
+        print 'Storing activities...............'
+        api.store_activities()
+        print 'Got \'em!'
 
     def make_df(self, activities=None):
         if activities is not None:
