@@ -68,7 +68,7 @@ def fit():
 def get_data():
     uid = request.form.get('userid', None)
     print uid
-    u = StravaUser(int(userid))
+    u = StravaUser(int(uid))
     u.get_activities()
 
 @app.route('/check', methods=['POST'])
@@ -102,7 +102,7 @@ def rides(userid):
         # analyze their data!
         print 'fitting model'
         return redirect(url_for('train', userid=userid))
-    
+
     # TODO: this is a really stupid way to do it, refactor the get_streams
     aid = u.activities[0].id
     a = DB.activities.find({'id': request.form.get('id', aid)})[0]

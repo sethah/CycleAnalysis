@@ -6,15 +6,31 @@ function addAthlete(){
 	document.getElementById("add-athlete").style.visibility = "visible";
 }
 
+// function getData(uid){
+//     console.log(uid)
+//   document.getElementById("new-user").innerHTML = "We're loading your data right now. This will take a moment";
+//   document.getElementById("new-user").style.visibility = "visible";
+//   $.post('/get-data', {
+//     userid: uid
+//   }).done(function(response){
+//     document.getElementById("new-user").innerHTML = "We loaded " + response.toString() + "activities for you!"
+//   }).fail(function(){
+//       document.getElementById('new-user').innerHTML = 'Something went wrong! Ugh.';
+//       console.log('fail')
+//   });
+// }
+
 function checkUser(uid) {
   console.log(uid)
     $.post('/check', {
       userid: uid
     }).done(function(response) {
+        console.log(response)
         if (response === "new") {
           // show new user stuff
           document.getElementById("new-user").innerHTML = "You're new here. Let's get your data";
           document.getElementById("new-user").style.visibility = "visible";
+        //   getData(uid);
         }
         else if (response === 'predict'){
           document.getElementById("new-user").innerHTML = "We've got your data, but we need to train a model on it!"
@@ -42,7 +58,7 @@ function checkUser(uid) {
 	<td>{{athlete['firstname'] + ' ' + athlete['lastname']}}</td>
 	<td>{{athlete['city'] + ', ' + athlete['state']}}</td>
 	<!-- <td><a href="{{url_for('rides', userid=athlete['id'])}}">View my rides</a></td> -->
-  <td><a id="rides{{athlete['id']}}" href="#" onclick="checkUser({{athlete['id']}})">View my rides</a></td>
+  <td><a id="rides{{athlete['id']}}" href="" onclick="checkUser({{athlete['id']}})">View my rides</a></td>
 </tr>
 {% endfor %}
 </table>
