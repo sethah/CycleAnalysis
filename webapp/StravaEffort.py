@@ -29,23 +29,28 @@ class StravaEffort(object):
         self.moving_time = effort_dict['moving_time']
         
         if get_streams:
-            stream_dict = effort_dict['streams']
-            self.velocity = self.init_stream(stream_dict, 'velocity_smooth')
-            self.distance = self.init_stream(stream_dict, 'distance')
-            self.time = self.init_stream(stream_dict, 'time')
-            self.predicted_time = self.init_stream(stream_dict, 'predicted_time')
-            self.grade = self.init_stream(stream_dict, 'grade_smooth')
-            self.altitude = self.init_stream(stream_dict, 'altitude')
-            self.watts = self.init_stream(stream_dict, 'watts')
-            self.latlng = self.init_stream(stream_dict, 'latlng')
-            self.moving = self.init_stream(stream_dict, 'moving')
-
-            if self.moving is not None:
-                self.get_moving()
+            self.init_streams(effort_dict['streams'])
 
         if self.has_prediction:
             self.predicted_moving_time = effort_dict['predicted_moving_time']
             self.rating = self.ride_score()
+
+    def init_streams(self, stream_dict):
+        self.velocity = self.init_stream(stream_dict, 'velocity_smooth')
+        self.distance = self.init_stream(stream_dict, 'distance')
+        self.time = self.init_stream(stream_dict, 'time')
+        self.time.raw_data -= self.time.raw_data[0]
+        self.distance.raw_data -= self.distance.raw_data[0]
+        self.predicted_time = self.init_stream(stream_dict, 'predicted_time')
+        self.grade = self.init_stream(stream_dict, 'grade_smooth')
+        self.altitude = self.init_stream(stream_dict, 'altitude')
+        self.watts = self.init_stream(stream_dict, 'watts')
+        self.latlng = self.init_stream(stream_dict, 'latlng')
+        self.moving = self.init_stream(stream_dict, 'moving')
+
+        if self.moving is not None:
+            # filter streams to not include idle time
+            self.get_moving()
 
     def get_moving(self):
         not_moving = np.where(~self.moving.raw_data)[0]
@@ -69,7 +74,8 @@ class StravaEffort(object):
         return StravaStream(stream_type, stream_dict[stream_type])
 
     def stream_types(self):
-        return {'velocity_smooth', 'distance', 'time', 'grade_smooth', 'altitude'}
+        return {'velocity_smooth', 'distance', 'time',
+                'grade_smooth', 'altitude', 'latlng'}
 
     def strava_date(self, date_string):
         if type(date_string) != unicode:
@@ -92,7 +98,7 @@ class StravaEffort(object):
         behind = np.vstack([np.append([self.grade.filtered[0]]*3, self.grade.filtered[:-3]),
                             np.append([self.grade.filtered[0]]*2, self.grade.filtered[:-2]), 
                             np.append(self.grade.filtered[0], self.grade.filtered[:-1])])
-        # ahead = np.append(self.grade.filtered[1:], self.grade.filtered[-1])
+
         ahead = np.vstack([np.append(self.grade.filtered[3:], [self.grade.filtered[-1]]*3),
                             np.append(self.grade.filtered[2:], [self.grade.filtered[-1]]*2), 
                             np.append(self.grade.filtered[1:], [self.grade.filtered[-1]]*1)])
@@ -136,7 +142,6 @@ class StravaEffort(object):
         pt = self.predicted_time.raw_data
         new_t = np.arange(0, pt[-1] + step, step)
         
-        # new_pt = np.linspace(np.min(pt), np.max(pt), t.shape[0])
         js['distance'] = d.tolist()
         js['distance_interp'] = np.interp(new_t, t, d).tolist()
         js['velocity'] = self.velocity.filtered.tolist()
@@ -161,9 +166,6 @@ class StravaActivity(StravaEffort):
     def __init__(self, activity_dict, get_streams=False):
         self.init(activity_dict, get_streams)
         self.city = activity_dict['location_city']
-        
-
-        self.is_valid_ride = self.is_ride(activity_dict['streams']['velocity_smooth']['data'])
 
     def init_stream(self, stream_dict, stream_type):
         if stream_type not in stream_dict:

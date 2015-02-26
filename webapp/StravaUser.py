@@ -24,9 +24,7 @@ class StravaUser(object):
 
     def __init__(self, athlete_id, get_streams=False):
         self.userid = athlete_id
-        print 'init'
         self.init()
-        print 'loading'
         self.load_activities(get_streams)
 
     def init(self):
@@ -38,17 +36,23 @@ class StravaUser(object):
     def load_activities(self, get_streams, min_length=990):
 
         # find all the activities in the db for this user
-        query={'athlete.id': self.userid}
-        activities = list(DB.activities.find(query))
-        # print len(activities)
-        # activities = [activity for activity in result]
-        print len(activities)
+        if get_streams:
+            query = {'athlete.id': self.userid}
+            activities = list(DB.activities.find(query))
+        else:
+            # if we don't need the streams, don't query on them
+            query = {'athlete.id': self.userid}
+            fields = {'id':1, 'name': 1, 'athlete.id': 1,
+                      'start_date_local': 1, 'distance': 1,
+                      'moving_time': 1, 'location_city': 1,
+                      '$or': [{ 'start_date_local': { '$exists':False }},
+                              {'start_date_local': 1}]}
+            activities = list(DB.activities.find(query, fields))
 
         self.activities = []
         for activity in activities:
             a = StravaActivity(activity, get_streams)
-            if a.is_ride(activity['streams']['velocity_smooth']['data']) and len(activity['streams']['velocity_smooth']['data']) > min_length:
-                self.activities.append(a)
+            self.activities.append(a)
 
     def has_full_predictions(self):
         if self.activities is None:

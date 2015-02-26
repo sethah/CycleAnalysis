@@ -45,6 +45,8 @@ class StravaAPI(object):
         table = self.db.activities
         activities = self.list_activities()
         for activity in activities:
+            if activity['type'] != 'Ride':
+                continue
             if table.find_one({'id': activity['id']}) is not None:
                 continue
             streams = self.get_stream(activity['id'])

@@ -10,6 +10,7 @@ import numpy as np
 import requests
 import pymongo
 import json
+from datetime import datetime
 
 
 # CLIENT = pymongo.MongoClient()
@@ -50,17 +51,22 @@ def fit():
     X = all_rides_df.values
     # model = RandomForestRegressor(max_depth=8)
     model = GradientBoostingRegressor()
+    
     print 'Fitting model'
     model.fit(X, y)
     print 'Model fit!'
+
     m = StravaModel(model)
     for a in u.activities:
-        print a
         forecast, true, pred_time = m.predict_activity(a)
+
+        # put the predicted data in the db and leave a timestamp
         DB.activities.update(
             {'id': a.id},
             {'$set': {'streams.predicted_time.data': np.cumsum(forecast).tolist(),
-                    'predicted_moving_time': pred_time}}
+                      'predicted_moving_time': pred_time,
+                      'date_predicted': datetime.strftime(datetime.now(), '%Y-%m-%dT%H:%M:%SZ')
+                      }}
             )
     return str(len(u.activities))
 
@@ -76,16 +82,16 @@ def get_data():
 @app.route('/check', methods=['POST'])
 def check():
     uid = request.form.get('userid', None)
-    u = StravaUser(int(uid))
 
     # if the user has no activities, get them from Strava
-    if len(u.activities) == 0:
-        # this will take a bit
-        print 'new'
+    num_activities = DB.activities.find({'athlete.id': uid}).count()
+    if num_activities == 0:
         return 'new'
 
-    if not u.has_full_predictions():
-        print 'predict'
+    query = {'athlete.id': uid,
+             'predicted_total_time': {'$exists': True}}
+    num_predictions = DB.activities.find(query).count()
+    if num_predictions != num_activities:
         return 'predict'
 
     return 'good'
@@ -96,18 +102,7 @@ def rides(userid):
     print 'creating user'
     u = StravaUser(int(userid))
 
-    # if the user has no activities, get them from Strava
-    if len(u.activities) == 0:
-        # this will take a bit
-        print 'storing activities'
-        u.get_activities()
-
-    if not u.has_full_predictions():
-        # analyze their data!
-        print 'fitting model'
-        return redirect(url_for('train', userid=userid))
-
-    # TODO: this is a really stupid way to do it, refactor the get_streams
+    # initialize the first activity
     aid = u.activities[0].id
     a = DB.activities.find({'id': request.form.get('id', aid)})[0]
     a = StravaActivity(a, get_streams=True)
