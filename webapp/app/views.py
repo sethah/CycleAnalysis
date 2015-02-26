@@ -82,14 +82,17 @@ def get_data():
 @app.route('/check', methods=['POST'])
 def check():
     uid = request.form.get('userid', None)
+    print 'userid', uid
 
     # if the user has no activities, get them from Strava
     num_activities = DB.activities.find({'athlete.id': uid}).count()
+    print num_activities
+    raise
     if num_activities == 0:
         return 'new'
 
     query = {'athlete.id': uid,
-             'predicted_total_time': {'$exists': True}}
+             'predicted_moving_time': {'$exists': True}}
     num_predictions = DB.activities.find(query).count()
     if num_predictions != num_activities:
         return 'predict'
