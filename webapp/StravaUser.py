@@ -45,8 +45,7 @@ class StravaUser(object):
             fields = {'id':1, 'name': 1, 'athlete.id': 1,
                       'start_date_local': 1, 'distance': 1,
                       'moving_time': 1, 'location_city': 1,
-                      '$or': [{ 'predicted_moving_time': { '$exists':False }},
-                              {'predicted_moving_time': 1}]}
+                      'predicted_moving_time': 1}
             activities = list(DB.activities.find(query, fields))
 
         self.activities = []
@@ -57,7 +56,7 @@ class StravaUser(object):
     def has_full_predictions(self):
         if self.activities is None:
             return False
-        
+
         for a in self.activities:
             if not a.has_prediction:
                 return False

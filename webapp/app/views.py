@@ -51,7 +51,7 @@ def fit():
     X = all_rides_df.values
     # model = RandomForestRegressor(max_depth=8)
     model = GradientBoostingRegressor()
-    
+
     print 'Fitting model'
     model.fit(X, y)
     print 'Model fit!'
@@ -68,6 +68,7 @@ def fit():
                       'date_predicted': datetime.strftime(datetime.now(), '%Y-%m-%dT%H:%M:%SZ')
                       }}
             )
+        print 'stored', a.id
     return str(len(u.activities))
 
 @app.route('/get-data', methods=['POST'])
@@ -82,18 +83,18 @@ def get_data():
 @app.route('/check', methods=['POST'])
 def check():
     uid = request.form.get('userid', None)
-    print 'userid', uid
+    print 'checkid', uid
 
     # if the user has no activities, get them from Strava
     num_activities = DB.activities.find({'athlete.id': uid}).count()
     print num_activities
-    raise
     if num_activities == 0:
         return 'new'
 
     query = {'athlete.id': uid,
              'predicted_moving_time': {'$exists': True}}
     num_predictions = DB.activities.find(query).count()
+    print num_predictions
     if num_predictions != num_activities:
         return 'predict'
 
