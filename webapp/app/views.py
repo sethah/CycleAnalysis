@@ -11,6 +11,7 @@ import requests
 import pymongo
 import json
 from datetime import datetime
+from bson.binary import Binary
 
 
 # CLIENT = pymongo.MongoClient()
@@ -43,17 +44,19 @@ def fit():
     # get the strava data if not already there
 
     # train a model on all of the data
-    uid = request.form.get('userid', None)
-    print uid
-    u = StravaUser(int(uid), get_streams=True)
+    uid = int(request.form.get('userid', None))
+    
+    u = StravaUser(uid, get_streams=True)
     all_rides_df = u.make_df()
     y = all_rides_df.pop('time_int')
     X = all_rides_df.values
     # model = RandomForestRegressor(max_depth=8)
     model = GradientBoostingRegressor()
 
-    print 'Fitting model'
+    print 'Fitting model.......'
     model.fit(X, y)
+    binary_model = Binary(pickle.dumps(model, protocol=2))
+    DB.athletes.update({'id': uid}, {'$set': {'model': binary_model}})
     print 'Model fit!'
 
     m = StravaModel(model)
@@ -86,12 +89,12 @@ def check():
     print 'checkid', uid
 
     # if the user has no activities, get them from Strava
-    num_activities = DB.activities.find({'athlete.id': uid}).count()
-    print num_activities
+    num_activities = DB.activities.find({'athlete.id': int(uid)}).count()
+    print 'Number of activities: ', num_activities
     if num_activities == 0:
         return 'new'
 
-    query = {'athlete.id': uid,
+    query = {'athlete.id': int(uid),
              'predicted_moving_time': {'$exists': True}}
     num_predictions = DB.activities.find(query).count()
     print num_predictions

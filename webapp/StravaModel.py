@@ -10,7 +10,7 @@ class StravaModel(object):
     def __init__(self, model):
         self.model = model
 
-    def predict(self, X, cols, window_len=2):
+    def predict(self, X, cols, window_len=6):
         pred = np.zeros(X.shape[0])
         prev_vel = np.ones(window_len)
         replace_indices = [i for i, col in enumerate(cols) if 'velocity' in col]

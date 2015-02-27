@@ -37,7 +37,6 @@ class StravaAPI(object):
         before = calendar.timegm(time.gmtime())
         payload = {'before': before, 'after': after, 'per_page': 100}
         response = self.execute(url, payload)
-        print response.json()
 
         return response.json()
 

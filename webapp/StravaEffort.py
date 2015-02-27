@@ -330,7 +330,7 @@ class StravaActivity(StravaEffort):
 
         return df
 
-    def make_df(self, window=2):
+    def make_df(self, window=6):
         n = self.grade.filtered.shape[0]
         back, ahead = self.past_grade()
         alt_diff = np.diff(self.altitude.filtered-self.altitude.filtered[0])
@@ -355,9 +355,11 @@ class StravaActivity(StravaEffort):
         d = {'ride_difficulty': [self.distance.raw_data[-1]*climb[-1]]*n,
              'grade': self.grade.filtered,
              'climb': climb,
-             'date': [time.mktime(self.dt.timetuple())]*n,
+             # 'date': [time.mktime(self.dt.timetuple())]*n,
              'time_int': np.append(np.diff(mytime), 0),
              'dist_int': np.append(np.diff(mydist), 0),
+             'distance': mydist,
+             'time': mytime,
              'velocity': self.velocity.filtered,
              }
         df = pd.DataFrame(d)
@@ -369,7 +371,8 @@ class StravaActivity(StravaEffort):
 
                 if i > 0:
                     df['%s_%s' % ('velocity', -i)] = df['velocity'].shift(i)
-            df.rename(columns={'velocity': 'velocity_0', 'grade': 'grade_0'}, inplace=True)
+            df.pop('velocity')
+            df.rename(columns={'grade': 'grade_0'}, inplace=True)
         df.fillna(0, inplace=True)
         return df
 
