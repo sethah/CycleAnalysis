@@ -2,113 +2,90 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <script src="static/js/d3.js"></script>
-    <script src="static/js/nv.d3.js"></script>
-    <link href="static/css/nv.d3.css" rel="stylesheet" type="text/css">
-    <script type="text/javascript" src="http://code.jquery.com/jquery-1.7.1.min.js"></script>
-    <style>
-        #chart1 .nv-lineChart circle.nv-point
-        {
-            fill-opacity: 1;
-        }
-        .nvd3.nv-line .nvd3.nv-scatter .nv-groups .nv-point {
-          fill-opacity: 1;
-        }
-        text {
-            font: 12px sans-serif;
-        }
-        svg {
-            display: block;
-        }
-        html, body, #chart1, svg {
-            margin: 0px;
-            padding: 0px;
-            height: 100%;
-            width: 100%;
-        }
-    </style>
-</head>
-<body class='with-3d-shadow with-transitions'>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+  <script src="http://code.highcharts.com/highcharts.js"></script>
 
-<div id="chart1"></div>
 
 <script>
-    // Wrapping in nv.addGraph allows for '0 timeout render', stores rendered charts in nv.graphs, and may do more in the future... it's NOT required
-    var chart;
-    nv.addGraph(function() {
-        chart = nv.models.lineChart()
-            .options({
-                transitionDuration: 300,
-                useInteractiveGuideline: true
-            })
-        ;
-        // chart sub-models (ie. xAxis, yAxis, etc) when accessed directly, return themselves, not the parent chart, so need to chain separately
-        chart.xAxis
-            .axisLabel("Time (s)")
-            .tickFormat(d3.format(',.1f'))
-        ;
-        chart.yAxis
-            .axisLabel('Voltage (v)')
-            .tickFormat(d3.format(',.2f'))
-        ;
-        d3.select('#chart1').append('svg')
-            .datum(sinAndCos())
-            .call(chart);
-        nv.utils.windowResize(chart.update);
-        return chart;
-    });
-    
-    // nv.tooltip.show([200, 400], '<p>Your content goes here</p>');
-    function sinAndCos() {
-        var sin = [],
-            cos = [],
-            rand = [],
-            rand2 = []
-            ;
-        for (var i = 0; i < 100; i++) {
-            sin.push({x: i, y: i % 10 == 5 ? null : Math.sin(i/10) }); //the nulls are to show how defined works
-            cos.push({x: i, y: .5 * Math.cos(i/10)});
-            rand.push({x:i, y: Math.random() / 10});
-            rand2.push({x: i, y: Math.cos(i/10) + Math.random() / 10 })
-        }
-        return [
-            {
-                values: cos,
-                key: "Cosine Wave",
-                color: "#2ca02c"
+$( document ).ready(function() {
+    chart();
+});
+function chart() {
+    $('#container').highcharts({
+        chart: {
+            type: 'scatter',
+            zoomType: 'xy'
+        },
+        title: {
+            text: 'Height Versus Weight of 507 Individuals by Gender'
+        },
+        subtitle: {
+            text: 'Source: Heinz  2003'
+        },
+        xAxis: {
+            title: {
+                enabled: true,
+                text: 'Height (cm)'
+            },
+            startOnTick: true,
+            endOnTick: true,
+            showLastLabel: true
+        },
+        yAxis: {
+            title: {
+                text: 'Weight (kg)'
             }
-        ];
-    }
-  //   setTimeout(function() {
-  //           $('#chart1 .nv-lineChart circle.nv-point').attr("r", "10.5");
-  //       }, 500);
-  //   data = sinAndCos()[0]
-  //   console.log(data.values[10]);
-  //   var count = 0;
-  //   moveTooltip = window.setInterval(function() {
-  //     count = count + 1;
-  //     if (count >= data.values.length) {
-  //       clearInterval(moveTooltip)
-  //     }
-  //     else {
-  //       nv.tooltip.show([data.values[count].x, data.values[count].y], '<p>' + data.values[count].x.toFixed(2) + '</p>', data.values[count].x)
-  //     }
-  // }, 500);
-var svg = d3.select("body").append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-  .append("g")
-    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-var focus = svg.append("g")
-      .attr("class", "focus")
-      .style("display", "none");
+        },
+        legend: {
+            layout: 'vertical',
+            align: 'left',
+            verticalAlign: 'top',
+            x: 100,
+            y: 70,
+            floating: true,
+            backgroundColor: (Highcharts.theme && Highcharts.theme.legendBackgroundColor) || '#FFFFFF',
+            borderWidth: 1
+        },
+        plotOptions: {
+            scatter: {
+                marker: {
+                    radius: 5,
+                    states: {
+                        hover: {
+                            enabled: true,
+                            lineColor: 'rgb(100,100,100)'
+                        }
+                    }
+                },
+                states: {
+                    hover: {
+                        marker: {
+                            enabled: false
+                        }
+                    }
+                },
+                tooltip: {
+                    headerFormat: '<b>{series.name}</b><br>',
+                    pointFormat: '{point.x} cm, {point.y} kg'
+                }
+            }
+        },
+        series: [{
+            name: 'Female',
+            color: 'rgba(223, 83, 83, .5)',
+            data: [[161.2, 51.6], [167.5, 59.0], [159.5, 49.2], [157.0, 63.0], [155.8, 53.6]]
 
-  focus.append("circle")
-      .attr("r", 4.5);
+        }, {
+            name: 'Male',
+            color: 'rgba(119, 152, 191, .5)',
+            data: [[174.0, 65.6]]
+        }]
+    });
+};
 
-  focus.append("text")
-      .attr("x", 9)
-      .attr("dy", ".35em");
 </script>
+<body>
+<div id="container" style="min-width: 310px; height: 400px; max-width: 800px; margin: 0 auto"></div>
+<input type="button" value="Update" id="update"/>
 </body>
 </html>

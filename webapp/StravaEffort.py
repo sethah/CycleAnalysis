@@ -142,7 +142,7 @@ class StravaEffort(object):
         t = (self.time.raw_data - self.time.raw_data[0])
         step = t[-1] / (1000)
         pt = self.predicted_time.raw_data
-        new_t = np.arange(0, pt[-1] + step, step)
+        new_t = np.arange(0, max(pt[-1], t[-1]) + step, step)
                 
         js['altitude'] = (np.interp(new_t, t, self.altitude.filtered) * feet_per_meter).tolist()
 

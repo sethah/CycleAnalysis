@@ -114,19 +114,8 @@ def rides(userid):
     print 'creating user'
     u = StravaUser(int(userid))
 
-    # initialize the first activity
-    aid = u.activities[0].id
-    a = DB.activities.find({'id': request.form.get('id', aid)})[0]
-    a = StravaActivity(a, get_streams=True)
-    a.time.raw_data -= a.time.raw_data[0]
-    a.distance.raw_data -= a.distance.raw_data[0]
-    # a.fitness_level()
-    a.predict(u.model)
-
-
     return render_template(
         'rides.html',
-        activity = a,
         activities = u.activities,
         athlete = u.name)
 
