@@ -28,7 +28,7 @@ class StravaEffort(object):
         self.has_prediction = ('predicted_moving_time' in effort_dict)
         self.total_distance = effort_dict['distance']
         self.moving_time = effort_dict['moving_time']
-        
+
         if get_streams:
             self.init_streams(effort_dict['streams'])
 
@@ -99,13 +99,13 @@ class StravaEffort(object):
 
     def past_grade(self):
         behind = np.vstack([np.append([self.grade.filtered[0]]*3, self.grade.filtered[:-3]),
-                            np.append([self.grade.filtered[0]]*2, self.grade.filtered[:-2]), 
+                            np.append([self.grade.filtered[0]]*2, self.grade.filtered[:-2]),
                             np.append(self.grade.filtered[0], self.grade.filtered[:-1])])
 
         ahead = np.vstack([np.append(self.grade.filtered[3:], [self.grade.filtered[-1]]*3),
-                            np.append(self.grade.filtered[2:], [self.grade.filtered[-1]]*2), 
+                            np.append(self.grade.filtered[2:], [self.grade.filtered[-1]]*2),
                             np.append(self.grade.filtered[1:], [self.grade.filtered[-1]]*1)])
-        
+
         return np.mean(behind, axis=0), np.mean(ahead, axis=0)
 
     def ride_score(self):
@@ -143,9 +143,9 @@ class StravaEffort(object):
         step = t[-1] / (1000)
         pt = self.predicted_time.raw_data
         new_t = np.arange(0, max(pt[-1], t[-1]) + step, step)
-                
-        js['altitude'] = (np.interp(new_t, t, self.altitude.filtered) * feet_per_meter).tolist()
 
+        js['altitude'] = (np.interp(new_t, t, self.altitude.filtered) * feet_per_meter).tolist()
+        js['altitude_interp'] = np.interp(new_t, pt, self.altitude.filtered * feet_per_meter).tolist()
         js['distance'] = d.tolist()
         js['distance_interp'] = np.interp(new_t, t, d).tolist()
         # js['velocity'] = self.velocity.filtered.tolist()
@@ -311,7 +311,7 @@ class StravaActivity(StravaEffort):
         p = PlotTool()
         r, c = p.subplot_dims(len(self.hills))
         fig, axs = plt.subplots(r, c, figsize=(15, 12))
-        
+
         if r == 1 and c == 1:
             axs = np.array([axs])
 
@@ -476,7 +476,7 @@ class StravaStream(object):
         self.raw_data = np.array(stream_dict['data'])
         self.stream_type = stream_type
         self.filter()
-    
+
     def filter(self):
         self.filtered = smooth(self.raw_data, 'scipy')
 

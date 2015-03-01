@@ -29,7 +29,12 @@ function chart() {
             },
             startOnTick: true,
             endOnTick: true,
-            showLastLabel: true
+            showLastLabel: true,
+            plotLines: [{
+                color: '#FF0000',
+                width: 2,
+                value: 5.5
+            }],
         },
         yAxis: {
             title: {
@@ -47,27 +52,17 @@ function chart() {
             borderWidth: 1
         },
         plotOptions: {
-            scatter: {
-                marker: {
-                    radius: 5,
-                    states: {
-                        hover: {
-                            enabled: true,
-                            lineColor: 'rgb(100,100,100)'
-                        }
-                    }
-                },
-                states: {
-                    hover: {
-                        marker: {
-                            enabled: false
-                        }
-                    }
-                },
-                tooltip: {
-                    headerFormat: '<b>{series.name}</b><br>',
-                    pointFormat: '{point.x} cm, {point.y} kg'
-                }
+            series: {
+                lineWidth: 1,
+                // point: {
+                //     events: {
+                //         'click': function () {
+                //             if (this.series.data.length > 1) {
+                //                 this.remove();
+                //             }
+                //         }
+                //     }
+                // }
             }
         },
         series: [{

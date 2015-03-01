@@ -13,7 +13,7 @@ function initialize() {
   getActivity('{{activities[0].id}}', '#activity{{ activities[0].id }}');
 }
 // $( document ).ready(function() {
-    
+
 // });
 function setMap(a) {
   // var distance_vec = a['distance'];
@@ -22,7 +22,7 @@ function setMap(a) {
   // var total_distance = distance_vec[distance_vec.length - 1];
   var points = a['latlng'];
   console.log(a['center']);
-  
+
   var mapOptions = {
     mapTypeId: google.maps.MapTypeId.TERRAIN
   };
@@ -31,7 +31,7 @@ function setMap(a) {
       mapOptions);
 
   var coords = [];
-  
+
   for (var i = 0; i < points.length; i++) {
     coords.push(new google.maps.LatLng(points[i][0], points[i][1]));
   }
@@ -41,7 +41,7 @@ function setMap(a) {
     scale: 8,
     strokeColor: '#888'
   };
-  
+
   var lineSymbolA = {
     path: google.maps.SymbolPath.CIRCLE,
     scale: 8,
@@ -65,113 +65,48 @@ function setMap(a) {
   var ne = new google.maps.LatLng(a['center'][1][0], a['center'][1][1])
   var bounds = new google.maps.LatLngBounds(sw, ne)
   map.fitBounds(bounds);
-      
+
 }
 
 google.load('visualization', '1.0', {'packages':['corechart']});
 // google.setOnLoadCallback(lineChart);
-function lineChart(a) {
-    $('#container').highcharts({
-        chart: {
-            type: 'scatter',
-            zoomType: 'xy'
-        },
-        title: {
-            text: 'Height Versus Weight of 507 Individuals by Gender'
-        },
-        subtitle: {
-            text: 'Source: Heinz  2003'
-        },
-        xAxis: {
-            title: {
-                enabled: true,
-                text: 'Height (cm)'
-            },
-            startOnTick: true,
-            endOnTick: true,
-            showLastLabel: true
-        },
-        yAxis: {
-            title: {
-                text: 'Weight (kg)'
-            }
-        },
-        legend: {
-            layout: 'vertical',
-            align: 'left',
-            verticalAlign: 'top',
-            x: 100,
-            y: 70,
-            floating: true,
-            backgroundColor: (Highcharts.theme && Highcharts.theme.legendBackgroundColor) || '#FFFFFF',
-            borderWidth: 1
-        },
-        plotOptions: {
-            scatter: {
-                marker: {
-                    radius: 5,
-                    states: {
-                        hover: {
-                            enabled: true,
-                            lineColor: 'rgb(100,100,100)'
-                        }
-                    }
-                },
-                states: {
-                    hover: {
-                        marker: {
-                            enabled: false
-                        }
-                    }
-                },
-                tooltip: {
-                    headerFormat: '<b>{series.name}</b><br>',
-                    pointFormat: '{point.x} cm, {point.y} kg'
-                }
-            }
-        },
-        series: [{
-            name: 'Female',
-            color: 'rgba(223, 83, 83, .5)',
-            data: [[161.2, 51.6], [167.5, 59.0], [159.5, 49.2], [157.0, 63.0], [155.8, 53.6]]
-
-        }, {
-            name: 'Male',
-            color: 'rgba(119, 152, 191, .5)',
-            data: [[174.0, 65.6]]
-        }]
-    });
-};
 // function lineChart(a) {
-//     var chart;
-//     var data = [];
-//     for (var i = 0; i < a.distance.length; i++){
-//       data.push([a.distance[i], a.altitude[i]])
-//     }
-//         chart = new Highcharts.Chart({
-//             chart: {
-//                 renderTo: 'container'
+//     $('#container').highcharts({
+//         chart: {
+//             type: 'scatter',
+//             zoomType: 'xy'
+//         },
+//         title: {
+//             text: 'Height Versus Weight of 507 Individuals by Gender'
+//         },
+//         subtitle: {
+//             text: 'Source: Heinz  2003'
+//         },
+//         xAxis: {
+//             title: {
+//                 enabled: true,
+//                 text: 'Height (cm)'
 //             },
-//             xAxis: {
-//                 title: {
-//                     enabled: true,
-//                     text: 'Height (cm)'
-//                 },
-//                 startOnTick: true,
-//                 endOnTick: true,
-//                 showLastLabel: true
-//             },
-//             yAxis: {
-//                 title: {
-//                     text: 'Weight (kg)'
-//                 }
-//                 // plotLines: [{
-//                 //     value: 0,
-//                 //     width: 1,
-//                 //     color: '#808080'
-//                 // }]
-//             },
-//             plotOptions: {
+//             startOnTick: true,
+//             endOnTick: true,
+//             showLastLabel: true
+//         },
+//         yAxis: {
+//             title: {
+//                 text: 'Weight (kg)'
+//             }
+//         },
+//         legend: {
+//             layout: 'vertical',
+//             align: 'left',
+//             verticalAlign: 'top',
+//             x: 100,
+//             y: 70,
+//             floating: true,
+//             backgroundColor: (Highcharts.theme && Highcharts.theme.legendBackgroundColor) || '#FFFFFF',
+//             borderWidth: 1
+//         },
+//         plotOptions: {
 //             scatter: {
 //                 marker: {
 //                     radius: 5,
@@ -195,41 +130,132 @@ function lineChart(a) {
 //                 }
 //             }
 //         },
-//             title: {
-//                 text: 'Scatter plot with regression line'
-//             },
-//             series: [
-//             {
-//               type: 'scatter',
-//               name: 'New York',
-//               data: data
-//             }]
-//             // {
-//             //   type: 'scatter',
-//             //   name: 'New York',
-//             //   data: [[a.distance[0], a.altitude[0]]]
-//             // }]
-//         });
-//     // });
-    
-//     $('#update').click(function() {
-//         count = 0;
-//     chartInterval = window.setInterval(function() {
-//       count = count + 1;
-//       if (count >= 1000) {
-//         clearInterval(chartInterval)
-//       }
-//       else {
-//         chart.series[1].points[0].update({x: a.distance[count], y: a.altitude[count]});
-//       }
-//     }, 50);
-//     });
+//         series: [{
+//             name: 'Female',
+//             color: 'rgba(223, 83, 83, .5)',
+//             data: [[161.2, 51.6], [167.5, 59.0], [159.5, 49.2], [157.0, 63.0], [155.8, 53.6]]
 
-    
+//         }, {
+//             name: 'Male',
+//             color: 'rgba(119, 152, 191, .5)',
+//             data: [[174.0, 65.6]]
+//         }]
+//     });
 // };
+function zip(arrays) {
+    return arrays[0].map(function(_,i){
+        return arrays.map(function(array){return array[i]})
+    });
+}
+function lineChart(a) {
+    data = zip([a.distance_interp, a.altitude]);
+    console.log(data[100]);
+        chart = new Highcharts.Chart({
+            chart: {
+                renderTo: 'container'
+            },
+            xAxis: {
+                title: {
+                    enabled: true,
+                    text: 'Distance'
+                },
+                ordinal: false
+            },
+            yAxis: {
+                title: {
+                    text: 'Weight (kg)'
+                }
+            },
+        //     plotOptions: {
+        //         scatter: {
+        //         marker: {
+        //             enabled: false,
+        //             radius: 0,
+        //             states: {
+        //                 hover: {
+        //                     enabled: true,
+        //                     lineColor: 'rgb(100,100,100)'
+        //                 }
+        //             }
+        //         }
+        //     }
+        // },
+        //     plotOptions: {
+        //     scatter: {
+        //         marker: {
+        //             radius: 5,
+        //             states: {
+        //                 hover: {
+        //                     enabled: true,
+        //                     lineColor: 'rgb(100,100,100)'
+        //                 }
+        //             }
+        //         },
+        //         states: {
+        //             hover: {
+        //                 marker: {
+        //                     enabled: false
+        //                 }
+        //             }
+        //         },
+        //         // tooltip: {
+        //         //     headerFormat: '<b>{series.name}</b><br>',
+        //         //     pointFormat: '{point.x} cm, {point.y} kg'
+        //         // }
+        //     }
+        // },
+            title: {
+                text: 'Ride profile'
+            },
+            series: [
+            {
+              type: 'scatter',
+              name: 'Altitude',
+              data: data,
+              lineWidth: 3,
+                marker: {
+                    enabled: false,
+                    radius: 0,
+                    states: {
+                        hover: {
+                            enabled: true,
+                            lineColor: 'rgb(100,100,100)'
+                        }
+                    }
+                }
+            },
+            {
+              type: 'scatter',
+              name: 'Actual',
+              data: [[a.distance_interp[0], a.altitude[0]]]
+            },
+            {
+              type: 'scatter',
+              name: 'Predicted',
+              data: [[a.predicted_distance[0], a.altitude_interp[0]]]
+            }]
+        });
+    // });
+
+    $('#update').click(function() {
+        count = 0;
+    chartInterval = window.setInterval(function() {
+      count = count + 1;
+      if (count >= 1000) {
+        clearInterval(chartInterval)
+      }
+      else {
+        chart.series[1].points[0].update({x: a.distance_interp[count], y: a.altitude[count]}, true, {duration: 50, easing: 'linear'});
+        chart.series[2].points[0].update({x: a.predicted_distance[count], y: a.altitude_interp[count]}, true, {duration: 50, easing: 'linear'});
+      }
+    }, 50);
+    });
+
+
+};
 
 // function lineChart(a) {
-  
+
 //   lineData = new google.visualization.DataTable();
 //   lineData.addColumn('number', 'Distance');
 //   lineData.addColumn('number', 'Altitude');
@@ -237,7 +263,7 @@ function lineChart(a) {
 //   lineData.addColumn('number', 'Predicted Time');
 //   console.log(a['distance'].length)
 //   for (var i = 0; i <= a['distance'].length; i++) {
-//     lineData.addRow([a['time_interp'][i], 
+//     lineData.addRow([a['time_interp'][i],
 //                     a['altitude'][i],
 //                     a['distance_interp'][i],
 //                     a['predicted_distance'][i]])
@@ -260,9 +286,9 @@ function lineChart(a) {
 //        2:{targetAxisIndex:1}}
 //        // 4:{targetAxisIndex:1}}
 //   };
-  
+
 //   chart.draw(lineData, options);
-  
+
 // }
 
 function simRide(a) {
@@ -279,14 +305,17 @@ function simRide(a) {
         clearInterval(simInterval)
       }
       else {
+
         var icons = line.get('icons');
         icons[0].offset = d[count]*100.0/total_distance + '%';
         icons[1].offset = pd[count]*100.0/total_distance + '%';
         line.set('icons', icons);
         duration = moment.duration(a['time_interp'][count]*1000, 'seconds');
+        chart.series[1].points[0].update({x: a.distance_interp[count], y: a.altitude[count]}, true, {duration: 50, easing: 'linear'});
+        chart.series[2].points[0].update({x: a.predicted_distance[count], y: a.altitude_interp[count]}, true, {duration: 50, easing: 'linear'});
 
         document.getElementById('playback-timer').innerHTML = moment.utc(a['time_interp'][count]*1000).format("HH:mm")
-        
+
         document.getElementById('playback-margin').innerHTML = (d[count] - pd[count]).toFixed(2);
         // document.getElementById('playback-margin').style.backgroundColor = 'red';
         document.getElementById('playback-distance').innerHTML = d[count].toFixed(2);
@@ -309,6 +338,9 @@ function getActivity(aid, activityElement) {
         if (typeof simInterval !== 'undefined') {
           clearInterval(simInterval)
         }
+        if (typeof chartInterval !== 'undefined') {
+          clearInterval(chartInterval)
+        }
         setMap(response)
         lineChart(response)
     }).fail(function() {
@@ -317,7 +349,7 @@ function getActivity(aid, activityElement) {
 }
 
       google.maps.event.addDomListener(window, 'load', initialize);
-    
+
     </script>
     <style type="text/css">
       .map { margin: 0 auto 0 auto; }
@@ -327,7 +359,7 @@ function getActivity(aid, activityElement) {
     </style>
     <div class="row">
     <div class='span6 main' style="margin-left: 52px;">
-      
+
       <table>
         <thead><th colspan="2">Ride Summary</th></thead>
         <tr><td>Rider:</td><td>{{athlete}}</td></tr>
@@ -379,8 +411,8 @@ function getActivity(aid, activityElement) {
   </div>
 </div>
 <script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
-       
-   
+
+
 
     <script type="text/javascript" charset="utf-8">
       $(document).ready(function() {
