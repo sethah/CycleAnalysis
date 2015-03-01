@@ -138,27 +138,28 @@ class StravaEffort(object):
         js['date'] = datetime.strftime(self.dt.date(), '%A %B %d, %Y')
         js['start_time'] = datetime.strftime(self.dt, '%H:%M:%S %p')
         js['athlete'] = self.athlete['id']
-        js['altitude'] = (self.altitude.filtered * feet_per_meter).tolist()
         d = (self.distance.raw_data - self.time.raw_data[0]) / meters_per_mile
         t = (self.time.raw_data - self.time.raw_data[0])
-        step = t[-1] / (t.shape[0] - 1)
+        step = t[-1] / (1000)
         pt = self.predicted_time.raw_data
         new_t = np.arange(0, pt[-1] + step, step)
-        
+                
+        js['altitude'] = (np.interp(new_t, t, self.altitude.filtered) * feet_per_meter).tolist()
+
         js['distance'] = d.tolist()
         js['distance_interp'] = np.interp(new_t, t, d).tolist()
-        js['velocity'] = self.velocity.filtered.tolist()
-        js['latlng'] = self.latlng.raw_data.tolist()
+        # js['velocity'] = self.velocity.filtered.tolist()
+        js['latlng'] = self.latlng.raw_data[np.arange(0, self.latlng.raw_data.shape[0], 4)].tolist()
         js['performance_rating'] = self.rating
         js['center'] = self.get_center().tolist()
-        js['time'] = t.tolist()
+        # js['time'] = t.tolist()
         js['time_interp'] = new_t.tolist()
         js['predicted_time'] = pt.tolist()
         js['predicted_distance'] = np.interp(new_t, pt, d).tolist()
         js['total_distance'] = self.total_distance
         js['predicted_total_time'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
         js['moving_time'] = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
-        js['grade'] = self.grade.filtered.tolist()
+        # js['grade'] = self.grade.filtered.tolist()
         js['id'] = self.id
 
         return js

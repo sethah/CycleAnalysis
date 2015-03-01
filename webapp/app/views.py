@@ -18,6 +18,8 @@ import pickle
 # CLIENT = pymongo.MongoClient()
 CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
 DB = CLIENT.strava
+athlete = DB.athletes.find_one({'id': 4478600},{'model': 1})
+MODEL = pickle.loads(athlete['model'])
 
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/index')
@@ -132,16 +134,17 @@ def rides(userid):
 def change():
 
     aid = int(request.form.get('id', 0))
+    print 'Getting activity'
     a = DB.activities.find_one({'id': aid})
-
+    print 'Initializing activity'
     a = StravaActivity(a, get_streams=True)
-    print a.athlete
-    athlete = DB.athletes.find_one({'id': int(a.athlete['id'])},{'model': 1})
-    model = pickle.loads(athlete['model'])
+    print 'Loading model'
+    
     a.time.raw_data -= a.time.raw_data[0]
     a.distance.raw_data -= a.distance.raw_data[0]
-    a.predict(model)
-    print a.name, a.time.raw_data[-1]
+    print 'Predicting'
+    a.predict(MODEL)
+    print 'Predicted'
     return jsonify(a.to_dict())
 
 @app.route("/chart")
