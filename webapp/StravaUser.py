@@ -3,14 +3,14 @@ import pandas as pd
 import pymongo
 from SignalProc import weighted_average, smooth, diff
 from sklearn.cross_validation import train_test_split, cross_val_score
-from sklearn.ensemble import RandomForestRegressor
-from datetime import datetime
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from datetime import datetime, timedelta
 from StravaEffort import StravaActivity
 from StravaAPI import StravaAPI
 import matplotlib.pyplot as plt
 from PlotTools import PlotTool
 import seaborn as sns
-
+import pickle
 
 # global vars
 meters_per_mile = 1609.34
@@ -26,11 +26,14 @@ class StravaUser(object):
         self.userid = athlete_id
         self.init()
         self.load_activities(get_streams)
+        # self.recent_fitness_level()
 
     def init(self):
         athlete = DB.athletes.find_one({'id': self.userid})
         self.name = athlete['firstname'] + ' ' + athlete['lastname']
         self.access_token = athlete['token']['access_token']
+        if 'model' in athlete:
+            self.model = pickle.loads(athlete['model'])
 
 
     def load_activities(self, get_streams, min_length=990):
@@ -42,10 +45,11 @@ class StravaUser(object):
         else:
             # if we don't need the streams, don't query on them
             query = {'athlete.id': self.userid}
-            fields = {'id':1, 'name': 1, 'athlete.id': 1,
+            fields = {'id': 1, 'name': 1, 'athlete.id': 1,
                       'start_date_local': 1, 'distance': 1,
                       'moving_time': 1, 'location_city': 1,
-                      'predicted_moving_time': 1}
+                      'fitness_level': 1,
+                      'predicted_moving_time': 1, 'total_elevation_gain': 1}
             activities = list(DB.activities.find(query, fields))
 
         self.activities = []
@@ -68,6 +72,15 @@ class StravaUser(object):
         print 'Storing activities...............'
         api.store_activities()
         print 'Got \'em!'
+
+    def recent_fitness_level(self):
+        for a in self.activities:
+            level = np.sum([x.total_distance*x.total_climb \
+                    for x in self.activities \
+                    if ((x.dt >= a.dt - timedelta(30)) and (x.dt < a.dt))])
+            level = np.min([1e9, level])
+            level /= 1e9
+            a.fitness_level(level)
 
     def make_df(self, activities=None):
         if activities is not None:

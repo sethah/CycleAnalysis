@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from SignalProc import weighted_average, smooth, diff
 from datetime import datetime
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 import matplotlib.pyplot as plt
 from PlotTools import PlotTool
 from datetime import datetime
@@ -34,6 +35,8 @@ class StravaEffort(object):
         if self.has_prediction:
             self.predicted_moving_time = effort_dict['predicted_moving_time']
             self.rating = self.ride_score()
+        else:
+            self.rating = (0, '')
 
     def init_streams(self, stream_dict):
         self.velocity = self.init_stream(stream_dict, 'velocity_smooth')
@@ -166,6 +169,9 @@ class StravaActivity(StravaEffort):
     def __init__(self, activity_dict, get_streams=False):
         self.init(activity_dict, get_streams)
         self.city = activity_dict['location_city']
+        self.total_distance = activity_dict['distance']
+        self.fit_level = activity_dict['fitness_level']
+        self.total_climb = activity_dict['total_elevation_gain']
 
     def init_stream(self, stream_dict, stream_type):
         if stream_type not in stream_dict:
@@ -178,6 +184,17 @@ class StravaActivity(StravaEffort):
 
         avg_vel = np.mean(velocity)
         return avg_vel >= min_vel and avg_vel <= max_vel
+
+    def predict(self, model):
+        df = self.make_df()
+        print df.info()
+        print df.head()
+        df.pop('time_int')
+        X = df.values
+        pred_int = model.predict(X)
+        pred = np.cumsum(pred_int)
+        self.predicted_time = StravaStream('predicted_time', {'data': pred})
+        self.predicted_moving_time = pred[-1]
 
     def hill_analysis(self):
         diff_alt = diff(self.altitude.raw_data[:, np.newaxis],
@@ -313,7 +330,6 @@ class StravaActivity(StravaEffort):
     def plot_filter(self, key):
         stream = getattr(self, key)
         x = smooth(stream.raw_data, 'scipy')
-        print x.shape, self.distance.raw_data.shape
         plt.plot(self.distance.raw_data, x, label='hanning')
         plt.plot(self.distance.raw_data, stream.filtered)
 
@@ -329,6 +345,9 @@ class StravaActivity(StravaEffort):
                 df = df.append(hill.make_df(), ignore_index=True)
 
         return df
+
+    def fitness_level(self, level):
+        self.fit_level = level
 
     def make_df(self, window=6):
         n = self.grade.filtered.shape[0]
@@ -356,6 +375,7 @@ class StravaActivity(StravaEffort):
              'grade': self.grade.filtered,
              'climb': climb,
              # 'date': [time.mktime(self.dt.timetuple())]*n,
+             'fitness_level': self.fit_level,
              'time_int': np.append(np.diff(mytime), 0),
              'dist_int': np.append(np.diff(mydist), 0),
              'distance': mydist,
@@ -369,8 +389,6 @@ class StravaActivity(StravaEffort):
                     continue
                 df['%s_%s' % ('grade', -i)] = df['grade'].shift(i)
 
-                if i > 0:
-                    df['%s_%s' % ('velocity', -i)] = df['velocity'].shift(i)
             df.pop('velocity')
             df.rename(columns={'grade': 'grade_0'}, inplace=True)
         df.fillna(0, inplace=True)

@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block content %}
+    <style>
+      #map-canvas {text-align: center;}
+    </style>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
+
+<script>
+var line;
+
+function initialize() {
+  getActivity('{{activity.id}}', '#activity{{ activity.id }}');
+}
+
+function setMap(a) {
+  var distance_vec = a['distance'];
+  var time_vec = a['time'];
+  var predicted_time_vec = a['predicted_time'];
+  var total_distance = distance_vec[distance_vec.length - 1];
+  var points = a['latlng'];
+  console.log(a['center']);
+  
+  var mapOptions = {
+    mapTypeId: google.maps.MapTypeId.TERRAIN
+  };
+
+  var map = new google.maps.Map(document.getElementById('map-canvas'),
+      mapOptions);
+
+  var coords = [];
+  
+  for (var i = 0; i < points.length; i++) {
+    coords.push(new google.maps.LatLng(points[i][0], points[i][1]));
+  }
+
+  var lineSymbol = {
+    path: google.maps.SymbolPath.CIRCLE,
+    scale: 8,
+    strokeColor: '#888'
+  };
+  
+  var lineSymbolA = {
+    path: google.maps.SymbolPath.CIRCLE,
+    scale: 8,
+    strokeColor: '#393'
+  };
+
+  line = new google.maps.Polyline({
+    path: coords,
+    icons: [{
+      icon: lineSymbol,
+      offset: '100%'
+    },
+    {
+      icon: lineSymbolA,
+      offset: '100%'
+    }],
+    map: map
+  });
+
+  var sw = new google.maps.LatLng(a['center'][0][0], a['center'][0][1])
+  var ne = new google.maps.LatLng(a['center'][1][0], a['center'][1][1])
+  var bounds = new google.maps.LatLngBounds(sw, ne)
+  map.fitBounds(bounds);
+      
+}
+
+google.load('visualization', '1.0', {'packages':['corechart']});
+// google.setOnLoadCallback(lineChart);
+
+function lineChart(a) {
+  
+  lineData = new google.visualization.DataTable();
+  lineData.addColumn('number', 'Distance');
+  lineData.addColumn({type: 'string', role:'style'});
+  lineData.addColumn('number', 'Altitude');
+  lineData.addColumn('number', 'Time');
+  lineData.addColumn('number', 'Predicted Time');
+  console.log(a['distance'].length)
+  for (var i = 0; i <= a['distance'].length; i++) {
+    lineData.addRow([a['distance'][i], 
+                    'point { size: 18;',
+                    a['altitude'][i],
+                    a['time'][i],
+                    a['predicted_time'][i]])
+  }
+  // lineData.addRow([a['distance'][50], 'point{size: 10; shape-type: star; fill-color: #a52714', a['altitude'][50], null, null]);
+  // annotationRowIndex = lineData.getNumberOfRows() - 1;
+  chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
+
+  options = {
+    annotation: {1: {style: 'line'}},
+    title: 'Ride profile',
+    curveType: 'function',
+    legend: { position: 'bottom' },
+    vAxes:{0:{title: "Elevation (ft)"},1:{title: "Time (seconds)"}},
+    hAxis: {title: 'Distance (mi)'},
+    series:{
+       0:{targetAxisIndex:0},
+       // 1:{targetAxisIndex:0},
+       1:{targetAxisIndex:1},
+       2:{targetAxisIndex:1}}
+       // 4:{targetAxisIndex:1}}
+  };
+  
+  chart.draw(lineData, options);
+  
+}
+
+function simRide(a) {
+    document.getElementById("ride-console").style.visibility = "visible";
+    var count = 0;
+    d = a['distance_interp'];
+    pd = a['predicted_distance'];
+    total_distance = d[d.length - 1];
+    var duration = moment.duration(0, 'seconds');
+
+    simInterval = window.setInterval(function() {
+      count = count + 1;
+      if (count >= d.length) {
+        clearInterval(simInterval)
+      }
+      else {
+        var icons = line.get('icons');
+        icons[0].offset = d[count]*100.0/total_distance + '%';
+        icons[1].offset = pd[count]*100.0/total_distance + '%';
+        line.set('icons', icons);
+        duration = moment.duration(a['time_interp'][count]*1000, 'seconds');
+
+        document.getElementById('playback-timer').innerHTML = moment.utc(a['time_interp'][count]*1000).format("HH:mm")
+        
+        document.getElementById('playback-margin').innerHTML = (d[count] - pd[count]).toFixed(2);
+        // document.getElementById('playback-margin').style.backgroundColor = 'red';
+        document.getElementById('playback-distance').innerHTML = d[count].toFixed(2);
+      }
+  }, 30);
+}
+function getActivity(aid, activityElement) {
+    console.log(aid)
+    $.post('/change', {
+        id: aid
+    }).done(function(response) {
+        activity = response
+        console.log(response['name'])
+        $(document.getElementById('activity_desc')).text(response['name']);
+        $(document.getElementById('activity_date')).text(response['date']);
+        $(document.getElementById('activity_rating')).text(response['performance_rating'][1]);
+        $(document.getElementById('activity_start')).text(response['start_time']);
+        $(document.getElementById('activity_moving_time')).text(response['moving_time']);
+        $(document.getElementById('activity_pred_time')).text(response['predicted_total_time']);
+        if (typeof simInterval !== 'undefined') {
+          clearInterval(simInterval)
+        }
+        setMap(response)
+        lineChart(response)
+    }).fail(function() {
+        console.log('fail');
+    });
+}
+
+      google.maps.event.addDomListener(window, 'load', initialize);
+    
+    </script>
+    <style type="text/css">
+      .map { margin: 0 auto 0 auto; }
+      .wrapper {text-align: center;
+                padding: 5px 5px 5px 5px;
+               }
+    </style>
+    <div class="row">
+    <div class='span6 main' style="margin-left: 52px;">
+      
+      <table>
+        <thead><th colspan="2">Ride Summary</th></thead>
+        <tr><td>Rider:</td><td>{{athlete}}</td></tr>
+        <tr><td>Ride:</td><td><span id="activity_desc"></span></td></tr>
+        <tr><td>Date:</td><td><span id="activity_date"></span></td></tr>
+        <tr><td>Start Time:</td><td><span id="activity_start"></span></td></tr>
+        <tr><td>Total Time:</td><td><span id="activity_moving_time"></span></td></tr>
+        <tr><td>Predicted Time:</td><td><span id="activity_pred_time"></span></td></tr>
+        <tr><td>Ride Rating:</td><td><span id="activity_rating"></span></td></tr>
+      </table>
+      <div class="wrapper">
+          <button id="play" onclick="simRide(activity)">Play Ride</button>
+      </div>
+      <div id="ride-console" style="visibility: hidden;">
+        <table>
+          <tr>
+            <td>Time elapsed:</td> <td id="playback-timer"></td>
+            <td>Distance:</td> <td id="playback-distance"></td>
+            <td>Margin:</td> <td id="playback-margin"></td>
+          </tr>
+        </table>
+      </div>
+      <!-- style="width:500px;height:380px;" -->
+      <div class="map" id="map-canvas" style="width:500px;height:380px;"></div>
+      <div id="curve_chart" ></div>
+    </div>
+      <div class='span2 main'></div>
+      <div class='span6 main'>
+      <table align="right">
+        <thead>
+          <th>Rating</th>
+          <th>Ride Name</th>
+          <th>Date</th>
+          <th>Distance</th>
+          <th>Start</th>
+        </thead>
+      {% for a in activities %}
+      <tr>
+        <td>{{ a.rating[1] }}</td>
+        <td><a href="javascript:getActivity({{a.id}}, '#activity{{ activity.id }}');">{{a.name}}</a></td>
+        <td>{{a.dt.strftime("%B %d, %Y")}}</td>
+        <td>{{(a.total_distance / 1609.34)|round(0, 'floor')}}</td>
+        <td>{{a.dt.strftime("%I:%M:%S %p")}}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+<script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
+       
+   
+
+    <script type="text/javascript" charset="utf-8">
+      $(document).ready(function() {
+        $("table").tablecloth({
+          theme: "stats",
+          striped: true,
+          sortable: true,
+          condensed: true,
+          clean: true
+        });
+      });
+    </script>
+  <!-- </body> -->
+
+
+{% endblock %}

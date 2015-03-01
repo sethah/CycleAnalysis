@@ -2,18 +2,10 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <script src="static/js/d3.js"></script>
-    <script src="static/js/nv.d3.js"></script>
-    <link href="static/css/nv.d3.css" rel="stylesheet" type="text/css">
-    <script type="text/javascript" src="http://code.jquery.com/jquery-1.7.1.min.js"></script>
+    <script src="templates/lib/d3.js"></script>
+    <script src="templates/lib/nv.d3.js"></script>
+    <link href="templates/lib/nv.d3.css" rel="stylesheet" type="text/css">
     <style>
-        #chart1 .nv-lineChart circle.nv-point
-        {
-            fill-opacity: 1;
-        }
-        .nvd3.nv-line .nvd3.nv-scatter .nv-groups .nv-point {
-          fill-opacity: 1;
-        }
         text {
             font: 12px sans-serif;
         }
@@ -57,8 +49,6 @@
         nv.utils.windowResize(chart.update);
         return chart;
     });
-    
-    // nv.tooltip.show([200, 400], '<p>Your content goes here</p>');
     function sinAndCos() {
         var sin = [],
             cos = [],
@@ -73,42 +63,29 @@
         }
         return [
             {
+                area: true,
+                values: sin,
+                key: "Sine Wave",
+                color: "#ff7f0e"
+            },
+            {
                 values: cos,
                 key: "Cosine Wave",
                 color: "#2ca02c"
+            },
+            {
+                values: rand,
+                key: "Random Points",
+                color: "#2222ff"
+            }
+            ,
+            {
+                values: rand2,
+                key: "Random Cosine",
+                color: "#667711"
             }
         ];
     }
-  //   setTimeout(function() {
-  //           $('#chart1 .nv-lineChart circle.nv-point').attr("r", "10.5");
-  //       }, 500);
-  //   data = sinAndCos()[0]
-  //   console.log(data.values[10]);
-  //   var count = 0;
-  //   moveTooltip = window.setInterval(function() {
-  //     count = count + 1;
-  //     if (count >= data.values.length) {
-  //       clearInterval(moveTooltip)
-  //     }
-  //     else {
-  //       nv.tooltip.show([data.values[count].x, data.values[count].y], '<p>' + data.values[count].x.toFixed(2) + '</p>', data.values[count].x)
-  //     }
-  // }, 500);
-var svg = d3.select("body").append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-  .append("g")
-    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-var focus = svg.append("g")
-      .attr("class", "focus")
-      .style("display", "none");
-
-  focus.append("circle")
-      .attr("r", 4.5);
-
-  focus.append("text")
-      .attr("x", 9)
-      .attr("dy", ".35em");
 </script>
 </body>
 </html>

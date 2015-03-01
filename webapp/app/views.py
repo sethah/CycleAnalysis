@@ -12,6 +12,7 @@ import pymongo
 import json
 from datetime import datetime
 from bson.binary import Binary
+import pickle
 
 
 # CLIENT = pymongo.MongoClient()
@@ -47,31 +48,32 @@ def fit():
     uid = int(request.form.get('userid', None))
     
     u = StravaUser(uid, get_streams=True)
-    all_rides_df = u.make_df()
+    all_rides_df = u.make_df((0, 30))
     y = all_rides_df.pop('time_int')
     X = all_rides_df.values
-    # model = RandomForestRegressor(max_depth=8)
-    model = GradientBoostingRegressor()
+    model = RandomForestRegressor(max_depth=8)
+    # model = GradientBoostingRegressor()
 
     print 'Fitting model.......'
     model.fit(X, y)
+    print 'Model fit!'
     binary_model = Binary(pickle.dumps(model, protocol=2))
     DB.athletes.update({'id': uid}, {'$set': {'model': binary_model}})
-    print 'Model fit!'
+    
 
-    m = StravaModel(model)
-    for a in u.activities:
-        forecast, true, pred_time = m.predict_activity(a)
+    # m = StravaModel(model)
+    # for a in u.activities:
+    #     # forecast, true, pred_time = m.predict_activity(a)
 
-        # put the predicted data in the db and leave a timestamp
-        DB.activities.update(
-            {'id': a.id},
-            {'$set': {'streams.predicted_time.data': np.cumsum(forecast).tolist(),
-                      'predicted_moving_time': pred_time,
-                      'date_predicted': datetime.strftime(datetime.now(), '%Y-%m-%dT%H:%M:%SZ')
-                      }}
-            )
-        print 'stored', a.id
+    #     # put the predicted data in the db and leave a timestamp
+    #     DB.activities.update(
+    #         {'id': a.id},
+    #         {'$set': {'streams.predicted_time.data': np.cumsum(forecast).tolist(),
+    #                   'predicted_moving_time': pred_time,
+    #                   'date_predicted': datetime.strftime(datetime.now(), '%Y-%m-%dT%H:%M:%SZ')
+    #                   }}
+    #         )
+    #     print 'stored', a.id
     return str(len(u.activities))
 
 @app.route('/get-data', methods=['POST'])
@@ -94,11 +96,12 @@ def check():
     if num_activities == 0:
         return 'new'
 
-    query = {'athlete.id': int(uid),
-             'predicted_moving_time': {'$exists': True}}
-    num_predictions = DB.activities.find(query).count()
-    print num_predictions
-    if num_predictions != num_activities:
+    # query = {'athlete.id': int(uid),
+    #          'predicted_moving_time': {'$exists': True}}
+    # num_predictions = DB.activities.find(query).count()
+    has_model = DB.athletes.find({'model': {'$exists': True}}).count()
+
+    if has_model == 0:
         return 'predict'
 
     return 'good'
@@ -115,21 +118,29 @@ def rides(userid):
     a = StravaActivity(a, get_streams=True)
     a.time.raw_data -= a.time.raw_data[0]
     a.distance.raw_data -= a.distance.raw_data[0]
+    # a.fitness_level()
+    a.predict(u.model)
 
 
     return render_template(
-        'poly.html',
+        'rides.html',
         activity = a,
         activities = u.activities,
         athlete = u.name)
 
 @app.route('/change', methods=['POST'])
 def change():
+
     aid = int(request.form.get('id', 0))
     a = DB.activities.find_one({'id': aid})
+
     a = StravaActivity(a, get_streams=True)
+    print a.athlete
+    athlete = DB.athletes.find_one({'id': int(a.athlete['id'])},{'model': 1})
+    model = pickle.loads(athlete['model'])
     a.time.raw_data -= a.time.raw_data[0]
     a.distance.raw_data -= a.distance.raw_data[0]
+    a.predict(model)
     print a.name, a.time.raw_data[-1]
     return jsonify(a.to_dict())
 

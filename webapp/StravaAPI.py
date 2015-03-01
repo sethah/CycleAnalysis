@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import requests as r
 import pymongo
-from datetime import date
+from datetime import date, timedelta, datetime
 import time
 import calendar
 
@@ -40,6 +40,24 @@ class StravaAPI(object):
 
         return response.json()
 
+    def recent_activities(self, athlete_id):
+        table = self.db.activities
+        find = {'id': 1, 'total_elevation_gain': 1, 'distance': 1, 'start_date_local': 1}
+        activities = list(table.find({'athlete.id': athlete_id}, find))
+        print len(activities)
+        for a in activities:
+            dt1 = datetime.strptime(a['start_date_local'], '%Y-%m-%dT%H:%M:%SZ')
+            levels = []
+            for x in activities:
+                dt2 = datetime.strptime(x['start_date_local'], '%Y-%m-%dT%H:%M:%SZ')
+                if ((dt2 >= dt1 - timedelta(30)) and (dt2 < dt1)):
+                    levels.append(x['distance']*x['total_elevation_gain'])
+            level = np.sum(levels)
+            level = np.min([1e9, level])
+            level /= 1e9
+            table.update({'athlete.id': athlete_id, 'id': a['id']},
+                         {'$set': {'fitness_level': level}})
+
     def store_activities(self):
         table = self.db.activities
         activities = self.list_activities()
@@ -49,17 +67,37 @@ class StravaAPI(object):
             if table.find_one({'id': activity['id']}) is not None:
                 continue
             streams = self.get_stream(activity['id'])
+            # if len(streams['time']['data']) > 5000:
+            #     for stream in streams:
+            #         if stream == 'time':
+            #             continue
+            #         print stream
+            #         streams[stream]['data'] = self.downsample(streams['time']['data'],
+            #                                     streams[stream]['data'])
+
+            #     # make the new time vector
+            #     streams['time']['data'] = np.linspace(streams['time']['data'][0],
+            #                                           streams['time']['data'][-1],
+            #                                           5000)
             activity['streams'] = streams
             table.insert(activity)
             print 'Stored activity for %s on %s' % (
                                                     activity['athlete']['id'],
                                                     activity['start_date'])
 
+    def downsample(self, t, vec, num_samples=5000):
+        # print type(t), type(vec), type(num_samples)
+        if len(vec) < num_samples:
+            return vec
+        new_t = np.linspace(t[0], t[-1], num_samples)
+        print len(new_t), len(t), len(vec)
+        return np.interp(new_t, np.array(t), np.array(vec)).tolist()
+            # break
     def get_stream(self, stream_id, types=None, stream_type='activity'):
-        payload = {'resolution': 'medium'}
+        payload = {'resolution': 'high'}
         if types is None:
             types = ['time','latlng','distance','altitude', 'moving',
-                     'watts', 'velocity_smooth', 'moving', 'grade_smooth']
+                     'velocity_smooth', 'moving', 'grade_smooth']
 
         if stream_type == 'activity':
             url = 'activities/%s/streams/%s' % (stream_id, ','.join(types))
@@ -119,12 +157,13 @@ def main():
 
 
 if __name__ == '__main__':
-    strava = StravaAPI()
-    # strava.store_efforts(7673423)
-    # r = strava.list_activities()
-    table = strava.db.activities
-    table.remove()
-    strava.store_activities()
+    pass
+    # strava = StravaAPI()
+    # # strava.store_efforts(7673423)
+    # # r = strava.list_activities()
+    # table = strava.db.activities
+    # table.remove()
+    # strava.store_activities()
 
     # for activity in table.find():
     #     # print activity['streams'].keys()
