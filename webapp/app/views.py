@@ -6,6 +6,7 @@ from StravaUser import StravaUser
 from StravaModel import StravaModel
 from StravaAPI import StravaAPI
 from StravaDB import StravaDB
+from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 import numpy as np
 import requests
@@ -14,6 +15,7 @@ import json
 from datetime import datetime
 from bson.binary import Binary
 import pickle
+import os.path
 
 
 # CLIENT = pymongo.MongoClient()
@@ -59,14 +61,22 @@ def fit():
     all_rides_df = u.make_df((0, 30))
     y = all_rides_df.pop('time_int')
     X = all_rides_df.values
-    model = RandomForestRegressor(max_depth=8)
+    # model = RandomForestRegressor(max_depth=8)
+    model = LinearRegression()
     # model = GradientBoostingRegressor()
+
+    if os.path.isfile('model_%s.pkl' % uid):
+        d = pickle.load(open('model_%s.pkl' % uid, 'rb'))
+    else:
+        d = {}
 
     print 'Fitting model.......'
     model.fit(X, y)
     print 'Model fit!'
-    binary_model = Binary(pickle.dumps(model, protocol=2))
-    DB.athletes.update({'id': uid}, {'$set': {'model': binary_model}})
+    d[uid] = {'date': datetime.now(), 'model': model}
+    pickle.dump(d, open('model_%s.pkl' % uid, 'wb'))
+    # binary_model = Binary(pickle.dumps(model, protocol=2))
+    # DB.athletes.update({'id': uid}, {'$set': {'model': binary_model}})
 
 
     # m = StravaModel(model)
@@ -99,7 +109,10 @@ def check():
     print 'checkid', uid
 
     # if the user has no activities, get them from Strava
-    num_activities = DB.activities.find({'athlete.id': int(uid)}).count()
+    DB = StravaDB()
+    q = """SELECT COUNT(*) FROM activities WHERE athlete_id = %s""" % uid
+    DB.cur.execute(q)
+    num_activities = DB.cur.fetchone()[0]
     print 'Number of activities: ', num_activities
     if num_activities == 0:
         return 'new'
@@ -107,7 +120,8 @@ def check():
     # query = {'athlete.id': int(uid),
     #          'predicted_moving_time': {'$exists': True}}
     # num_predictions = DB.activities.find(query).count()
-    has_model = DB.athletes.find({'model': {'$exists': True}}).count()
+    has_model = os.path.isfile('model_%s.pkl' % uid)
+    print 'Has model', has_model
 
     if has_model == 0:
         return 'predict'
@@ -128,17 +142,14 @@ def rides(userid):
 @app.route('/change', methods=['POST'])
 def change():
 
-    aid = int(request.form.get('id', 0))
-    print 'Getting activity'
-    a = DB.activities.find_one({'id': aid})
+    aid = int(request.form.get('activity_id', 0))
+    uid = int(request.form.get('athlete_id', 0))
     print 'Initializing activity'
-    a = StravaActivity(a, get_streams=True)
+    a = StravaActivity(aid, uid, get_streams=True)
     print 'Loading model'
-
-    a.time.raw_data -= a.time.raw_data[0]
-    a.distance.raw_data -= a.distance.raw_data[0]
+    d = pickle.load(open('model_%s.pkl' % uid, 'rb'))
     print 'Predicting'
-    a.predict(MODEL)
+    a.predict(d['model'])
     print 'Predicted'
     return jsonify(a.to_dict())
 

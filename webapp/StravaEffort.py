@@ -19,18 +19,19 @@ DB = StravaDB()
 
 class StravaActivity(object):
 
-    def __init__(self, activity_id, get_streams=False):
+    def __init__(self, activity_id, athlete_id, get_streams=False):
         DB = StravaDB()
         self.id = activity_id
+        self.athlete = athlete_id
         cols = ['id', 'athlete_id', 'start_dt', 'name', 'moving_time',
                 'city', 'fitness_level', 'total_elevation_gain', 'distance']
-        q = """ SELECT %s FROM activities WHERE id = %s
-            """ % (', '.join(cols), self.id)
+        q = """ SELECT %s FROM activities WHERE id = %s AND athlete_id = %s
+            """ % (', '.join(cols), self.id, self.athlete)
+        print q
         DB.cur.execute(q)
         results = DB.cur.fetchone()
         d = dict(zip(cols, results))
         self.name = d['name']
-        self.athlete = int(d['athlete_id'])
         self.dt = self.strava_date(d['start_dt'])
         self.total_distance = d['distance']
         self.moving_time = int(d['moving_time'])
@@ -81,7 +82,6 @@ class StravaActivity(object):
             self.df.time.iloc[ind:] -= (self.df.time.iloc[ind] - \
                                          self.df.time.iloc[ind -1])
 
-
     def predict(self, model):
         df = self.make_df()
         print df.info()
@@ -90,7 +90,7 @@ class StravaActivity(object):
         X = df.values
         pred_int = model.predict(X)
         pred = np.cumsum(pred_int)
-        self.predicted_time = StravaStream('predicted_time', {'data': pred})
+        self.df['predicted_time'] = pred
         self.predicted_moving_time = pred[-1]
 
     def to_dict(self):
@@ -319,6 +319,10 @@ class StravaActivity(object):
         alt_diff = np.diff(df['altitude']-df['altitude'].iloc[0])
         climb = np.cumsum(np.where(alt_diff < 0, 0, alt_diff))
         climb = np.append([0], climb)
+        df['climb'] = climb
+        df['time'] = df['time'] - df['time'].iloc[0]
+        df['distance'] = df['distance'] - df['distance'].iloc[0]
+        df['ride_difficulty'] = [df['distance'].iloc[-1]*climb[-1]]*n
 
         # mytime = self.time.raw_data - self.time.raw_data[0]
         # mydist = self.distance.raw_data - self.distance.raw_data[0]
@@ -341,8 +345,8 @@ class StravaActivity(object):
                 df['%s_%s' % ('grade', -i)] = df['grade'].shift(i)
 
             df.rename(columns={'grade': 'grade_0'}, inplace=True)
-        df.pop('time')
-        df.pop('distance')
+        # df.pop('time')
+        # df.pop('distance')
         df.pop('altitude')
         df.fillna(0, inplace=True)
         return df
