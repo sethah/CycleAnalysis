@@ -12,11 +12,17 @@ class StravaDB(object):
     def __init__(self):
         self.get_cursor()
 
-    def get_cursor(self):
-        self.db = sql.connect(host="127.0.0.1",
-                              user="hendris",
+    def get_cursor(self, local=True):
+        if local:
+            self.db = sql.connect(host="127.0.0.1",
+                              user="root",
                               passwd="abc123",
                               db="hendris$strava")
+        else:
+            self.db = sql.connect(host="127.0.0.1",
+                                  user="hendris",
+                                  passwd="abc123",
+                                  db="hendris$strava")
         self.db.autocommit(False)
         self.cur = self.db.cursor()
 
@@ -26,6 +32,8 @@ class StravaDB(object):
             if fetch:
                 return self.cur.fetchall()
         except:
+            print 'asf'
+            print traceback.format_exc()
             print query
             self.db.rollback()
 

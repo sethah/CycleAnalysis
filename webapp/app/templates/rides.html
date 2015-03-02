@@ -16,14 +16,9 @@ function initialize() {
 
 // });
 function setMap(a) {
-  // var distance_vec = a['distance'];
-  // var time_vec = a['time'];
-  // var predicted_time_vec = a['predicted_time'];
-  // var total_distance = distance_vec[distance_vec.length - 1];
+
   console.log(a.latitude);
   console.log(a.longitude);
-//   var points = zip(a.latitude, a.longitude);
-//   console.log(points);
   console.log(a.center);
 
   var mapOptions = {
@@ -88,13 +83,13 @@ function lineChart(a) {
             xAxis: {
                 title: {
                     enabled: true,
-                    text: 'Distance'
+                    text: 'Distance (mi)'
                 },
                 ordinal: false
             },
             yAxis: {
                 title: {
-                    text: 'Weight (kg)'
+                    text: 'Altitude (ft)'
                 }
             },
             title: {
@@ -156,7 +151,7 @@ function simRide(a) {
     var duration = moment.duration(0, 'seconds');
 
     simInterval = window.setInterval(function() {
-      count = count + 1;
+      count = count + 8;
       if (count >= d.length) {
         clearInterval(simInterval)
       }
@@ -168,7 +163,7 @@ function simRide(a) {
         line.set('icons', icons);
         duration = moment.duration(a.time[count]*1000, 'seconds');
         chart.series[1].points[0].update({x: a.distance[count], y: a.altitude[count]}, true, {duration: 50, easing: 'linear'});
-        chart.series[2].points[0].update({x: a.predicted_distance[count], y: a.altitude[count]}, true, {duration: 50, easing: 'linear'});
+        chart.series[2].points[0].update({x: a.predicted_distance[count], y: a.predicted_altitude[count]}, true, {duration: 50, easing: 'linear'});
 
         document.getElementById('playback-timer').innerHTML = moment.utc(a.time[count]*1000).format("HH:mm")
 
@@ -176,33 +171,36 @@ function simRide(a) {
         // document.getElementById('playback-margin').style.backgroundColor = 'red';
         document.getElementById('playback-distance').innerHTML = d[count].toFixed(2);
       }
-  }, 5);
+  }, 30);
 }
+
 function getActivity(aid, uid, activityElement) {
-    console.log(aid)
-    $.post('/change', {
+  $.post('/change', {
         activity_id: aid,
         athlete_id: uid
-    }).done(function(response) {
-        activity = response
-        console.log(response['name'])
-        $(document.getElementById('activity_desc')).text(response['name']);
-        $(document.getElementById('activity_date')).text(response['date']);
-        // $(document.getElementById('activity_rating')).text(response['performance_rating'][1]);
-        $(document.getElementById('activity_start')).text(response['start_time']);
-        $(document.getElementById('activity_moving_time')).text(response['moving_time']);
-        $(document.getElementById('activity_pred_time')).text(response['predicted_total_time']);
-        if (typeof simInterval !== 'undefined') {
-          clearInterval(simInterval)
-        }
-        if (typeof chartInterval !== 'undefined') {
-          clearInterval(chartInterval)
-        }
-        setMap(response)
-        lineChart(response)
+    }).done(function(response){
+      switchActivity(response)
     }).fail(function() {
         console.log('fail');
     });
+}
+
+function switchActivity(a) {
+  activity = a
+  $(document.getElementById('activity_desc')).text(a['name']);
+  $(document.getElementById('activity_date')).text(a['date']);
+  // $(document.getElementById('activity_rating')).text(response['performance_rating'][1]);
+  $(document.getElementById('activity_start')).text(a['start_time']);
+  $(document.getElementById('activity_moving_time')).text(a['moving_time']);
+  $(document.getElementById('activity_pred_time')).text(a['predicted_total_time']);
+  if (typeof simInterval !== 'undefined') {
+    clearInterval(simInterval)
+  }
+  if (typeof chartInterval !== 'undefined') {
+    clearInterval(chartInterval)
+  }
+  setMap(a)
+  lineChart(a)
 }
 
       google.maps.event.addDomListener(window, 'load', initialize);
@@ -220,11 +218,11 @@ function getActivity(aid, uid, activityElement) {
       <table>
         <thead><th colspan="2">Ride Summary</th></thead>
         <tr><td>Rider:</td><td>{{athlete.name}}</td></tr>
-        <tr><td>Ride:</td><td><span id="activity_desc"></span></td></tr>
-        <tr><td>Date:</td><td><span id="activity_date"></span></td></tr>
-        <tr><td>Start Time:</td><td><span id="activity_start"></span></td></tr>
-        <tr><td>Total Time:</td><td><span id="activity_moving_time"></span></td></tr>
-        <tr><td>Predicted Time:</td><td><span id="activity_pred_time"></span></td></tr>
+        <tr><td>Ride:</td><td><span id="activity_desc">{{activity.name}}</span></td></tr>
+        <tr><td>Date:</td><td><span id="activity_date">{{activity.dt.strftime("%A %B %d, %Y")}}</span></td></tr>
+        <tr><td>Start Time:</td><td><span id="activity_start">{{activity.dt.strftime("%H:%M:%S %p")}}</span></td></tr>
+        <tr><td>Total Time:</td><td><span id="activity_moving_time">{{activity.moving_time_string}}</span></td></tr>
+        <tr><td>Predicted Time:</td><td><span id="activity_pred_time">{{activity.predicted_moving_time}}</span></td></tr>
         <tr><td>Ride Rating:</td><td><span id="activity_rating"></span></td></tr>
       </table>
       <div class="wrapper">
@@ -243,7 +241,6 @@ function getActivity(aid, uid, activityElement) {
       <div class="map" id="map-canvas" style="width:500px;height:380px;"></div>
       <!-- <div id="curve_chart" ></div> -->
       <div id="container" style="min-width: 310px; height: 400px; max-width: 800px; margin: 0 auto"></div>
-<input type="button" value="Update" id="update"/>
     </div>
       <div class='span2 main'></div>
       <div class='span6 main'>
@@ -258,7 +255,7 @@ function getActivity(aid, uid, activityElement) {
       {% for a in athlete.activities %}
       <tr>
         <td></td>
-        <td><a href="javascript:getActivity({{a.id}}, {{athlete_id}}, '#activity{{ a.id }}');">{{a.name}}</a></td>
+        <td><a href="javascript:getActivity({{a.id}}, {{athlete.userid}}, '#activity{{ a.id }}');">{{a.name}}</a></td>
         <td>{{a.dt.strftime("%B %d, %Y")}}</td>
         <td>{{(a.total_distance / 1609.34)|round(0, 'floor')}}</td>
         <td>{{a.dt.strftime("%I:%M:%S %p")}}</td>

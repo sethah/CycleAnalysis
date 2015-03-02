@@ -135,11 +135,17 @@ def rides(userid):
     print 'creating user'
     u = StravaUser(int(userid))
 
+    # pass a single activity with all the streams
+    activity = u.activities[0]
+    activity.init_streams()
+    d = pickle.load(open('model_%s.pkl' % u.userid, 'rb'))
+    activity.predict(d[u.userid]['model'])
+    print activity.predicted_moving_time
+
     return render_template(
         'rides.html',
         athlete = u,
-        activities = u.activities,
-        athlete_id = u.userid)
+        activity = activity)
 
 @app.route('/change', methods=['POST'])
 def change():

@@ -10,6 +10,7 @@ from datetime import datetime
 import pymongo
 import seaborn as sns
 import time
+import gpxpy
 
 # global vars
 meters_per_mile = 1609.34
@@ -19,7 +20,67 @@ DB = StravaDB()
 
 class StravaActivity(object):
 
-    def __init__(self, activity_id, athlete_id, get_streams=False):
+    def __init__(self, activity_id, athlete_id, get_streams=False, gpx=None):
+        if gpx is not None:
+            self.init_from_gpx(gpx)
+        else:
+            self.init()
+
+    def init(self):
+        d = self.fetch_activity()
+        self.name = d['name']
+        self.dt = d['start_dt']
+        self.total_distance = d['distance']
+        self.moving_time = int(d['moving_time'])
+        self.moving_time_string = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
+        self.city = d['city']
+        self.total_distance = d['distance']
+        self.fitness_level = d['fitness_level']
+        self.total_climb = d['total_elevation_gain']
+
+        if get_streams:
+            self.init_streams()
+            self.center = self.get_center()
+
+    def gpx_to_df(self, route):
+        d = collections.defaultdict(list)
+        
+        previous_point = None
+        for point in segment.points:
+            d['latitude'].append(point.latitude)
+            d['longitude'].append(point.longitude)
+            
+            if point.elevation < 0:
+                d['altitude'].append(previous_point.elevation)
+            else:
+                d['altitude'].append(point.elevation)
+            if previous_point is not None:
+                d['distance'].append(point.distance_2d(previous_point))
+            else:
+                d['distance'].append(0)
+            
+            previous_point = point
+              
+        seg_frame = pd.DataFrame(d)
+        seg_frame['distance'] = np.cumsum(seg_frame['distance'])
+        return seg_frame
+
+    def init_from_gpx(self, gpx_file):
+        self.name = ''
+        self.dt = datetime.now()
+        gpx_file = open(gpx_file, 'r')
+        gpx = gpxpy.parse(gpx)
+        route = gpx.tracks[0].segments[0]
+        self.df = gpx_to_df(route)
+        self.total_distance = self.df.distance.iloc[-1]
+        self.moving_time = 0
+        self.moving_time_string = ''
+        self.city = ''
+        self.fitness_level = 0
+        self.total_climb = 0
+
+
+    def fetch_activity(self):
         DB = StravaDB()
         self.id = activity_id
         self.athlete = athlete_id
@@ -27,23 +88,12 @@ class StravaActivity(object):
                 'city', 'fitness_level', 'total_elevation_gain', 'distance']
         q = """ SELECT %s FROM activities WHERE id = %s AND athlete_id = %s
             """ % (', '.join(cols), self.id, self.athlete)
-        print q
+
         DB.cur.execute(q)
         results = DB.cur.fetchone()
         d = dict(zip(cols, results))
-        self.name = d['name']
-        self.dt = d['start_dt']
-        print 'The date is ', self.dt
-        self.total_distance = d['distance']
-        self.moving_time = int(d['moving_time'])
 
-        if get_streams:
-            self.init_streams()
-
-        self.city = d['city']
-        self.total_distance = d['distance']
-        self.fitness_level = d['fitness_level']
-        self.total_climb = d['total_elevation_gain']
+        return d
 
     def init_streams(self):
         DB = StravaDB()
@@ -91,13 +141,13 @@ class StravaActivity(object):
         X = df.values
         pred_int = model.predict(X)
         pred = np.cumsum(pred_int)
+        
         self.df['predicted_time'] = pred
-        self.predicted_moving_time = pred[-1]
+        self.predicted_moving_time = time.strftime('%H:%M:%S', time.gmtime(pred[-1]))
 
     def to_dict(self):
         js = {}
         js['name'] = self.name
-        print self.dt
         js['date'] = datetime.strftime(self.dt.date(), '%A %B %d, %Y')
         js['start_time'] = datetime.strftime(self.dt, '%H:%M:%S %p')
         js['athlete'] = self.athlete
@@ -121,6 +171,7 @@ class StravaActivity(object):
         # js['time_interp'] = new_t.tolist()
         js['predicted_time'] = self.df.predicted_time.values.tolist()
         js['predicted_distance'] = np.interp(t, js['predicted_time'], js['distance']).tolist()
+        js['predicted_altitude'] = np.interp(js['predicted_distance'], d, js['altitude']).tolist()
         js['total_distance'] = self.total_distance
         js['predicted_total_time'] = time.strftime('%H:%M:%S', time.gmtime(js['predicted_time'][-1]))
         js['moving_time'] = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
@@ -328,20 +379,6 @@ class StravaActivity(object):
         df['distance'] = df['distance'] - df['distance'].iloc[0]
         df['ride_difficulty'] = [df['distance'].iloc[-1]*climb[-1]]*n
 
-        # mytime = self.time.raw_data - self.time.raw_data[0]
-        # mydist = self.distance.raw_data - self.distance.raw_data[0]
-        # d = {'ride_difficulty': [self.distance.raw_data[-1]*climb[-1]]*n,
-        #      'grade': self.grade.filtered,
-        #      'climb': climb,
-        #      # 'date': [time.mktime(self.dt.timetuple())]*n,
-        #      'fitness_level': self.fit_level,
-        #      'time_int': np.append(np.diff(mytime), 0),
-        #      'dist_int': np.append(np.diff(mydist), 0),
-        #      'distance': mydist,
-        #      'time': mytime,
-        #      'velocity': self.velocity.filtered,
-        #      }
-        # df = pd.DataFrame(d)
         if window != 0:
             for i in xrange(-window // 2, window // 2 + 1):
                 if i == 0:
