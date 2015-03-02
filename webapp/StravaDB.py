@@ -42,6 +42,7 @@ class StravaDB(object):
                 city CHAR(30)            NOT NULL,
                 state CHAR(10)           NOT NULL,
                 country CHAR(40)         NOT NULL,
+                access_key CHAR(100)     NOT NULL,
                 UNIQUE(id)
                 );
             """
@@ -77,14 +78,14 @@ class StravaDB(object):
                 (
                 activity_id INT NOT NULL REFERENCES activities(id),
                 athlete_id INT NOT NULL REFERENCES athletes(id),
-                tmstmp TIMESTAMP          NOT NULL,
+                time REAL                 NOT NULL,
                 distance REAL             NOT NULL,
                 grade REAL                NOT NULL,
                 altitude REAL             NOT NULL,
                 velocity REAL             NOT NULL,
                 latitude REAL             NOT NULL,
                 longitude REAL            NOT NULL,
-                UNIQUE(activity_id, athlete_id, tmstmp)
+                UNIQUE(activity_id, athlete_id, time)
                 );
             """
         self.execute(q, fetch=False)
@@ -101,6 +102,7 @@ class StravaDB(object):
         longitude = latlng[:,1]
 
         new_time = np.linspace(time[0], time[-1], time.shape[0])
+
         latitude = np.interp(new_time, time, latitude)
         longitude = np.interp(new_time, time, longitude)
         distance = np.interp(new_time, time, distance)
@@ -110,22 +112,23 @@ class StravaDB(object):
         athlete_ids = np.array([activity['athlete']['id']]*new_time.shape[0])
         activity_ids = np.array([activity['id']]*new_time.shape[0])
 
-        start_time = datetime.strptime(activity['start_date_local'], '%Y-%m-%dT%H:%M:%SZ')
-        deltas = np.array(map(lambda x: timedelta(seconds=x), new_time))
-        tmstmp = deltas + start_time
+        # start_time = datetime.strptime(activity['start_date_local'], '%Y-%m-%dT%H:%M:%SZ')
+        # deltas = np.array(map(lambda x: timedelta(seconds=x), new_time))
+        # tmstmp = deltas + start_time
 
-        zipped = zip(activity_ids, athlete_ids, tmstmp, distance, grade, altitude, velocity, latitude, longitude)
+        zipped = zip(activity_ids, athlete_ids, new_time, distance, grade, altitude, velocity, latitude, longitude)
         return [list(x) for x in zipped]
 
 
     def move_streams(self):
         find = {'id': 1, 'athlete': 1, 'streams': 1, 'start_date_local': 1}
-        # activities = MongoDB.activities.find({}, find)
-        # for a in activities:
-        a = MongoDB.activities.find_one()
-        start_time = datetime.strptime(a['start_date_local'], '%Y-%m-%dT%H:%M:%SZ')
-        data = self.process_streams(a)[:500]
-        print len(data)
+        activities = MongoDB.activities.find({}, find)
+        for a in activities:
+            # a = MongoDB.activities.find_one()
+            start_time = datetime.strptime(a['start_date_local'], '%Y-%m-%dT%H:%M:%SZ')
+            data = self.process_streams(a)
+            print a['start_date_local'], len(data)
+
 
         # for i in xrange(len(a['streams']['time']['data'])):
         #     if i > 10:
@@ -150,41 +153,41 @@ class StravaDB(object):
             #      'grade': a['streams']['grade_smooth']['data'][i]}
         # print data
         # break
-        q = """ INSERT INTO streams (activity_id, athlete_id, tmstmp, distance, grade, altitude, velocity, latitude, longitude)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-        self.cur.executemany(q, data)
+            q = """ INSERT INTO streams (activity_id, athlete_id, time, distance, grade, altitude, velocity, latitude, longitude)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+            self.cur.executemany(q, data)
         self.db.commit()
         # break
 
-def move_activities(self):
-    find = {'id': 1, 'start_date_local': 1, 'timezone': 1,
-                'location_city': 1, 'location_country': 1,
-                'start_longitude': 1, 'start_latitude': 1,
-                'elapsed_time': 1, 'distance': 1, 'moving_time': 1,
-                'fitness_level': 1, 'average_speed': 1, 'kilojoules': 1,
-                'max_speed': 1, 'name': 1, 'total_elevation_gain': 1,
-                'athlete': 1}
-    activities = MongoDB.activities.find({}, find)
-    for a in activities:
-        d = {'id': a['id'],
-             'start_dt': datetime.strptime(a['start_date_local'], '%Y-%m-%dT%H:%M:%SZ'),
-             'timezone': a['timezone'],
-             'city': a['location_city'],
-             'country': a['location_country'],
-             'start_longitude': a['start_longitude'],
-             'start_latitude': a['start_latitude'],
-             'elapsed_time': a['elapsed_time'],
-             'distance': a['distance'],
-             'moving_time': a['moving_time'],
-             'fitness_level': 0,
-             'average_speed': a['average_speed'],
-             'max_speed': a['max_speed'],
-             'name': a['name'],
-             'total_elevation_gain': a['total_elevation_gain'],
-             'athlete_id': a['athlete']['id']
-        }
-        self.insert_values('activities', d)
+    def move_activities(self):
+        find = {'id': 1, 'start_date_local': 1, 'timezone': 1,
+                    'location_city': 1, 'location_country': 1,
+                    'start_longitude': 1, 'start_latitude': 1,
+                    'elapsed_time': 1, 'distance': 1, 'moving_time': 1,
+                    'fitness_level': 1, 'average_speed': 1, 'kilojoules': 1,
+                    'max_speed': 1, 'name': 1, 'total_elevation_gain': 1,
+                    'athlete': 1}
+        activities = MongoDB.activities.find({}, find)
+        for a in activities:
+            d = {'id': a['id'],
+                 'start_dt': datetime.strptime(a['start_date_local'], '%Y-%m-%dT%H:%M:%SZ'),
+                 'timezone': a['timezone'],
+                 'city': a['location_city'],
+                 'country': a['location_country'],
+                 'start_longitude': a['start_longitude'],
+                 'start_latitude': a['start_latitude'],
+                 'elapsed_time': a['elapsed_time'],
+                 'distance': a['distance'],
+                 'moving_time': a['moving_time'],
+                 'fitness_level': 0,
+                 'average_speed': a['average_speed'],
+                 'max_speed': a['max_speed'],
+                 'name': a['name'],
+                 'total_elevation_gain': a['total_elevation_gain'],
+                 'athlete_id': a['athlete']['id']
+            }
+            self.insert_values('activities', d)
 
     def move_athletes(self):
         athletes = MongoDB.athletes.find()
@@ -202,7 +205,7 @@ def move_activities(self):
 
         keys = val_dict.keys()
         values = [val_dict[k] for k in keys]
-        q = """ INSERT INTO {table} ({keys}) 
+        q = """ INSERT INTO {table} ({keys})
                 VALUES ({placeholders})
             """.format(
                       table = table_name,

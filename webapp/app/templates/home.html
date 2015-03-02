@@ -73,10 +73,9 @@ function checkUser(uid) {
 	</thead>
 {% for athlete in athletes %}
 <tr>
-	<td>{{athlete['firstname'] + ' ' + athlete['lastname']}}</td>
-	<td>{{athlete['city'] + ', ' + athlete['state']}}</td>
-	<!-- <td><a href="{{url_for('rides', userid=athlete['id'])}}">View my rides</a></td> -->
-  <td><a id="rides{{athlete['id']}}" onclick="checkUser({{athlete['id']}})">View my rides</a></td>
+	<td>{{athlete[1] + ' ' + athlete[2]}}</td>
+	<td>{{athlete[3] + ', ' + athlete[4]}}</td>
+  <td><a id="rides{{athlete[0]}}" onclick="checkUser({{athlete[0]}})">View my rides</a></td>
 </tr>
 {% endfor %}
 </table>

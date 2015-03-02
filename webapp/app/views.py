@@ -5,6 +5,7 @@ from StravaEffort import StravaActivity
 from StravaUser import StravaUser
 from StravaModel import StravaModel
 from StravaAPI import StravaAPI
+from StravaDB import StravaDB
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 import numpy as np
 import requests
@@ -16,16 +17,21 @@ import pickle
 
 
 # CLIENT = pymongo.MongoClient()
-CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
-DB = CLIENT.strava
-athlete = DB.athletes.find_one({'id': 4478600},{'model': 1})
-MODEL = pickle.loads(athlete['model'])
+# CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
+DB = StravaDB()
+# athlete = DB.athletes.find_one({'id': 4478600},{'model': 1})
+# MODEL = pickle.loads(athlete['model'])
 
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/index')
 def index():
     # get all users
-    athletes = DB.athletes.find()[:]
+    q = """ SELECT
+                id, firstname, lastname, city, state
+            FROM athletes;
+        """
+    athletes = DB.execute(q)
+    # athletes = DB.athletes.find()[:]
     return render_template('home.html', athletes=athletes)
 
 @app.route('/token_exchange', methods=['GET', 'POST'])
@@ -48,7 +54,7 @@ def fit():
 
     # train a model on all of the data
     uid = int(request.form.get('userid', None))
-    
+
     u = StravaUser(uid, get_streams=True)
     all_rides_df = u.make_df((0, 30))
     y = all_rides_df.pop('time_int')
@@ -61,7 +67,7 @@ def fit():
     print 'Model fit!'
     binary_model = Binary(pickle.dumps(model, protocol=2))
     DB.athletes.update({'id': uid}, {'$set': {'model': binary_model}})
-    
+
 
     # m = StravaModel(model)
     # for a in u.activities:
@@ -128,7 +134,7 @@ def change():
     print 'Initializing activity'
     a = StravaActivity(a, get_streams=True)
     print 'Loading model'
-    
+
     a.time.raw_data -= a.time.raw_data[0]
     a.distance.raw_data -= a.distance.raw_data[0]
     print 'Predicting'

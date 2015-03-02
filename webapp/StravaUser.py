@@ -6,19 +6,21 @@ from sklearn.cross_validation import train_test_split, cross_val_score
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from datetime import datetime, timedelta
 from StravaEffort import StravaActivity
+from StravaDB import StravaDB
 from StravaAPI import StravaAPI
 import matplotlib.pyplot as plt
 from PlotTools import PlotTool
 import seaborn as sns
 import pickle
+from itertools import izip
 
 # global vars
 meters_per_mile = 1609.34
 feet_per_meter = 3.280
 
 
-CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
-DB = CLIENT.strava
+# CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
+DB = StravaDB()
 
 class StravaUser(object):
 
@@ -29,9 +31,13 @@ class StravaUser(object):
         # self.recent_fitness_level()
 
     def init(self):
-        athlete = DB.athletes.find_one({'id': self.userid})
+        cols = ['id', 'firstname', 'lastname', 'sex', 'city', 'state', 'country', 'access_token']
+        q = """SELECT * FROM athletes WHERE id = %s""" % self.userid
+        DB.cur.execute(q)
+        athlete = DB.cur.fetchone()
+        athlete = {col: val for col, val in zip(cols, athlete)}
         self.name = athlete['firstname'] + ' ' + athlete['lastname']
-        self.access_token = athlete['token']['access_token']
+        self.access_token = athlete['access_token']
         if 'model' in athlete:
             self.model = pickle.loads(athlete['model'])
 
@@ -44,17 +50,16 @@ class StravaUser(object):
             activities = list(DB.activities.find(query))
         else:
             # if we don't need the streams, don't query on them
-            query = {'athlete.id': self.userid}
-            fields = {'id': 1, 'name': 1, 'athlete.id': 1,
-                      'start_date_local': 1, 'distance': 1,
-                      'moving_time': 1, 'location_city': 1,
-                      'fitness_level': 1,
-                      'predicted_moving_time': 1, 'total_elevation_gain': 1}
-            activities = list(DB.activities.find(query, fields))
+            cols = ['id', 'athlete_id', 'start_dt', 'name', 'moving_time',
+                    'city', 'fitness_level', 'total_elevation_gain', 'distance']
+            q = """ SELECT %s FROM activities WHERE athlete_id = %s
+                """ % (', '.join(cols), 4478600)
+            results = DB.execute(q)
 
         self.activities = []
-        for activity in activities:
-            a = StravaActivity(activity, get_streams)
+        for activity in results:
+            d = dict(zip(cols, activity))
+            a = StravaActivity(d, get_streams)
             self.activities.append(a)
 
     def has_full_predictions(self):
