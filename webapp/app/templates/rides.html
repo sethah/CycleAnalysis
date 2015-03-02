@@ -10,7 +10,7 @@
 var line;
 
 function initialize() {
-  getActivity('{{activities[0].id}}', '#activity{{ activities[0].id }}');
+  getActivity('{{activities[0].id}}', '{{athlete_id}}', '#activity{{ activities[0].id }}');
 }
 // $( document ).ready(function() {
 
@@ -20,8 +20,11 @@ function setMap(a) {
   // var time_vec = a['time'];
   // var predicted_time_vec = a['predicted_time'];
   // var total_distance = distance_vec[distance_vec.length - 1];
-  var points = a['latlng'];
-  console.log(a['center']);
+  console.log(a.latitude);
+  console.log(a.longitude);
+//   var points = zip(a.latitude, a.longitude);
+//   console.log(points);
+  console.log(a.center);
 
   var mapOptions = {
     mapTypeId: google.maps.MapTypeId.TERRAIN
@@ -32,8 +35,8 @@ function setMap(a) {
 
   var coords = [];
 
-  for (var i = 0; i < points.length; i++) {
-    coords.push(new google.maps.LatLng(points[i][0], points[i][1]));
+  for (var i = 0; i < a.latitude.length; i++) {
+    coords.push(new google.maps.LatLng(a.latitude[i], a.longitude[i]));
   }
 
   var lineSymbol = {
@@ -148,7 +151,7 @@ function zip(arrays) {
     });
 }
 function lineChart(a) {
-    data = zip([a.distance_interp, a.altitude]);
+    data = zip([a.distance, a.altitude]);
     console.log(data[100]);
         chart = new Highcharts.Chart({
             chart: {
@@ -227,12 +230,12 @@ function lineChart(a) {
             {
               type: 'scatter',
               name: 'Actual',
-              data: [[a.distance_interp[0], a.altitude[0]]]
+              data: [[a.distance[0], a.altitude[0]]]
             },
             {
               type: 'scatter',
               name: 'Predicted',
-              data: [[a.predicted_distance[0], a.altitude_interp[0]]]
+              data: [[a.predicted_distance[0], a.altitude[0]]]
             }]
         });
     // });
@@ -245,8 +248,8 @@ function lineChart(a) {
         clearInterval(chartInterval)
       }
       else {
-        chart.series[1].points[0].update({x: a.distance_interp[count], y: a.altitude[count]}, true, {duration: 50, easing: 'linear'});
-        chart.series[2].points[0].update({x: a.predicted_distance[count], y: a.altitude_interp[count]}, true, {duration: 50, easing: 'linear'});
+        chart.series[1].points[0].update({x: a.distance[count], y: a.altitude[count]}, true, {duration: 50, easing: 'linear'});
+        chart.series[2].points[0].update({x: a.predicted_distance[count], y: a.altitude[count]}, true, {duration: 50, easing: 'linear'});
       }
     }, 50);
     });
@@ -294,7 +297,7 @@ function lineChart(a) {
 function simRide(a) {
     document.getElementById("ride-console").style.visibility = "visible";
     var count = 0;
-    d = a['distance_interp'];
+    d = a['distance'];
     pd = a['predicted_distance'];
     total_distance = d[d.length - 1];
     var duration = moment.duration(0, 'seconds');
@@ -310,28 +313,29 @@ function simRide(a) {
         icons[0].offset = d[count]*100.0/total_distance + '%';
         icons[1].offset = pd[count]*100.0/total_distance + '%';
         line.set('icons', icons);
-        duration = moment.duration(a['time_interp'][count]*1000, 'seconds');
-        chart.series[1].points[0].update({x: a.distance_interp[count], y: a.altitude[count]}, true, {duration: 50, easing: 'linear'});
-        chart.series[2].points[0].update({x: a.predicted_distance[count], y: a.altitude_interp[count]}, true, {duration: 50, easing: 'linear'});
+        duration = moment.duration(a.time[count]*1000, 'seconds');
+        chart.series[1].points[0].update({x: a.distance[count], y: a.altitude[count]}, true, {duration: 50, easing: 'linear'});
+        chart.series[2].points[0].update({x: a.predicted_distance[count], y: a.altitude[count]}, true, {duration: 50, easing: 'linear'});
 
-        document.getElementById('playback-timer').innerHTML = moment.utc(a['time_interp'][count]*1000).format("HH:mm")
+        document.getElementById('playback-timer').innerHTML = moment.utc(a.time[count]*1000).format("HH:mm")
 
         document.getElementById('playback-margin').innerHTML = (d[count] - pd[count]).toFixed(2);
         // document.getElementById('playback-margin').style.backgroundColor = 'red';
         document.getElementById('playback-distance').innerHTML = d[count].toFixed(2);
       }
-  }, 30);
+  }, 5);
 }
-function getActivity(aid, activityElement) {
+function getActivity(aid, uid, activityElement) {
     console.log(aid)
     $.post('/change', {
-        id: aid
+        activity_id: aid,
+        athlete_id: uid
     }).done(function(response) {
         activity = response
         console.log(response['name'])
         $(document.getElementById('activity_desc')).text(response['name']);
         $(document.getElementById('activity_date')).text(response['date']);
-        $(document.getElementById('activity_rating')).text(response['performance_rating'][1]);
+        // $(document.getElementById('activity_rating')).text(response['performance_rating'][1]);
         $(document.getElementById('activity_start')).text(response['start_time']);
         $(document.getElementById('activity_moving_time')).text(response['moving_time']);
         $(document.getElementById('activity_pred_time')).text(response['predicted_total_time']);
@@ -400,8 +404,8 @@ function getActivity(aid, activityElement) {
         </thead>
       {% for a in activities %}
       <tr>
-        <td>{{ a.rating[1] }}</td>
-        <td><a href="javascript:getActivity({{a.id}}, '#activity{{ a.id }}');">{{a.name}}</a></td>
+        <td></td>
+        <td><a href="javascript:getActivity({{a.id}}, {{athlete_id}}, '#activity{{ a.id }}');">{{a.name}}</a></td>
         <td>{{a.dt.strftime("%B %d, %Y")}}</td>
         <td>{{(a.total_distance / 1609.34)|round(0, 'floor')}}</td>
         <td>{{a.dt.strftime("%I:%M:%S %p")}}</td>

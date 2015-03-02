@@ -32,7 +32,8 @@ class StravaActivity(object):
         results = DB.cur.fetchone()
         d = dict(zip(cols, results))
         self.name = d['name']
-        self.dt = self.strava_date(d['start_dt'])
+        self.dt = d['start_dt']
+        print 'The date is ', self.dt
         self.total_distance = d['distance']
         self.moving_time = int(d['moving_time'])
 
@@ -52,8 +53,8 @@ class StravaActivity(object):
         self.df = pd.read_sql(q, DB.db)
 
     def strava_date(self, date_string):
-        if type(date_string) != unicode:
-            return date_string
+        # if type(date_string) != unicode:
+        #     return date_string
         return datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%SZ')
 
     def init_stream(self, stream_dict, stream_type):
@@ -96,29 +97,32 @@ class StravaActivity(object):
     def to_dict(self):
         js = {}
         js['name'] = self.name
+        print self.dt
         js['date'] = datetime.strftime(self.dt.date(), '%A %B %d, %Y')
         js['start_time'] = datetime.strftime(self.dt, '%H:%M:%S %p')
-        js['athlete'] = self.athlete['id']
-        d = (self.distance.raw_data - self.time.raw_data[0]) / meters_per_mile
-        t = (self.time.raw_data - self.time.raw_data[0])
-        step = t[-1] / (1000)
-        pt = self.predicted_time.raw_data
-        new_t = np.arange(0, max(pt[-1], t[-1]) + step, step)
+        js['athlete'] = self.athlete
+        d = (self.df.distance.values - self.df.distance.values[0]) / meters_per_mile
+        t = (self.df.time.values - self.df.time.values[0])
+        # step = t[-1] / (1000)
+        # pt = self.predicted_time.raw_data
+        # new_t = np.arange(0, max(pt[-1], t[-1]) + step, step)
 
-        js['altitude'] = (np.interp(new_t, t, self.altitude.filtered) * feet_per_meter).tolist()
-        js['altitude_interp'] = np.interp(new_t, pt, self.altitude.filtered * feet_per_meter).tolist()
+        js['altitude'] = (self.df.altitude.values * feet_per_meter).tolist()
+        # js['altitude_interp'] = np.interp(new_t, pt, self.altitude.filtered * feet_per_meter).tolist()
         js['distance'] = d.tolist()
-        js['distance_interp'] = np.interp(new_t, t, d).tolist()
+        # js['distance_interp'] = np.interp(new_t, t, d).tolist()
         # js['velocity'] = self.velocity.filtered.tolist()
-        js['latlng'] = self.latlng.raw_data[np.arange(0, self.latlng.raw_data.shape[0], 4)].tolist()
-        js['performance_rating'] = self.rating
+        js['latitude'] = self.df.latitude.values.tolist()
+        js['longitude'] = self.df.longitude.values.tolist()
+        # js['latlng'] = self.latlng.raw_data[np.arange(0, self.latlng.raw_data.shape[0], 4)].tolist()
+        # js['performance_rating'] = self.rating
         js['center'] = self.get_center().tolist()
-        # js['time'] = t.tolist()
-        js['time_interp'] = new_t.tolist()
-        js['predicted_time'] = pt.tolist()
-        js['predicted_distance'] = np.interp(new_t, pt, d).tolist()
+        js['time'] = t.tolist()
+        # js['time_interp'] = new_t.tolist()
+        js['predicted_time'] = self.df.predicted_time.values.tolist()
+        js['predicted_distance'] = np.interp(t, js['predicted_time'], js['distance']).tolist()
         js['total_distance'] = self.total_distance
-        js['predicted_total_time'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
+        js['predicted_total_time'] = time.strftime('%H:%M:%S', time.gmtime(js['predicted_time'][-1]))
         js['moving_time'] = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
         # js['grade'] = self.grade.filtered.tolist()
         js['id'] = self.id
@@ -139,10 +143,10 @@ class StravaActivity(object):
         return (scores[ind], ratings[ind])
 
     def get_center(self):
-        latlng = self.latlng.raw_data
-
-        max_left, max_up = np.max(latlng, axis=0)
-        max_right, max_down = np.min(latlng, axis=0)
+        max_left = np.min(self.df.latitude)
+        max_right = np.max(self.df.latitude)
+        max_down = np.min(self.df.longitude)
+        max_up = np.max(self.df.longitude)
 
         ne = [max_left, max_up]
         sw = [max_right, max_down]

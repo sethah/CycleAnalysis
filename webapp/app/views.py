@@ -27,6 +27,7 @@ DB = StravaDB()
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/index')
 def index():
+    DB = StravaDB()
     # get all users
     q = """ SELECT
                 id, firstname, lastname, city, state
@@ -137,7 +138,8 @@ def rides(userid):
     return render_template(
         'rides.html',
         activities = u.activities,
-        athlete = u.name)
+        athlete = u.name,
+        athlete_id = u.userid)
 
 @app.route('/change', methods=['POST'])
 def change():
@@ -148,8 +150,9 @@ def change():
     a = StravaActivity(aid, uid, get_streams=True)
     print 'Loading model'
     d = pickle.load(open('model_%s.pkl' % uid, 'rb'))
+    print d
     print 'Predicting'
-    a.predict(d['model'])
+    a.predict(d[uid]['model'])
     print 'Predicted'
     return jsonify(a.to_dict())
 

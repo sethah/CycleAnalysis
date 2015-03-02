@@ -55,7 +55,7 @@ class StravaDB(object):
         q = """ CREATE TABLE activities
                 (
                 id INT PRIMARY KEY        NOT NULL,
-                start_dt DATE             NOT NULL,
+                start_dt TIMESTAMP        NOT NULL,
                 timezone CHAR(40)                 ,
                 city CHAR(40)                     ,
                 country CHAR(40)                  ,

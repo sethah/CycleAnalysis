@@ -65,7 +65,7 @@ class StravaUser(object):
         for activity in results:
             # d = dict(zip(cols, activity))
             print activity[0]
-            a = StravaActivity(activity[0], get_streams)
+            a = StravaActivity(activity[0], self.userid, get_streams)
             self.activities.append(a)
 
     def has_full_predictions(self):
