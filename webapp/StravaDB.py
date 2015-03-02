@@ -10,6 +10,9 @@ MongoDB = CLIENT.strava
 class StravaDB(object):
 
     def __init__(self):
+        self.get_cursor()
+
+    def get_cursor(self):
         self.db = sql.connect(host="127.0.0.1",
                               user="hendris",
                               passwd="abc123",
@@ -85,10 +88,26 @@ class StravaDB(object):
                 velocity REAL             NOT NULL,
                 latitude REAL             NOT NULL,
                 longitude REAL            NOT NULL,
+                moving BOOLEAN            NOT NULL,
                 UNIQUE(activity_id, athlete_id, time)
                 );
             """
         self.execute(q, fetch=False)
+
+    def get_moving(self, moving, distance, time):
+        not_moving = np.where(~moving)[0]
+        for ind in not_moving:
+            time[ind:] -= (time[ind] - \
+                                         time[ind -1])
+
+        dd = np.diff(distance)
+        dt = np.diff(time)
+        not_moving = np.where(dd/dt < 1)[0]
+        for ind in not_moving:
+            ind += 1
+            time[ind:] -= (time[ind] - time[ind -1])
+
+        return time, distance
 
     def process_streams(self, activity):
         stream_dict = activity['streams']
@@ -98,8 +117,10 @@ class StravaDB(object):
         grade = np.array(stream_dict['grade_smooth']['data'])
         altitude = np.array(stream_dict['altitude']['data'])
         latlng = np.array(stream_dict['latlng']['data'])
+        moving = np.array(stream_dict['moving']['data'])
         latitude = latlng[:,0]
         longitude = latlng[:,1]
+        time, distance = self.get_moving(moving, distance, time)
 
         new_time = np.linspace(time[0], time[-1], time.shape[0])
 

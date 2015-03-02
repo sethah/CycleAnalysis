@@ -20,6 +20,7 @@ DB = StravaDB()
 class StravaActivity(object):
 
     def __init__(self, activity_id, get_streams=False):
+        DB = StravaDB()
         self.id = activity_id
         cols = ['id', 'athlete_id', 'start_dt', 'name', 'moving_time',
                 'city', 'fitness_level', 'total_elevation_gain', 'distance']
@@ -43,6 +44,7 @@ class StravaActivity(object):
         self.total_climb = d['total_elevation_gain']
 
     def init_streams(self):
+        DB = StravaDB()
         cols = ['activity_id', 'athlete_id', 'time', 'distance',
                 'velocity', 'grade', 'altitude', 'latitude', 'longitude']
         q = """SELECT %s FROM streams WHERE activity_id = %s""" % (', '.join(cols), self.id)
@@ -71,15 +73,14 @@ class StravaActivity(object):
             self.time.raw_data[ind:] -= (self.time.raw_data[ind] - \
                                          self.time.raw_data[ind -1])
 
-        dd = np.diff(self.distance.raw_data)
-        dt = np.diff(self.time.raw_data)
+        dd = np.diff(self.df.distance)
+        dt = np.diff(self.df.time)
         not_moving = np.where(dd/dt < 1)[0]
         for ind in not_moving:
             ind += 1
-            self.time.raw_data[ind:] -= (self.time.raw_data[ind] - \
-                                         self.time.raw_data[ind -1])
+            self.df.time.iloc[ind:] -= (self.df.time.iloc[ind] - \
+                                         self.df.time.iloc[ind -1])
 
-        self.time.filter()
 
     def predict(self, model):
         df = self.make_df()
@@ -302,34 +303,47 @@ class StravaActivity(object):
         self.fit_level = level
 
     def make_df(self, window=6):
-        n = self.grade.filtered.shape[0]
-        back, ahead = self.past_grade()
-        alt_diff = np.diff(self.altitude.filtered-self.altitude.filtered[0])
+        n = self.df.shape[0]
+        df = self.df.copy()
+        df.pop('latitude')
+        df.pop('longitude')
+        df.pop('velocity')
+        df.pop('activity_id')
+        df.pop('athlete_id')
+        df['grade'] = smooth(df['grade'], 'scipy')
+        df['altitude'] = smooth(df['altitude'], 'scipy', window_len=22)
+        df['time_int'] = np.append(np.diff(df['time']), 0)
+        df['dist_int'] = np.append(np.diff(df['distance']), 0)
+
+        # self.df['filtered_grade'] = smooth(self.df['grade'], 'scipy')
+        alt_diff = np.diff(df['altitude']-df['altitude'].iloc[0])
         climb = np.cumsum(np.where(alt_diff < 0, 0, alt_diff))
         climb = np.append([0], climb)
 
-        mytime = self.time.raw_data - self.time.raw_data[0]
-        mydist = self.distance.raw_data - self.distance.raw_data[0]
-        d = {'ride_difficulty': [self.distance.raw_data[-1]*climb[-1]]*n,
-             'grade': self.grade.filtered,
-             'climb': climb,
-             # 'date': [time.mktime(self.dt.timetuple())]*n,
-             'fitness_level': self.fit_level,
-             'time_int': np.append(np.diff(mytime), 0),
-             'dist_int': np.append(np.diff(mydist), 0),
-             'distance': mydist,
-             'time': mytime,
-             'velocity': self.velocity.filtered,
-             }
-        df = pd.DataFrame(d)
+        # mytime = self.time.raw_data - self.time.raw_data[0]
+        # mydist = self.distance.raw_data - self.distance.raw_data[0]
+        # d = {'ride_difficulty': [self.distance.raw_data[-1]*climb[-1]]*n,
+        #      'grade': self.grade.filtered,
+        #      'climb': climb,
+        #      # 'date': [time.mktime(self.dt.timetuple())]*n,
+        #      'fitness_level': self.fit_level,
+        #      'time_int': np.append(np.diff(mytime), 0),
+        #      'dist_int': np.append(np.diff(mydist), 0),
+        #      'distance': mydist,
+        #      'time': mytime,
+        #      'velocity': self.velocity.filtered,
+        #      }
+        # df = pd.DataFrame(d)
         if window != 0:
             for i in xrange(-window // 2, window // 2 + 1):
                 if i == 0:
                     continue
                 df['%s_%s' % ('grade', -i)] = df['grade'].shift(i)
 
-            df.pop('velocity')
             df.rename(columns={'grade': 'grade_0'}, inplace=True)
+        df.pop('time')
+        df.pop('distance')
+        df.pop('altitude')
         df.fillna(0, inplace=True)
         return df
 

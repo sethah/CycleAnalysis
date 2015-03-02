@@ -20,7 +20,7 @@ feet_per_meter = 3.280
 
 
 # CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
-DB = StravaDB()
+
 
 class StravaUser(object):
 
@@ -31,6 +31,7 @@ class StravaUser(object):
         # self.recent_fitness_level()
 
     def init(self):
+        DB = StravaDB()
         cols = ['id', 'firstname', 'lastname', 'sex', 'city', 'state', 'country', 'access_token']
         q = """SELECT * FROM athletes WHERE id = %s""" % self.userid
         DB.cur.execute(q)
@@ -45,21 +46,26 @@ class StravaUser(object):
     def load_activities(self, get_streams, min_length=990):
 
         # find all the activities in the db for this user
-        if get_streams:
-            query = {'athlete.id': self.userid}
-            activities = list(DB.activities.find(query))
-        else:
-            # if we don't need the streams, don't query on them
-            cols = ['id', 'athlete_id', 'start_dt', 'name', 'moving_time',
-                    'city', 'fitness_level', 'total_elevation_gain', 'distance']
-            q = """ SELECT %s FROM activities WHERE athlete_id = %s
-                """ % (', '.join(cols), 4478600)
-            results = DB.execute(q)
+        # if get_streams:
+        DB = StravaDB()
+        q = """ SELECT id
+                FROM activities
+                WHERE athlete_id = %s
+            """ % self.userid
+        results = DB.execute(q)
+        # else:
+        #     # if we don't need the streams, don't query on them
+        #     cols = ['id', 'athlete_id', 'start_dt', 'name', 'moving_time',
+        #             'city', 'fitness_level', 'total_elevation_gain', 'distance']
+        #     q = """ SELECT %s FROM activities WHERE athlete_id = %s
+        #         """ % (', '.join(cols), 4478600)
+        #     results = DB.execute(q)
 
         self.activities = []
         for activity in results:
-            d = dict(zip(cols, activity))
-            a = StravaActivity(d, get_streams)
+            # d = dict(zip(cols, activity))
+            print activity[0]
+            a = StravaActivity(activity[0], get_streams)
             self.activities.append(a)
 
     def has_full_predictions(self):

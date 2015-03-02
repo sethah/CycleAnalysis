@@ -97,10 +97,7 @@ def scipy_smooth(x, window_len=11, window='hanning'):
     return output
 
 
-def smooth(vec, filt_type, window_len=11, copy=True):
-    if copy:
-        vec = np.copy(vec)
-
+def smooth(vec, filt_type, window_len=11):
     if filt_type == 'savgol':
         smoothed = savitzky_golay(vec.ravel(), 51, 3)
     elif filt_type == 'scipy':
