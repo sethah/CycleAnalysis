@@ -137,8 +137,8 @@ def rides(userid):
 
     return render_template(
         'rides.html',
+        athlete = u,
         activities = u.activities,
-        athlete = u.name,
         athlete_id = u.userid)
 
 @app.route('/change', methods=['POST'])
