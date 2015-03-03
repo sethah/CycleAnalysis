@@ -46,27 +46,27 @@ class StravaUser(object):
     def load_activities(self, get_streams, min_length=990):
 
         # find all the activities in the db for this user
-        # if get_streams:
         DB = StravaDB()
         q = """ SELECT id
                 FROM activities
                 WHERE athlete_id = %s
             """ % self.userid
         results = DB.execute(q)
-        # else:
-        #     # if we don't need the streams, don't query on them
-        #     cols = ['id', 'athlete_id', 'start_dt', 'name', 'moving_time',
-        #             'city', 'fitness_level', 'total_elevation_gain', 'distance']
-        #     q = """ SELECT %s FROM activities WHERE athlete_id = %s
-        #         """ % (', '.join(cols), 4478600)
-        #     results = DB.execute(q)
 
         self.activities = []
         for activity in results:
-            # d = dict(zip(cols, activity))
-            print activity[0]
             a = StravaActivity(activity[0], self.userid, get_streams)
             self.activities.append(a)
+
+        # get the routes for this user also
+        q = """ SELECT id
+                FROM routes
+                WHERE athlete_id = %s
+            """ % self.userid
+        results = DB.execute(q)
+        for route in results:
+            r = StravaActivity(route[0], self.userid, get_streams, is_route=True)
+            self.activities.append(r)
 
     def has_full_predictions(self):
         if self.activities is None:

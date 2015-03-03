@@ -60,10 +60,11 @@ def fit():
 
     u = StravaUser(uid, get_streams=True)
     all_rides_df = u.make_df((0, 30))
-    y = all_rides_df.pop('time_int')
+    y = all_rides_df.pop('velocity')
     X = all_rides_df.values
     # model = RandomForestRegressor(max_depth=8)
-    model = LinearRegression()
+    model = RandomForestRegressor()
+    # model = LinearRegression()
     # model = GradientBoostingRegressor()
 
     if os.path.isfile('model_%s.pkl' % uid):
@@ -140,7 +141,6 @@ def rides(userid):
     activity.init_streams()
     d = pickle.load(open('model_%s.pkl' % u.userid, 'rb'))
     activity.predict(d[u.userid]['model'])
-    print activity.predicted_moving_time
 
     return render_template(
         'rides.html',
@@ -153,7 +153,11 @@ def change():
     aid = int(request.form.get('activity_id', 0))
     uid = int(request.form.get('athlete_id', 0))
     print 'Initializing activity'
-    a = StravaActivity(aid, uid, get_streams=True)
+    # TODO: FIX THIS AWFUL HACKY SHIT
+    if aid < 10000:
+        a = StravaActivity(aid, uid, get_streams=True, is_route=True)
+    else:
+        a = StravaActivity(aid, uid, get_streams=True)
     print 'Loading model'
     d = pickle.load(open('model_%s.pkl' % uid, 'rb'))
     print d

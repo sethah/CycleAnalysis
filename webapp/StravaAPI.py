@@ -67,18 +67,7 @@ class StravaAPI(object):
             if table.find_one({'id': activity['id']}) is not None:
                 continue
             streams = self.get_stream(activity['id'])
-            # if len(streams['time']['data']) > 5000:
-            #     for stream in streams:
-            #         if stream == 'time':
-            #             continue
-            #         print stream
-            #         streams[stream]['data'] = self.downsample(streams['time']['data'],
-            #                                     streams[stream]['data'])
 
-            #     # make the new time vector
-            #     streams['time']['data'] = np.linspace(streams['time']['data'][0],
-            #                                           streams['time']['data'][-1],
-            #                                           5000)
             activity['streams'] = streams
             table.insert(activity)
             print 'Stored activity for %s on %s' % (

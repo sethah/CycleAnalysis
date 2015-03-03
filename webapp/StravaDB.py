@@ -3,6 +3,9 @@ import pymongo
 import traceback
 from datetime import datetime, date, timedelta
 import numpy as np
+import gpxpy
+import pandas as pd
+import collections
 
 CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
 MongoDB = CLIENT.strava
@@ -14,17 +17,17 @@ class StravaDB(object):
 
     def get_cursor(self, local=True):
         if local:
-            self.db = sql.connect(host="127.0.0.1",
+            self.conn = sql.connect(host="127.0.0.1",
                               user="root",
                               passwd="abc123",
                               db="hendris$strava")
         else:
-            self.db = sql.connect(host="127.0.0.1",
+            self.conn = sql.connect(host="127.0.0.1",
                                   user="hendris",
                                   passwd="abc123",
                                   db="hendris$strava")
-        self.db.autocommit(False)
-        self.cur = self.db.cursor()
+        self.conn.autocommit(False)
+        self.cur = self.conn.cursor()
 
     def execute(self, query, fetch=True):
         try:
@@ -32,10 +35,9 @@ class StravaDB(object):
             if fetch:
                 return self.cur.fetchall()
         except:
-            print 'asf'
             print traceback.format_exc()
             print query
-            self.db.rollback()
+            self.conn.rollback()
 
     def show_tables(self):
         q = """ SHOW tables;
@@ -141,10 +143,6 @@ class StravaDB(object):
         athlete_ids = np.array([activity['athlete']['id']]*new_time.shape[0])
         activity_ids = np.array([activity['id']]*new_time.shape[0])
 
-        # start_time = datetime.strptime(activity['start_date_local'], '%Y-%m-%dT%H:%M:%SZ')
-        # deltas = np.array(map(lambda x: timedelta(seconds=x), new_time))
-        # tmstmp = deltas + start_time
-
         zipped = zip(activity_ids, athlete_ids, new_time, distance, grade, altitude, velocity, latitude, longitude)
         return [list(x) for x in zipped]
 
@@ -158,36 +156,108 @@ class StravaDB(object):
             data = self.process_streams(a)
             print a['start_date_local'], len(data)
 
-
-        # for i in xrange(len(a['streams']['time']['data'])):
-        #     if i > 10:
-        #         break
-        #     data[str(i)] = [a['id'], a['athlete']['id'],
-        #               start_time + timedelta(seconds=a['streams']['time']['data'][i]),
-        #               a['streams']['distance']['data'][i],
-        #               a['streams']['grade_smooth']['data'][i],
-        #               a['streams']['altitude']['data'][i],
-        #               a['streams']['velocity_smooth']['data'][i],
-        #               a['streams']['latlng']['data'][i][0],
-        #               a['streams']['latlng']['data'][i][1]
-        #               ]
-            # d = {'activity_id': a['id'],
-            #      'athlete_id': a['athlete']['id'],
-            #      'tmstmp': start_time + timedelta(seconds=a['streams']['time']['data'][i]),
-            #      'distance': a['streams']['distance']['data'][i],
-            #      'altitude': a['streams']['altitude']['data'][i],
-            #      'velocity': a['streams']['velocity_smooth']['data'][i],
-            #      'latitude': a['streams']['latlng']['data'][i][0],
-            #      'longitude': a['streams']['latlng']['data'][i][1],
-            #      'grade': a['streams']['grade_smooth']['data'][i]}
-        # print data
-        # break
             q = """ INSERT INTO streams (activity_id, athlete_id, time, distance, grade, altitude, velocity, latitude, longitude)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
             self.cur.executemany(q, data)
-        self.db.commit()
-        # break
+        self.conn.commit()
+
+    def create_routes_table(self):
+        q = """ CREATE TABLE routes
+                (
+                id SERIAL PRIMARY KEY     NOT NULL,
+                start_dt TIMESTAMP        NOT NULL,
+                timezone CHAR(40)                 ,
+                city CHAR(40)                     ,
+                country CHAR(40)                  ,
+                start_longitude REAL      NOT NULL,
+                start_latitude REAL       NOT NULL,
+                distance REAL             NOT NULL,
+                fitness_level REAL                ,
+                name CHAR (100)                   ,
+                total_elevation_gain REAL         ,
+                athlete_id INT NOT NULL REFERENCES athletes(id)
+                );
+            """
+        self.execute(q, fetch=False)
+
+    def gpx_to_df(self, route):
+        d = collections.defaultdict(list)
+        
+        previous_point = None
+        for point in route.points:
+            d['latitude'].append(point.latitude)
+            d['longitude'].append(point.longitude)
+            
+            if point.elevation < 0:
+                d['altitude'].append(previous_point.elevation)
+            else:
+                d['altitude'].append(point.elevation)
+            if previous_point is not None:
+                d['distance'].append(point.distance_2d(previous_point))
+            else:
+                d['distance'].append(0)
+            
+            previous_point = point
+
+        d['distance'] = np.cumsum(d['distance'])
+        new_dist = np.linspace(d['distance'][0], d['distance'][-1], 9000)
+        d['altitude'] = np.interp(new_dist, d['distance'], d['altitude'])
+        d['latitude'] = np.interp(new_dist, d['distance'], d['latitude'])
+        d['longitude'] = np.interp(new_dist, d['distance'], d['longitude'])
+        d['distance'] = new_dist
+              
+        seg_frame = pd.DataFrame(d)
+        # seg_frame['distance'] = np.cumsum(seg_frame['distance'])
+        seg_frame['grade'] = np.append(np.diff(seg_frame['altitude']), 0) * 100 / \
+                        np.append(np.diff(seg_frame['distance']), 0.01)
+        return seg_frame.sort('distance')
+
+    def create_route(self, gpx_file, athlete_id):
+        gpx_file = open(gpx_file, 'r')
+        gpx = gpxpy.parse(gpx_file)
+        route = gpx.tracks[0].segments[0]
+        df = self.gpx_to_df(route)
+
+        d = {'start_dt': datetime.now(),
+             'timezone': None,
+             'city': None,
+             'country': None,
+             'start_longitude': route.points[0].longitude,
+             'start_latitude': route.points[0].latitude,
+             'distance': df.distance.iloc[-1],
+             'fitness_level': 0,
+             'name': 'Route',
+             'total_elevation_gain': 0,
+             'athlete_id': athlete_id
+            }
+
+        self.insert_values('routes', d)
+        self.cur.execute("""SELECT LAST_INSERT_ID();""")
+        activity_id = self.cur.fetchone()[0]
+
+        df['velocity'] = [-9999]*df.shape[0]
+        df['moving'] = [True]*df.shape[0]
+        df['time'] = np.arange(-1, -df.shape[0] - 1, -1)
+        df['athlete_id'] = [athlete_id]*df.shape[0]
+        df['activity_id'] = [activity_id]*df.shape[0]
+        zipped = zip(df.activity_id.values,
+                     df.athlete_id.values,
+                     df.time.values,
+                     df.distance.values,
+                     df.grade.values,
+                     df.altitude.values,
+                     df.velocity.values,
+                     df.latitude.values,
+                     df.longitude.values)
+        data = [list(x) for x in zipped]
+        print data[:5]
+        q = """ INSERT INTO streams (activity_id, athlete_id, time, distance, grade, altitude, velocity, latitude, longitude)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+        self.cur.executemany(q, data)
+        self.conn.commit()
+
 
     def move_activities(self):
         find = {'id': 1, 'start_date_local': 1, 'timezone': 1,
@@ -243,7 +313,7 @@ class StravaDB(object):
                       )
         try:
             self.cur.execute(q, values)
-            self.db.commit()
+            self.conn.commit()
             return True
         except:
             print traceback.format_exc()

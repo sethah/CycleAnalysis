@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from SignalProc import weighted_average, smooth, diff
+from SignalProc import weighted_average, smooth, diff, vel_to_time
 from datetime import datetime
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 import matplotlib.pyplot as plt
@@ -20,18 +20,13 @@ DB = StravaDB()
 
 class StravaActivity(object):
 
-    def __init__(self, activity_id, athlete_id, get_streams=False, gpx=None):
-        if gpx is not None:
-            self.init_from_gpx(gpx)
-        else:
-            self.init()
-
-    def init(self):
-        d = self.fetch_activity()
+    def __init__(self, activity_id, athlete_id, get_streams=False, is_route=False):
+        self.is_route = is_route
+        d = self.fetch_activity(activity_id, athlete_id)
         self.name = d['name']
         self.dt = d['start_dt']
         self.total_distance = d['distance']
-        self.moving_time = int(d['moving_time'])
+        self.moving_time = int(d.get('moving_time', 0))
         self.moving_time_string = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
         self.city = d['city']
         self.total_distance = d['distance']
@@ -42,55 +37,25 @@ class StravaActivity(object):
             self.init_streams()
             self.center = self.get_center()
 
-    def gpx_to_df(self, route):
-        d = collections.defaultdict(list)
-        
-        previous_point = None
-        for point in segment.points:
-            d['latitude'].append(point.latitude)
-            d['longitude'].append(point.longitude)
-            
-            if point.elevation < 0:
-                d['altitude'].append(previous_point.elevation)
-            else:
-                d['altitude'].append(point.elevation)
-            if previous_point is not None:
-                d['distance'].append(point.distance_2d(previous_point))
-            else:
-                d['distance'].append(0)
-            
-            previous_point = point
-              
-        seg_frame = pd.DataFrame(d)
-        seg_frame['distance'] = np.cumsum(seg_frame['distance'])
-        return seg_frame
-
-    def init_from_gpx(self, gpx_file):
-        self.name = ''
-        self.dt = datetime.now()
-        gpx_file = open(gpx_file, 'r')
-        gpx = gpxpy.parse(gpx)
-        route = gpx.tracks[0].segments[0]
-        self.df = gpx_to_df(route)
-        self.total_distance = self.df.distance.iloc[-1]
-        self.moving_time = 0
-        self.moving_time_string = ''
-        self.city = ''
-        self.fitness_level = 0
-        self.total_climb = 0
-
-
-    def fetch_activity(self):
+    def fetch_activity(self, activity_id, athlete_id):
         DB = StravaDB()
         self.id = activity_id
         self.athlete = athlete_id
-        cols = ['id', 'athlete_id', 'start_dt', 'name', 'moving_time',
+        
+        if self.is_route:
+            table = 'routes'
+            cols = ['id', 'athlete_id', 'start_dt', 'name',
                 'city', 'fitness_level', 'total_elevation_gain', 'distance']
-        q = """ SELECT %s FROM activities WHERE id = %s AND athlete_id = %s
-            """ % (', '.join(cols), self.id, self.athlete)
-
+        else:
+            table = 'activities'
+            cols = ['id', 'athlete_id', 'start_dt', 'name', 'moving_time',
+                'city', 'fitness_level', 'total_elevation_gain', 'distance']
+        q = """ SELECT %s FROM %s WHERE id = %s AND athlete_id = %s
+            """ % (', '.join(cols), table, self.id, self.athlete)
+        # print q
         DB.cur.execute(q)
         results = DB.cur.fetchone()
+        # print activity_id, athlete_id
         d = dict(zip(cols, results))
 
         return d
@@ -100,7 +65,9 @@ class StravaActivity(object):
         cols = ['activity_id', 'athlete_id', 'time', 'distance',
                 'velocity', 'grade', 'altitude', 'latitude', 'longitude']
         q = """SELECT %s FROM streams WHERE activity_id = %s""" % (', '.join(cols), self.id)
-        self.df = pd.read_sql(q, DB.db)
+        self.df = pd.read_sql(q, DB.conn)
+        if self.is_route:
+            self.df = self.df.sort('distance')
 
     def strava_date(self, date_string):
         # if type(date_string) != unicode:
@@ -135,14 +102,12 @@ class StravaActivity(object):
 
     def predict(self, model):
         df = self.make_df()
-        print df.info()
-        print df.head()
-        df.pop('time_int')
+
+        df.pop('velocity')
         X = df.values
-        pred_int = model.predict(X)
-        pred = np.cumsum(pred_int)
-        
-        self.df['predicted_time'] = pred
+        pred = model.predict(X)        
+        self.df['predicted_velocity'] = pred
+        self.df['predicted_time'] = vel_to_time(self.df.predicted_velocity, self.df.distance)
         self.predicted_moving_time = time.strftime('%H:%M:%S', time.gmtime(pred[-1]))
 
     def to_dict(self):
@@ -153,22 +118,13 @@ class StravaActivity(object):
         js['athlete'] = self.athlete
         d = (self.df.distance.values - self.df.distance.values[0]) / meters_per_mile
         t = (self.df.time.values - self.df.time.values[0])
-        # step = t[-1] / (1000)
-        # pt = self.predicted_time.raw_data
-        # new_t = np.arange(0, max(pt[-1], t[-1]) + step, step)
 
         js['altitude'] = (self.df.altitude.values * feet_per_meter).tolist()
-        # js['altitude_interp'] = np.interp(new_t, pt, self.altitude.filtered * feet_per_meter).tolist()
         js['distance'] = d.tolist()
-        # js['distance_interp'] = np.interp(new_t, t, d).tolist()
-        # js['velocity'] = self.velocity.filtered.tolist()
         js['latitude'] = self.df.latitude.values.tolist()
         js['longitude'] = self.df.longitude.values.tolist()
-        # js['latlng'] = self.latlng.raw_data[np.arange(0, self.latlng.raw_data.shape[0], 4)].tolist()
-        # js['performance_rating'] = self.rating
         js['center'] = self.get_center().tolist()
         js['time'] = t.tolist()
-        # js['time_interp'] = new_t.tolist()
         js['predicted_time'] = self.df.predicted_time.values.tolist()
         js['predicted_distance'] = np.interp(t, js['predicted_time'], js['distance']).tolist()
         js['predicted_altitude'] = np.interp(js['predicted_distance'], d, js['altitude']).tolist()
@@ -204,156 +160,6 @@ class StravaActivity(object):
 
         return np.array([sw, ne])
 
-    def hill_analysis(self):
-        diff_alt = diff(self.altitude.raw_data[:, np.newaxis],
-                        self.distance.raw_data[:, np.newaxis])
-        diff_alt = smooth(diff_alt, 'scipy')
-
-        hills = []
-        hill_start = False
-        hill_start_idx = 0
-        hill_start_time = 0
-        stream_length = self.distance.raw_data.shape[0]
-        climb_total = np.zeros(stream_length)
-        for k in xrange(stream_length):
-            time_elapsed = self.time.raw_data[k] - hill_start_time
-            if k != 0:
-                climb = np.max([self.altitude.raw_data[k] - self.altitude.raw_data[k - 1], 0])
-                climb_total[k] = climb_total[k - 1] + climb
-
-            if diff_alt[k] > 0 and not hill_start:
-                hill_start = True
-                hill_start_idx = k
-                hill_start_time = self.time.raw_data[hill_start_idx]
-
-            elif hill_start and (diff_alt[k] < 0 or k == stream_length - 1):
-                hill_start = False
-                if len(hills) != 0:
-                    prev_hill = hills[-1]
-                else:
-                    prev_hill = None
-                if k - hill_start_idx >= 2:
-                    stream_dict = self.make_stream_dict()
-                    for key in stream_dict:
-                        stream_dict[key]['data'] = stream_dict[key]['data'][hill_start_idx:k]
-
-                    effort_dict = {'id': len(hills),
-                                   'name': self.name,
-                                   'athlete': self.athlete,
-                                   'start_date': self.dt,
-                                   'streams': stream_dict}
-                    hill = StravaHill(effort_dict, self, previous_hill=prev_hill)
-                    hills.append(hill)
-
-        return self.clean_hills(hills)
-
-    def make_stream_dict(self):
-        return {stream_type: {'data': getattr(self, stream_type.replace('_smooth', '')).raw_data} \
-                for stream_type in self.stream_types()}
-
-    def clean_hills(self, hills):
-        min_score = 8000. / meters_per_mile
-        min_separation = 0.5  # miles
-        clean_hills = []
-        for k, hill in enumerate(hills):
-            if len(clean_hills) != 0:
-                if hill.distance.raw_data[0] - clean_hills[-1].distance.raw_data[-1] < min_separation:
-                    hill = self.merge_hills(clean_hills[-1], hill)
-                    clean_hills.pop()
-            if hill.score > min_score:
-                if hill.previous_hill is not None:
-
-                    if hill.previous_hill.score < min_score:
-                        hill.previous_hill = None
-                clean_hills.append(hill)
-
-        return clean_hills
-
-    def merge_hills(self, hill1, hill2):
-        stream_dict = {}
-        for stream_type in self.stream_types():
-            hill1_data = getattr(hill1, stream_type.replace('_smooth','')).raw_data
-            hill2_data = getattr(hill2, stream_type.replace('_smooth','')).raw_data
-            stream_dict[stream_type] = {}
-            stream_dict[stream_type]['data'] = np.append(hill1_data, hill2_data)
-        effort_dict = {'id': hill1.id,
-                       'name': hill1.name,
-                       'athlete': hill1.athlete,
-                       'start_date': hill1.date,
-                       'streams': stream_dict}
-        hill = StravaHill(effort_dict, self, previous_hill=hill1.previous_hill)
-
-        return hill
-
-    def plot_hills(self):
-        fig, ax = plt.subplots(1, 1, figsize=(12, 8))
-        p = PlotTool()
-        ax.plot(self.distance.raw_data, self.altitude.raw_data,
-                c='r', label='altitude')
-        xmin, xmax = np.min(self.distance.raw_data), np.max(self.distance.raw_data)
-        ymin, ymax = np.min(self.altitude.raw_data), np.max(self.altitude.raw_data)
-        ax.set_xlim([xmin, xmax])
-        ax.set_ylim([ymin, ymax])
-        ax.set_title(self.dt.date())
-        axis_label_font = 20
-        ax.set_xlabel('Distance (miles)', fontsize=axis_label_font)
-        ax.set_ylabel('Altitude (ft)', fontsize=axis_label_font)
-        ax.set_title('%s, %s, %s' % \
-                        (self.name, self.athlete['id'], self.dt.date()),
-                        fontsize=24)
-
-        ax.tick_params(labelsize=16)
-
-        cmap = plt.get_cmap("autumn")
-
-        for hill in self.hills:
-            label = 'Score: %0.0f' % (hill.score)
-            X = hill.distance.raw_data
-            Y = hill.altitude.raw_data
-            p.plot_fill(X, Y, hill.velocity.filtered, cmap, ax)
-
-        plt.show()
-
-    def plot_each_hill(self):
-        p = PlotTool()
-        r, c = p.subplot_dims(len(self.hills))
-        fig, axs = plt.subplots(r, c, figsize=(15, 12))
-
-        if r == 1 and c == 1:
-            axs = np.array([axs])
-
-        cmap = plt.get_cmap("autumn")
-        for k, ax in enumerate(axs.reshape(-1)):
-            hill = self.hills[k]
-            label = 'Score: %0.0f' % (hill.score)
-            X = hill.distance.raw_data
-            Y = hill.altitude.raw_data
-            p.plot_fill(X, Y, hill.velocity.filtered, cmap, ax)
-            ax.set_xlabel('Distance (miles)')
-            ax.set_ylabel('Altitude (feet)')
-        fig.suptitle('Hills for %s on %s' % (self.name, self.dt.date()),
-                     fontsize=20)
-        plt.show()
-
-    def plot_filter(self, key):
-        stream = getattr(self, key)
-        x = smooth(stream.raw_data, 'scipy')
-        plt.plot(self.distance.raw_data, x, label='hanning')
-        plt.plot(self.distance.raw_data, stream.filtered)
-
-        plt.legend()
-        plt.show()
-
-    def hills_df(self):
-        df = None
-        for hill in self.hills:
-            if df is None:
-                df = hill.make_df()
-            else:
-                df = df.append(hill.make_df(), ignore_index=True)
-
-        return df
-
     def fitness_level(self, level):
         self.fit_level = level
 
@@ -362,16 +168,16 @@ class StravaActivity(object):
         df = self.df.copy()
         df.pop('latitude')
         df.pop('longitude')
-        df.pop('velocity')
+        # df.pop('velocity')
         df.pop('activity_id')
         df.pop('athlete_id')
         df['grade'] = smooth(df['grade'], 'scipy')
         df['altitude'] = smooth(df['altitude'], 'scipy', window_len=22)
-        df['time_int'] = np.append(np.diff(df['time']), 0)
-        df['dist_int'] = np.append(np.diff(df['distance']), 0)
+        # df['time_int'] = np.append(np.diff(df['time']), 0)
+        # df['dist_int'] = np.append(np.diff(df['distance']), 0)
 
         # self.df['filtered_grade'] = smooth(self.df['grade'], 'scipy')
-        alt_diff = np.diff(df['altitude']-df['altitude'].iloc[0])
+        alt_diff = np.diff(df['altitude'])
         climb = np.cumsum(np.where(alt_diff < 0, 0, alt_diff))
         climb = np.append([0], climb)
         df['climb'] = climb
@@ -386,7 +192,8 @@ class StravaActivity(object):
                 df['%s_%s' % ('grade', -i)] = df['grade'].shift(i)
 
             df.rename(columns={'grade': 'grade_0'}, inplace=True)
-        # df.pop('time')
+        df.pop('time')
+        df.pop('ride_difficulty')
         # df.pop('distance')
         df.pop('altitude')
         df.fillna(0, inplace=True)

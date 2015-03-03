@@ -121,6 +121,13 @@ def diff(x, t):
     dxdt_flat = np.append(dxdt, dxdt[-1])
     return dxdt_flat.reshape(dxdt.shape[0] + 1, dxdt.shape[1])
 
+def vel_to_time(v, d):
+    dx = np.diff(d)
+    v_avg = (v + np.roll(v, -1)) / 2.
+    t = dx / v_avg[:-1]
+    t = np.append(0, t)
+    return np.cumsum(t)
+
 
 def main():
     pass
