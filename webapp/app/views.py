@@ -9,6 +9,7 @@ from StravaDB import StravaDB
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 import numpy as np
+import pandas as pd
 import requests
 import pymongo
 import json
@@ -19,10 +20,10 @@ import os.path
 
 
 # CLIENT = pymongo.MongoClient()
-# CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
+CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
+MONGODB = CLIENT.strava
 DB = StravaDB()
-# athlete = DB.athletes.find_one({'id': 4478600},{'model': 1})
-# MODEL = pickle.loads(athlete['model'])
+
 
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/index')
@@ -42,11 +43,18 @@ def token_exchange():
     code = request.args.get('code', None)
     api = StravaAPI()
     data = api.exchange_token(code)
-    athlete_dict = data['athlete']
-    athlete_dict['token'] = {'access_token': data['access_token'],
-                             'token_type': data['token_type']}
-    if DB.athletes.find_one({'id': athlete_dict['id']}) is None:
-        DB.athletes.insert(athlete_dict)
+    ath = data['athlete']
+    ath['token'] = data['access_token']
+    
+    d = {'id': ath['id'],
+         'firstname': ath['firstname'],
+         'lastname': ath['lastname'],
+         'sex': ath['sex'],
+         'city': ath['city'],
+         'state': ath['state'],
+         'country': ath['country'],
+         'access_token': ath['access_token']}
+    self.insert_values('athletes', d)
 
     return redirect(url_for('index'))
 
@@ -63,7 +71,7 @@ def fit():
     y = all_rides_df.pop('velocity')
     X = all_rides_df.values
     # model = RandomForestRegressor(max_depth=8)
-    model = RandomForestRegressor()
+    model = RandomForestRegressor(max_depth=8)
     # model = LinearRegression()
     # model = GradientBoostingRegressor()
 
@@ -164,6 +172,7 @@ def change():
     print 'Predicting'
     a.predict(d[uid]['model'])
     print 'Predicted'
+    print 'max is ', a.df.altitude.max()
     return jsonify(a.to_dict())
 
 @app.route("/chart")

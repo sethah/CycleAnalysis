@@ -12,9 +12,7 @@ var line;
 function initialize() {
   getActivity('{{athlete.activities[0].id}}', '{{athlete.userid}}', '#activity{{ athlete.activities[0].id }}');
 }
-// $( document ).ready(function() {
 
-// });
 function setMap(a) {
 
   console.log(a.latitude);
@@ -37,7 +35,7 @@ function setMap(a) {
   var lineSymbol = {
     path: google.maps.SymbolPath.CIRCLE,
     scale: 8,
-    strokeColor: '#888'
+    strokeColor: '#000'
   };
 
   var lineSymbolA = {
@@ -48,6 +46,7 @@ function setMap(a) {
 
   line = new google.maps.Polyline({
     path: coords,
+    strokeColor: '#1da1cc',
     icons: [{
       icon: lineSymbol,
       offset: '100%'
@@ -75,7 +74,8 @@ function zip(arrays) {
 }
 function lineChart(a) {
     data = zip([a.distance, a.altitude]);
-    console.log(data[100]);
+    var ymin = Math.min.apply(null, a.altitude)
+    var ymax = Math.max.apply(null, a.altitude)
         chart = new Highcharts.Chart({
             chart: {
                 renderTo: 'container'
@@ -88,6 +88,8 @@ function lineChart(a) {
                 ordinal: false
             },
             yAxis: {
+              min: ymin,
+              max: ymax,
                 title: {
                     text: 'Altitude (ft)'
                 }
@@ -113,33 +115,16 @@ function lineChart(a) {
                 }
             },
             {
-              type: 'scatter',
+              type: 'line',
               name: 'Actual',
-              data: [[a.distance[0], a.altitude[0]]]
+              data: [[0, 0], [0, 10000]]
             },
             {
-              type: 'scatter',
+              type: 'line',
               name: 'Predicted',
-              data: [[a.predicted_distance[0], a.altitude[0]]]
+              data: [[0, 0], [0, 10000]]
             }]
         });
-    // });
-
-    $('#update').click(function() {
-        count = 0;
-    chartInterval = window.setInterval(function() {
-      count = count + 1;
-      if (count >= 1000) {
-        clearInterval(chartInterval)
-      }
-      else {
-        chart.series[1].points[0].update({x: a.distance[count], y: a.altitude[count]}, true, {duration: 50, easing: 'linear'});
-        chart.series[2].points[0].update({x: a.predicted_distance[count], y: a.altitude[count]}, true, {duration: 50, easing: 'linear'});
-      }
-    }, 50);
-    });
-
-
 };
 
 function simRide(a) {
@@ -151,7 +136,7 @@ function simRide(a) {
     var duration = moment.duration(0, 'seconds');
 
     simInterval = window.setInterval(function() {
-      count = count + 8;
+      count = count + 10;
       if (count >= d.length) {
         clearInterval(simInterval)
       }
@@ -162,16 +147,14 @@ function simRide(a) {
         icons[1].offset = pd[count]*100.0/total_distance + '%';
         line.set('icons', icons);
         duration = moment.duration(a.time[count]*1000, 'seconds');
-        chart.series[1].points[0].update({x: a.distance[count], y: a.altitude[count]}, true, {duration: 50, easing: 'linear'});
-        chart.series[2].points[0].update({x: a.predicted_distance[count], y: a.predicted_altitude[count]}, true, {duration: 50, easing: 'linear'});
+        chart.series[1].setData([[a.distance[count], 0], [a.distance[count], 10000]]);
+        chart.series[2].setData([[a.predicted_distance[count], 0], [a.predicted_distance[count], 10000]]);
 
         document.getElementById('playback-timer').innerHTML = moment.utc(a.time[count]*1000).format("HH:mm")
-
         document.getElementById('playback-margin').innerHTML = (d[count] - pd[count]).toFixed(2);
-        // document.getElementById('playback-margin').style.backgroundColor = 'red';
         document.getElementById('playback-distance').innerHTML = d[count].toFixed(2);
       }
-  }, 30);
+  }, 50);
 }
 
 function getActivity(aid, uid, activityElement) {
@@ -189,7 +172,7 @@ function switchActivity(a) {
   activity = a
   $(document.getElementById('activity_desc')).text(a['name']);
   $(document.getElementById('activity_date')).text(a['date']);
-  // $(document.getElementById('activity_rating')).text(response['performance_rating'][1]);
+  $(document.getElementById('activity_rating')).text(a['ride_rating'][1]);
   $(document.getElementById('activity_start')).text(a['start_time']);
   $(document.getElementById('activity_moving_time')).text(a['moving_time']);
   $(document.getElementById('activity_pred_time')).text(a['predicted_total_time']);
@@ -237,9 +220,7 @@ function switchActivity(a) {
           </tr>
         </table>
       </div>
-      <!-- style="width:500px;height:380px;" -->
       <div class="map" id="map-canvas" style="width:500px;height:380px;"></div>
-      <!-- <div id="curve_chart" ></div> -->
       <div id="container" style="min-width: 310px; height: 400px; max-width: 800px; margin: 0 auto"></div>
     </div>
       <div class='span2 main'></div>
@@ -268,8 +249,6 @@ function switchActivity(a) {
   </div>
 </div>
 <script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
-
-
 
     <script type="text/javascript" charset="utf-8">
       $(document).ready(function() {

@@ -133,15 +133,17 @@ class StravaActivity(object):
         js['moving_time'] = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
         # js['grade'] = self.grade.filtered.tolist()
         js['id'] = self.id
+        js['ride_rating'] = self.ride_score()
 
         return js
 
     def ride_score(self):
         ratings = ['Poor', 'Below Average', 'Average', 'Good', 'Great!', 'Excellent']
         scores = range(len(ratings))
-        criteria = np.array([0.3, 0.15, 0, -0.1, -0.2, -0.3])
+        criteria = np.array([0.5, 0.3, 0, -0.2, -0.3, -0.4])
         if self.predicted_moving_time is not None:
-            predicted_time = self.predicted_moving_time
+            predicted_time = self.df.predicted_time.iloc[-1]
+            print predicted_time, self.moving_time
             performance = (self.moving_time - predicted_time) / predicted_time
 
             tmp = criteria-performance

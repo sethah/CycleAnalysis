@@ -5,6 +5,8 @@ import pymongo
 from datetime import date, timedelta, datetime
 import time
 import calendar
+from StravaDB import StravaDB
+import traceback
 
 ACCESS_TOKEN = '535848c783c374e8f33549d22f089c1ce0d56cd6'
 # ACCESS_TOKEN = 'c12c290c0e9241b09314c850cd24ce97e036ac4f'
@@ -59,29 +61,64 @@ class StravaAPI(object):
                          {'$set': {'fitness_level': level}})
 
     def store_activities(self):
+        DB = StravaDB()
         table = self.db.activities
         activities = self.list_activities()
-        for activity in activities:
-            if activity['type'] != 'Ride':
+        for a in activities:
+            if a['type'] != 'Ride':
                 continue
-            if table.find_one({'id': activity['id']}) is not None:
-                continue
-            streams = self.get_stream(activity['id'])
 
-            activity['streams'] = streams
-            table.insert(activity)
+            d = {'id': a['id'],
+                 'start_dt': datetime.strptime(a['start_date_local'], '%Y-%m-%dT%H:%M:%SZ'),
+                 'timezone': a['timezone'],
+                 'city': a['location_city'],
+                 'country': a['location_country'],
+                 'start_longitude': a['start_longitude'],
+                 'start_latitude': a['start_latitude'],
+                 'elapsed_time': a['elapsed_time'],
+                 'distance': a['distance'],
+                 'moving_time': a['moving_time'],
+                 'fitness_level': 0,
+                 'average_speed': a['average_speed'],
+                 'max_speed': a['max_speed'],
+                 'name': a['name'],
+                 'total_elevation_gain': a['total_elevation_gain'],
+                 'athlete_id': a['athlete']['id']
+            }
+            data = DB.process_streams(self.get_stream(a['id']), a['athlete']['id'], a['id'])
+            print len(data)
+            # break
+            try:
+                DB.insert_values('activities', d)
+            except IntegrityError:
+                print traceback.format_exc()
+                continue
+            try:
+                q = """ INSERT INTO streams (activity_id, athlete_id, time, distance, grade, altitude, velocity, latitude, longitude)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """
+                DB.cur.executemany(q, data)
+            except IntegrityError:
+                print traceback.format_exc()
+                continue
+
             print 'Stored activity for %s on %s' % (
-                                                    activity['athlete']['id'],
-                                                    activity['start_date'])
+                                                    a['athlete']['id'],
+                                                    a['start_date'])
+        DB.conn.commit()
+
+    # def store_streams(self, athlete_id):
+    #     DB = StravaDB()
+    #     q = """ SELECT """
+    #     activities = DB.cur.execute(q)
 
     def downsample(self, t, vec, num_samples=5000):
-        # print type(t), type(vec), type(num_samples)
         if len(vec) < num_samples:
             return vec
         new_t = np.linspace(t[0], t[-1], num_samples)
         print len(new_t), len(t), len(vec)
         return np.interp(new_t, np.array(t), np.array(vec)).tolist()
-            # break
+
     def get_stream(self, stream_id, types=None, stream_type='activity'):
         payload = {'resolution': 'high'}
         if types is None:

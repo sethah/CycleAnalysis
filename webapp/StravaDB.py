@@ -119,8 +119,8 @@ class StravaDB(object):
 
         return time, distance
 
-    def process_streams(self, activity):
-        stream_dict = activity['streams']
+    def process_streams(self, stream_dict, athlete_id, activity_id):
+        # stream_dict = activity['streams']
         distance = np.array(stream_dict['distance']['data'])
         time = np.array(stream_dict['time']['data'])
         velocity = np.array(stream_dict['velocity_smooth']['data'])
@@ -140,8 +140,8 @@ class StravaDB(object):
         velocity = np.interp(new_time, time, velocity)
         grade = np.interp(new_time, time, grade)
         altitude = np.interp(new_time, time, altitude)
-        athlete_ids = np.array([activity['athlete']['id']]*new_time.shape[0])
-        activity_ids = np.array([activity['id']]*new_time.shape[0])
+        athlete_ids = np.array([athlete_id]*new_time.shape[0])
+        activity_ids = np.array([activity_id]*new_time.shape[0])
 
         zipped = zip(activity_ids, athlete_ids, new_time, distance, grade, altitude, velocity, latitude, longitude)
         return [list(x) for x in zipped]
