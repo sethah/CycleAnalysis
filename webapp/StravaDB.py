@@ -183,12 +183,12 @@ class StravaDB(object):
 
     def gpx_to_df(self, route):
         d = collections.defaultdict(list)
-        
+
         previous_point = None
         for point in route.points:
             d['latitude'].append(point.latitude)
             d['longitude'].append(point.longitude)
-            
+
             if point.elevation < 0:
                 d['altitude'].append(previous_point.elevation)
             else:
@@ -197,7 +197,7 @@ class StravaDB(object):
                 d['distance'].append(point.distance_2d(previous_point))
             else:
                 d['distance'].append(0)
-            
+
             previous_point = point
 
         d['distance'] = np.cumsum(d['distance'])
@@ -206,7 +206,7 @@ class StravaDB(object):
         d['latitude'] = np.interp(new_dist, d['distance'], d['latitude'])
         d['longitude'] = np.interp(new_dist, d['distance'], d['longitude'])
         d['distance'] = new_dist
-              
+
         seg_frame = pd.DataFrame(d)
         # seg_frame['distance'] = np.cumsum(seg_frame['distance'])
         seg_frame['grade'] = np.append(np.diff(seg_frame['altitude']), 0) * 100 / \

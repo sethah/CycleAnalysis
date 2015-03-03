@@ -45,7 +45,7 @@ def token_exchange():
     data = api.exchange_token(code)
     ath = data['athlete']
     ath['token'] = data['access_token']
-    
+
     d = {'id': ath['id'],
          'firstname': ath['firstname'],
          'lastname': ath['lastname'],
@@ -53,8 +53,9 @@ def token_exchange():
          'city': ath['city'],
          'state': ath['state'],
          'country': ath['country'],
-         'access_token': ath['access_token']}
-    self.insert_values('athletes', d)
+         'access_token': ath['token']}
+    DB.insert_values('athletes', d)
+    DB.conn.commit()
 
     return redirect(url_for('index'))
 
