@@ -116,18 +116,32 @@ class StravaActivity(object):
         js['date'] = datetime.strftime(self.dt.date(), '%A %B %d, %Y')
         js['start_time'] = datetime.strftime(self.dt, '%H:%M:%S %p')
         js['athlete'] = self.athlete
+        js['predicted_time'] = self.df.predicted_time.values.tolist()
+        js['altitude'] = (self.df.altitude.values * feet_per_meter).tolist()
+
         d = (self.df.distance.values - self.df.distance.values[0]) / meters_per_mile
         t = (self.df.time.values - self.df.time.values[0])
-
-        js['altitude'] = (self.df.altitude.values * feet_per_meter).tolist()
+        js['predicted_distance'] = np.interp(t, js['predicted_time'], d).tolist()
+        js['predicted_altitude'] = np.interp(js['predicted_distance'], d, js['altitude']).tolist()
+        js['time'] = t.tolist()
         js['distance'] = d.tolist()
+
+        # for the ride simulation we need to go until the time when both have finished
+        max_time = np.max([t[-1], js['predicted_time'][-1]])
+        new_t = np.linspace(0, max_time, 5000)
+        js['plot_time'] = new_t.tolist()
+        js['plot_distance'] = np.interp(new_t, t, d).tolist()
+        js['plot_altitude'] = np.interp(js['plot_distance'], js['distance'], js['altitude']).tolist()
+        js['plot_predicted_distance'] = np.interp(new_t, js['predicted_time'], js['distance']).tolist()
+        js['plot_predicted_altitude'] = np.interp(js['plot_predicted_distance'], js['predicted_distance'], js['predicted_altitude']).tolist()
+        js['plot_distance_difference'] = (np.interp(new_t, t, d) - np.interp(new_t, js['predicted_time'], js['distance'])).tolist()
+        
+        
         js['latitude'] = self.df.latitude.values.tolist()
         js['longitude'] = self.df.longitude.values.tolist()
         js['center'] = self.get_center().tolist()
-        js['time'] = t.tolist()
-        js['predicted_time'] = self.df.predicted_time.values.tolist()
-        js['predicted_distance'] = np.interp(t, js['predicted_time'], js['distance']).tolist()
-        js['predicted_altitude'] = np.interp(js['predicted_distance'], d, js['altitude']).tolist()
+        
+        
         js['total_distance'] = self.total_distance
         js['predicted_total_time'] = time.strftime('%H:%M:%S', time.gmtime(js['predicted_time'][-1]))
         js['moving_time'] = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))

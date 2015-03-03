@@ -4,6 +4,7 @@
     <style>
       #map-canvas {text-align: center;}
     </style>
+    <link href="/static/css/rides.css" rel="stylesheet">
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true"></script>
     <script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
 
@@ -11,14 +12,10 @@
 var line;
 
 function initialize() {
-  getActivity('{{athlete.activities[0].id}}', '{{athlete.userid}}', '#activity{{ athlete.activities[0].id }}');
+  getActivity('{{activities[0].id}}', '{{athlete.userid}}', '#activity{{activities[0].id }}');
 }
 
 function setMap(a) {
-
-  console.log(a.latitude);
-  console.log(a.longitude);
-  console.log(a.center);
 
   var mapOptions = {
     mapTypeId: google.maps.MapTypeId.TERRAIN
@@ -73,8 +70,30 @@ function zip(arrays) {
         return arrays.map(function(array){return array[i]})
     });
 }
+function addCrosshair(x, y, color) {
+    chart.xAxis[0].addPlotLine({
+        id: 'xPlotLine'+x,
+        value: x,
+      width: 2,
+      color: color
+    });
+    
+    chart.yAxis[0].addPlotLine({
+        id: 'yPlotLine'+y,
+        value: y,
+      width: 2,
+      color: color
+    });
+}
+
+function removeCrosshair(x,y) {
+    chart.xAxis[0].removePlotLine('xPlotLine'+x);
+    chart.yAxis[0].removePlotLine('yPlotLine'+y);
+}
 function lineChart(a) {
-    data = zip([a.distance, a.altitude]);
+    data = zip([a.plot_distance, a.plot_altitude]);
+    data1 = zip([a.plot_predicted_distance, a.plot_predicted_altitude]);
+    console.log(data)
     var ymin = Math.min.apply(null, a.altitude)
     var ymax = Math.max.apply(null, a.altitude)
         chart = new Highcharts.Chart({
@@ -95,78 +114,75 @@ function lineChart(a) {
                     text: 'Altitude (ft)'
                 }
             },
-            plotOptions: {
-                area: {
-                    fillColor: {
-                        linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1},
-                        stops: [
-                            [0, Highcharts.getOptions().colors[0]],
-                            [1, Highcharts.Color(Highcharts.getOptions().colors[0]).setOpacity(0).get('rgba')]
-                        ]
-                    },
-
-                }
-            },
             title: {
                 text: 'Ride profile'
             },
+            plotOptions: {
+                    series: {
+                        compare: 'percent'
+                    }
+                },
             series: [
             {
               type: 'area',
               name: 'Altitude',
+              fillOpacity: 0.5,
               data: data,
-              lineWidth: 3,
-                marker: {
-                    enabled: false,
-                    radius: 0,
-                    states: {
-                        hover: {
-                            enabled: true,
-                            lineColor: 'rgb(100,100,100)'
-                        }
-                    }
-                }
-            },
-            {
-              type: 'line',
-              name: 'Actual',
-              data: [[0, 0], [0, 10000]]
-            },
-            {
-              type: 'line',
-              name: 'Predicted',
-              data: [[0, 0], [0, 10000]]
-            }]
+
+              lineWidth: 2
+            }
+            ]
         });
 };
 
 function simRide(a) {
     document.getElementById("ride-console").style.visibility = "visible";
     var count = 0;
-    d = a['distance'];
-    pd = a['predicted_distance'];
+    d = a['plot_distance'];
+    pd = a['plot_predicted_distance'];
     total_distance = d[d.length - 1];
     var duration = moment.duration(0, 'seconds');
 
     simInterval = window.setInterval(function() {
-      count = count + 10;
-      if (count >= d.length) {
+      // console.log(count)
+      // console.log(d.length)
+      var offset1 = d[count]*100.0/total_distance
+      var offset2 = pd[count]*100.0/total_distance
+      // console.log(offset1, offset2)
+      if ((offset1 > 99.8) & (offset2 > 99.8)) {
+        console.log('cleared')
         clearInterval(simInterval)
       }
       else {
 
         var icons = line.get('icons');
-        icons[0].offset = d[count]*100.0/total_distance + '%';
-        icons[1].offset = pd[count]*100.0/total_distance + '%';
+        
+        icons[0].offset = offset1 + '%';
+        icons[1].offset = offset2 + '%';
         line.set('icons', icons);
-        duration = moment.duration(a.time[count]*1000, 'seconds');
-        chart.series[1].setData([[a.distance[count], 0], [a.distance[count], 10000]]);
-        chart.series[2].setData([[a.predicted_distance[count], 0], [a.predicted_distance[count], 10000]]);
+        duration = moment.duration(a.plot_time[count]*1000, 'seconds');
+        var p1 = chart.series[0].points[count];
+        // var p2 = chart.series[1].points[count];
+        addCrosshair(p1.x, p1.y, '#000')
+        addCrosshair(a.plot_predicted_distance[count], a.plot_predicted_altitude[count], '#390')
+        chart.tooltip.refresh(p1);
+        // chart.tooltip.refresh(p2);
+        if (count != 0){
+          var previous1 = chart.series[0].points[count - 10];
+          // var previous2 = chart.series[1].points[count - 10];
+          removeCrosshair(previous1.x, previous1.y) 
+          removeCrosshair(a.plot_predicted_distance[count -10], a.plot_predicted_altitude[count-10]) 
+        }
+        
+        
+        // chart.series[1].setData([[a.plot_distance[count], 0], [a.plot_distance[count], 10000]]);
+        // chart.series[2].setData([[a.plot_predicted_distance[count], 0], [a.plot_predicted_distance[count], 10000]]);
 
         document.getElementById('playback-timer').innerHTML = moment.utc(a.time[count]*1000).format("HH:mm")
         document.getElementById('playback-margin').innerHTML = (d[count] - pd[count]).toFixed(2);
         document.getElementById('playback-distance').innerHTML = d[count].toFixed(2);
       }
+      count = count + 10;
   }, 50);
 }
 
@@ -176,6 +192,18 @@ function getActivity(aid, uid, activityElement) {
         athlete_id: uid
     }).done(function(response){
       switchActivity(response)
+    }).fail(function() {
+        console.log('fail');
+    });
+}
+
+function deleteRoute(rid, uid, routeElement) {
+  $.post('/delete/route', {
+        route_id: rid,
+        athlete_id: uid
+    }).done(function(response){
+      var row = document.getElementById('route' + rid.toFixed());
+      row.parentNode.removeChild(row);
     }).fail(function() {
         console.log('fail');
     });
@@ -197,6 +225,18 @@ function switchActivity(a) {
   }
   setMap(a)
   lineChart(a)
+}
+
+function uploadRoute(){
+  console.log('asdfdasf')
+  document.getElementById('route-upload').innerHTML = '<form enctype="multipart/form-data" action="/upload" method="POST" id="upload-form">' + 
+      '<input type="hidden" value="{{athlete.userid}}" name="athlete_id">' + 
+      '<p>Ride description: '+
+      '<input type="text" name="ride_title" size="3"></p>'+
+      '<input name="file" type="file" accept=".gpx"/><br />'+
+      '<input type="submit" value="Upload">'+
+      '</form>';
+  document.getElementById("route-upload").style.visibility = "visible";
 }
 
       google.maps.event.addDomListener(window, 'load', initialize);
@@ -224,6 +264,8 @@ function switchActivity(a) {
       <div class="wrapper">
           <button id="play" onclick="simRide(activity)">Play Ride</button>
       </div>
+      
+      <div class="map" id="map-canvas" style="width:500px;height:380px;"></div>
       <div id="ride-console" style="visibility: hidden;">
         <table>
           <tr>
@@ -233,33 +275,42 @@ function switchActivity(a) {
           </tr>
         </table>
       </div>
-      <div class="map" id="map-canvas" style="width:500px;height:380px;"></div>
       <div id="container" style="min-width: 310px; height: 400px; max-width: 800px; margin: 0 auto"></div>
     </div>
       <div class='span2 main'></div>
       <div class='span6 main'>
-      <form enctype="multipart/form-data" action="/upload" method="POST">
-      Upload GPX File:
-      <input type="hidden" value="{{athlete.userid}}" name="athlete_id">
-      <input name="file" type="file" accept=".gpx"/><br />
-      <input type="submit" value="Upload File" />
-      </form>
 
+      <h4>Your routes</h4>
+      <div id="route-upload"><p><a class='button' onclick="uploadRoute()">Upload a Route</a></p></div>
       <table align="right">
         <thead>
-          <th>Rating</th>
           <th>Ride Name</th>
           <th>Date</th>
           <th>Distance</th>
-          <th>Start</th>
+          <th></th>
         </thead>
-      {% for a in athlete.activities %}
+      {% for r in routes %}
+      <tr id="route{{r.id}}">
+        <td><a href="javascript:getActivity({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">{{r.name}}</a></td>
+        <td>{{r.dt.strftime("%B %d, %Y")}}</td>
+        <td>{{(r.total_distance / 1609.34)|round(0, 'floor')}}</td>
+        <td><a href="javascript:deleteRoute({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">delete</a></td>
+      </tr>
+      {% endfor %}
+      </table>
+
+      <h4>Your completed activities</h4>
+      <table align="right">
+        <thead>
+          <th>Ride Name</th>
+          <th>Date</th>
+          <th>Distance</th>
+        </thead>
+      {% for a in activities %}
       <tr>
-        <td></td>
         <td><a href="javascript:getActivity({{a.id}}, {{athlete.userid}}, '#activity{{ a.id }}');">{{a.name}}</a></td>
         <td>{{a.dt.strftime("%B %d, %Y")}}</td>
         <td>{{(a.total_distance / 1609.34)|round(0, 'floor')}}</td>
-        <td>{{a.dt.strftime("%I:%M:%S %p")}}</td>
       </tr>
       {% endfor %}
     </table>

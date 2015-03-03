@@ -94,6 +94,7 @@ def fit():
 @app.route('/upload', methods=['POST'])
 def upload_gpx():
     uid = int(request.form.get('athlete_id', 0))
+    ride_name = request.form.get('ride_title', 'New Route')
     f = request.files['file']
 
     if f:
@@ -102,9 +103,30 @@ def upload_gpx():
         fpath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         f.save(os.path.abspath(fpath))
         DB = StravaDB()
-        DB.create_route(fpath, uid, 'Test Upload Route')
+        DB.create_route(fpath, uid, ride_name)
     return redirect(url_for('rides', userid=4478600))
 
+@app.route('/delete/route', methods=['POST'])
+def delete_route():
+    route_id = int(request.form.get('route_id', 0))
+    athlete_id = int(request.form.get('athlete_id', 0))
+
+    DB = StravaDB()
+    q = """ DELETE FROM streams
+            WHERE activity_id = %s
+            AND athlete_id = %s
+        """ % (route_id, athlete_id)
+    DB.cur.execute(q)
+
+    q = """ DELETE FROM routes
+            WHERE id = %s
+            AND athlete_id = %s
+        """ % (route_id, athlete_id)
+    DB.cur.execute(q)
+
+    DB.conn.commit()
+
+    return ''
 
 @app.route('/get-data', methods=['POST'])
 def get_data():
@@ -145,6 +167,13 @@ def rides(userid):
 
     print 'creating user'
     u = StravaUser(int(userid))
+    activities = []
+    routes = []
+    for a in u.activities:
+        if a.is_route:
+            routes.append(a)
+        else:
+            activities.append(a)
 
     # pass a single activity with all the streams
     activity = u.activities[0]
@@ -155,6 +184,8 @@ def rides(userid):
     return render_template(
         'rides.html',
         athlete = u,
+        activities=activities,
+        routes=routes,
         activity = activity)
 
 @app.route('/change', methods=['POST'])
