@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-
+<style>
+html { 
+  background: url(/static/img/cycle_bg.jpg) no-repeat center center fixed; 
+  -webkit-background-size: cover;
+  -moz-background-size: cover;
+  -o-background-size: cover;
+  background-size: cover;
+}
+</style>
+<!-- <body background="/static/img/cycle_bg.jpg"> -->
 <script>
 function addAthlete(){
 	document.getElementById("add-athlete").style.visibility = "visible";
@@ -64,7 +73,7 @@ function checkUser(uid) {
 
 <div class='span2 main'></div>
 <div class='span6 main'>
-<h3>Current Athletes</h3>
+<h3 style="color: white;">Current Athletes</h3>
 <table>
 	<thead>
 		<th>Athlete</th>
@@ -84,7 +93,7 @@ function checkUser(uid) {
 </br>
 <div id="new-user-status" style="visibility: hidden; margin-left=10px;"></div>
 </br>
-<p>Don't see yourself?</p>
+<p style="color: white;">Don't see yourself?</p>
 <a href="https://www.strava.com/oauth/authorize?client_id=4554&response_type=code&redirect_uri=http://hendris.pythonanywhere.com/token_exchange&approval_prompt=force">
 <img src="static/img/ConnectWithStrava.png">
 </a>
