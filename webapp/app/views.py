@@ -17,6 +17,7 @@ from datetime import datetime
 from bson.binary import Binary
 import pickle
 import os.path
+from werkzeug import secure_filename
 
 
 # CLIENT = pymongo.MongoClient()
@@ -24,6 +25,7 @@ CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:4916
 MONGODB = CLIENT.strava
 DB = StravaDB()
 
+app.config['UPLOAD_FOLDER'] = 'app/uploads/'
 
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/index')
@@ -86,24 +88,23 @@ def fit():
     print 'Model fit!'
     d[uid] = {'date': datetime.now(), 'model': model}
     pickle.dump(d, open('model_%s.pkl' % uid, 'wb'))
-    # binary_model = Binary(pickle.dumps(model, protocol=2))
-    # DB.athletes.update({'id': uid}, {'$set': {'model': binary_model}})
 
-
-    # m = StravaModel(model)
-    # for a in u.activities:
-    #     # forecast, true, pred_time = m.predict_activity(a)
-
-    #     # put the predicted data in the db and leave a timestamp
-    #     DB.activities.update(
-    #         {'id': a.id},
-    #         {'$set': {'streams.predicted_time.data': np.cumsum(forecast).tolist(),
-    #                   'predicted_moving_time': pred_time,
-    #                   'date_predicted': datetime.strftime(datetime.now(), '%Y-%m-%dT%H:%M:%SZ')
-    #                   }}
-    #         )
-    #     print 'stored', a.id
     return str(len(u.activities))
+
+@app.route('/upload', methods=['POST'])
+def upload_gpx():
+    uid = int(request.form.get('athlete_id', 0))
+    f = request.files['file']
+
+    if f:
+         # Make the filename safe, remove unsupported chars
+        filename = secure_filename(f.filename)
+        fpath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        f.save(os.path.abspath(fpath))
+        DB = StravaDB()
+        DB.create_route(fpath, uid, 'Test Upload Route')
+    return redirect(url_for('rides', userid=4478600))
+
 
 @app.route('/get-data', methods=['POST'])
 def get_data():

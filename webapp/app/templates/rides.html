@@ -238,9 +238,13 @@ function switchActivity(a) {
     </div>
       <div class='span2 main'></div>
       <div class='span6 main'>
-      <form enctype="multipart/form-data" action="/upload/image" method="post">
-          <input id="image-file" type="file" />
+      <form enctype="multipart/form-data" action="/upload" method="POST">
+      Upload GPX File:
+      <input type="hidden" value="{{athlete.userid}}" name="athlete_id">
+      <input name="file" type="file" accept=".gpx"/><br />
+      <input type="submit" value="Upload File" />
       </form>
+
       <table align="right">
         <thead>
           <th>Rating</th>

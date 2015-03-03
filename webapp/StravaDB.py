@@ -213,7 +213,7 @@ class StravaDB(object):
                         np.append(np.diff(seg_frame['distance']), 0.01)
         return seg_frame.sort('distance')
 
-    def create_route(self, gpx_file, athlete_id):
+    def create_route(self, gpx_file, athlete_id, name):
         gpx_file = open(gpx_file, 'r')
         gpx = gpxpy.parse(gpx_file)
         route = gpx.tracks[0].segments[0]
@@ -227,7 +227,7 @@ class StravaDB(object):
              'start_latitude': route.points[0].latitude,
              'distance': df.distance.iloc[-1],
              'fitness_level': 0,
-             'name': 'Route',
+             'name': name,
              'total_elevation_gain': 0,
              'athlete_id': athlete_id
             }
