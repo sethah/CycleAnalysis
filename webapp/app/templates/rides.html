@@ -87,12 +87,12 @@ function addCrosshair(x, y, color) {
       color: color
     });
     
-    chart.yAxis[0].addPlotLine({
-        id: 'yPlotLine'+y,
-        value: y,
-      width: 2,
-      color: color
-    });
+    // chart.yAxis[0].addPlotLine({
+    //     id: 'yPlotLine'+y,
+    //     value: y,
+    //   width: 2,
+    //   color: color
+    // });
 }
 
 function removeCrosshair(x,y) {
@@ -101,28 +101,37 @@ function removeCrosshair(x,y) {
 }
 function lineChart(a) {
     data = zip([a.plot_distance, a.plot_altitude]);
-    data1 = zip([a.plot_predicted_distance, a.plot_predicted_altitude]);
+    data1 = zip([a.plot_distance, a.streaming_predict]);
     console.log(data)
     var ymin = Math.min.apply(null, a.plot_altitude)
     var ymax = Math.max.apply(null, a.plot_altitude)
+    var xmin = Math.min.apply(null, a.plot_distance)
+    var xmax = Math.max.apply(null, a.plot_distance)
         chart = new Highcharts.Chart({
             chart: {
                 renderTo: 'container'
             },
             xAxis: {
+              min: xmin,
+              max: xmax,
                 title: {
                     enabled: true,
                     text: 'Distance (mi)'
                 },
                 ordinal: false
             },
-            yAxis: {
-              min: ymin,
-              max: ymax,
+            yAxis: [{
+                min: ymin,
+                max: ymax,
                 title: {
                     text: 'Altitude (ft)'
                 }
             },
+            {
+                title: {
+                    text: 'Time (s)'
+                }
+            }],
             title: {
                 text: 'Ride profile'
             },
@@ -135,9 +144,23 @@ function lineChart(a) {
             {
               type: 'area',
               name: 'Altitude',
+              yAxis: 0,
               fillOpacity: 0.5,
               data: data,
               lineWidth: 2
+            },
+            {
+              type: 'spline',
+              name: 'Predicted Time',
+              yAxis: 1,
+              data: data1,
+              lineWidth: 2
+            },
+            {
+              type: 'line',
+              name: 'Actual Time',
+              yAxis: 1,
+              data: [[-100, a.plot_time[a.plot_time.length - 1]], [600, a.plot_time[a.plot_time.length - 1]]]
             }
             ]
         });
@@ -148,16 +171,13 @@ function simRide(a) {
     var count = 0;
     d = a['plot_distance'];
     pd = a['plot_predicted_distance'];
-    total_distance = d[d.length - 1];
     var duration = moment.duration(0, 'seconds');
 
     simInterval = window.setInterval(function() {
-      // console.log(count)
-      // console.log(d.length)
       var isDone = false
 
-      var offset1 = d[count]*100.0/total_distance
-      var offset2 = pd[count]*100.0/total_distance
+      var offset1 = d[count]*100.0/a.total_distance
+      var offset2 = pd[count]*100.0/a.total_distance
       console.log(offset1, offset2)
       if (a['type'] != 'route'){
         if ((offset1 > 99.8) & (offset2 > 99.8)) {
@@ -200,12 +220,12 @@ function simRide(a) {
             removeCrosshair(a.plot_predicted_distance[count -10], a.plot_predicted_altitude[count-10])
           }
         }
-        
+        // debugger;
         
         // chart.series[1].setData([[a.plot_distance[count], 0], [a.plot_distance[count], 10000]]);
         // chart.series[2].setData([[a.plot_predicted_distance[count], 0], [a.plot_predicted_distance[count], 10000]]);
 
-        document.getElementById('playback-timer').innerHTML = moment.utc(a.time[count]*1000).format("HH:mm")
+        document.getElementById('playback-timer').innerHTML = moment.utc(a.plot_time[count]*1000).format("HH:mm")
         document.getElementById('playback-margin').innerHTML = (d[count] - pd[count]).toFixed(2);
         document.getElementById('playback-distance').innerHTML = d[count].toFixed(2);
       }

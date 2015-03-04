@@ -8,6 +8,7 @@ from StravaAPI import StravaAPI
 from StravaDB import StravaDB
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.cross_validation import cross_val_score, train_test_split
 import numpy as np
 import pandas as pd
 import requests
@@ -69,27 +70,35 @@ def fit():
     # train a model on all of the data
     uid = int(request.form.get('userid', None))
 
-    u = StravaUser(uid, get_streams=True)
-    all_rides_df = u.make_df((0, 30))
-    y = all_rides_df.pop('velocity')
-    X = all_rides_df.values
-    # model = RandomForestRegressor(max_depth=8)
-    model = RandomForestRegressor(max_depth=8)
-    # model = LinearRegression()
-    # model = GradientBoostingRegressor()
+    user = StravaUser(uid, get_streams=True, get_routes=False)
 
-    if os.path.isfile('model_%s.pkl' % uid):
-        d = pickle.load(open('model_%s.pkl' % uid, 'rb'))
+    indices = np.arange(len(user.activities))
+    train_indices = np.random.choice(indices, size=int(len(user.activities)*0.75), replace=False)
+    test_indices = np.setdiff1d(indices, train_indices)
+    
+    df = user.make_df(train_indices)
+    y = df['velocity'].values
+    cols = df.columns
+    X = df[cols[np.where(cols!='velocity')]].values
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.3)
+
+    model = GradientBoostingRegressor(max_depth=3, min_samples_leaf=1000)
+    print 'Fitting model.......'
+    model.fit(X_train, y_train)
+    print 'Model fit!'
+    
+    print 'Loading pickle'
+    if os.path.isfile('model_%s.pkl' % user.userid):
+        d = pickle.load(open('model_%s.pkl' % user.userid, 'rb'))
     else:
         d = {}
 
-    print 'Fitting model.......'
-    model.fit(X, y)
-    print 'Model fit!'
-    d[uid] = {'date': datetime.now(), 'model': model}
-    pickle.dump(d, open('model_%s.pkl' % uid, 'wb'))
+    print 'Dumping pickle'
+    d[user.userid] = {'date': datetime.now(), 'model': model}
+    pickle.dump(d, open('model_%s.pkl' % user.userid, 'wb'))
+    print 'Pickle dumped'
 
-    return str(len(u.activities))
+    return str(len(user.activities))
 
 @app.route('/upload', methods=['POST'])
 def upload_gpx():

@@ -79,7 +79,10 @@ class StravaAPI(object):
                  'elapsed_time': a['elapsed_time'],
                  'distance': a['distance'],
                  'moving_time': a['moving_time'],
-                 'fitness_level': a['fitness_score'],
+                 'fitness10': a['fitness10'],
+                 'fitness30': a['fitness30'],
+                 'frequency10': a['frequencies10'],
+                 'frequency30': a['frequencies30'],
                  'average_speed': a['average_speed'],
                  'max_speed': a['max_speed'],
                  'name': a['name'],
@@ -113,15 +116,28 @@ class StravaAPI(object):
         DB.conn.commit()
 
     def fitness_score(self, activities):
+        # rides in last 10 days * avg difficult of ride
+        # rides in last 30 days * avg difficulty of ride
         for i, a1 in enumerate(activities):
             score = 0
+            difficulties10 = []
+            difficulties30 = []
             dt = datetime.strptime(a1['start_date_local'], '%Y-%m-%dT%H:%M:%SZ')
             for a2 in activities[i:]:
                 dt2 = datetime.strptime(a2['start_date_local'], '%Y-%m-%dT%H:%M:%SZ')
                 if dt2 < dt and dt2 >= dt - timedelta(30):
-                    score += a2['total_elevation_gain']*a2['distance']
+                    # score += a2['total_elevation_gain']*a2['distance']
+                    difficulty = a2['total_elevation_gain']*a2['distance']
+                    difficulties30.append(difficulty)
+                if dt2 < dt and dt2 >= dt - timedelta(10):
+                    # score += a2['total_elevation_gain']*a2['distance']
+                    difficulty = a2['total_elevation_gain']*a2['distance']
+                    difficulties10.append(difficulty)
 
-            a1['fitness_score'] = score / float(1e9)
+            a1['fitness10'] = np.sum(difficulties10)
+            a1['fitness30'] = np.sum(difficulties30)
+            a1['frequencies10'] = len(difficulties10)
+            a1['frequencies30'] = len(difficulties30)
 
         return activities
 

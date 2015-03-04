@@ -30,8 +30,12 @@ class StravaActivity(object):
         self.moving_time_string = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
         self.city = d['city']
         self.total_distance = d['distance']
-        self.fitness_level = d['fitness_level']
         self.total_climb = d['total_elevation_gain']
+        if not is_route:
+            self.fitness10 = d['fitness10']
+            self.fitness30 = d['fitness30']
+            self.frequency10 = d['frequency10']
+            self.frequency30 = d['frequency30']
 
         if get_streams:
             self.init_streams()
@@ -49,13 +53,13 @@ class StravaActivity(object):
         else:
             table = 'activities'
             cols = ['id', 'athlete_id', 'start_dt', 'name', 'moving_time',
-                'city', 'fitness_level', 'total_elevation_gain', 'distance']
+                'city', 'fitness10', 'fitness30', 'frequency10', 'frequency30',
+                'total_elevation_gain', 'distance']
         q = """ SELECT %s FROM %s WHERE id = %s AND athlete_id = %s
             """ % (', '.join(cols), table, self.id, self.athlete)
-        # print q
+
         DB.cur.execute(q)
         results = DB.cur.fetchone()
-        # print activity_id, athlete_id
         d = dict(zip(cols, results))
 
         return d
@@ -70,21 +74,12 @@ class StravaActivity(object):
             self.df = self.df.sort('distance')
 
     def strava_date(self, date_string):
-        # if type(date_string) != unicode:
-        #     return date_string
         return datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%SZ')
 
     def init_stream(self, stream_dict, stream_type):
         if stream_type not in stream_dict:
             return None
         return StravaStream(stream_type, stream_dict[stream_type])
-
-    def is_ride(self, velocity):
-        min_vel = 4.  # mph
-        max_vel = 30.  # mph
-
-        avg_vel = np.mean(velocity)
-        return avg_vel >= min_vel and avg_vel <= max_vel
 
     def get_moving(self):
         not_moving = np.where(~self.moving.raw_data)[0]
@@ -110,54 +105,74 @@ class StravaActivity(object):
         self.df['predicted_time'] = vel_to_time(self.df.predicted_velocity, self.df.distance)
         self.predicted_moving_time = time.strftime('%H:%M:%S', time.gmtime(pred[-1]))
 
+    def streaming_predict(self):
+
+        t = (self.df.time - self.df.time.iloc[0]).values
+        pt = self.df.predicted_time.values
+
+        predict = t - pt + pt[-1]
+        return predict
+
+
     def to_dict(self):
         js = {}
         js['name'] = self.name
         js['date'] = datetime.strftime(self.dt.date(), '%A %B %d, %Y')
         js['start_time'] = datetime.strftime(self.dt, '%H:%M:%S %p')
         js['athlete'] = self.athlete
-        js['predicted_time'] = self.df.predicted_time.values.tolist()
-        js['altitude'] = (self.df.altitude.values * feet_per_meter).tolist()
-
+        pt = self.df.predicted_time.values.tolist()
+        stream_predict = self.streaming_predict()
+        
+        # time, distance, altitude in the correct units
         d = (self.df.distance.values - self.df.distance.values[0]) / meters_per_mile
         t = (self.df.time.values - self.df.time.values[0])
-        print t
-        js['predicted_distance'] = np.interp(t, js['predicted_time'], d).tolist()
-        js['predicted_altitude'] = np.interp(js['predicted_distance'], d, js['altitude']).tolist()
-        js['time'] = t.tolist()
-        js['distance'] = d.tolist()
+        alt = (self.df.altitude.values * feet_per_meter).tolist()
 
-        # for the ride simulation we need to go until the time when both have finished
-        max_time = np.max([t[-1], js['predicted_time'][-1]])
-        new_t = np.linspace(0, max_time, 5000)
-        print new_t[:10]
-        
+        # interpolate the predictions to have the same time axis
+        pd = np.interp(t, pt, d)
+        palt = np.interp(t, pt, alt)
+
+        num_samples = 5000
         if self.is_route:
-            new_t = np.linspace(0, js['predicted_time'][-1], 5000)
-            js['plot_time'] = new_t.tolist()
-            js['plot_distance'] = np.interp(new_t, js['predicted_time'], js['distance']).tolist()
-            js['plot_altitude'] = np.interp(new_t, js['predicted_time'], js['altitude']).tolist()
-            js['plot_predicted_distance'] = js['predicted_distance']
-            js['plot_predicted_altitude'] = js['altitude']
-            js['plot_distance_difference'] = js['predicted_distance']
+            # we convert the time to evenly spaced samples of length num_samples
+            new_t = np.linspace(0, js['predicted_time'][-1], num_samples)
             js['type'] = 'route'
         else:
-            js['plot_time'] = new_t.tolist()
-            js['plot_distance'] = np.interp(new_t, t, d).tolist()
-            js['plot_altitude'] = np.interp(js['plot_distance'], js['distance'], js['altitude']).tolist()
-            js['plot_predicted_distance'] = np.interp(new_t, js['predicted_time'], js['distance']).tolist()
-            js['plot_predicted_altitude'] = np.interp(js['plot_predicted_distance'], js['predicted_distance'], js['predicted_altitude']).tolist()
-            js['plot_distance_difference'] = (np.interp(new_t, t, d) - np.interp(new_t, js['predicted_time'], js['distance'])).tolist()
+            # for the ride simulation we need to go until the time when both have finished
+            max_time = np.max([t[-1], pt[-1]])
+            new_t = np.linspace(0, max_time, num_samples)
+            
             js['type'] = 'activity'
+
+        # convert the actual distance and altitude to the new time axis
+        js['plot_time'] = new_t.tolist()
+        js['plot_distance'] = np.interp(new_t, t, d).tolist()
+        js['plot_altitude'] = np.interp(new_t, t, alt).tolist()
+        js['streaming_predict'] = np.interp(new_t, t, stream_predict).tolist()
+
+        # convert the predicted distance and altitude to the new time axis
+        js['plot_predicted_distance'] = np.interp(new_t, t, pd).tolist()
+        js['plot_predicted_altitude'] = np.interp(new_t, t, palt).tolist()
+
+        # # convert the actual distance and altitude to the new time axis
+        # js['plot_time'] = new_t.tolist()
+        # js['plot_distance'] = np.interp(new_t, js['predicted_time'], d).tolist()
+        # js['plot_altitude'] = np.interp(new_t, js['predicted_time'], alt).tolist()
+
+        # # convert the predicted distance and altitude to the new time axis
+        # js['plot_predicted_distance'] = js['predicted_distance']
+        # js['plot_predicted_altitude'] = alt
         
+        # it doesn't matter that the latlng values do not correspond to the other vectors
+        # because of the way the google maps markers are moved on a polyline
         js['latitude'] = self.df.latitude.values.tolist()
         js['longitude'] = self.df.longitude.values.tolist()
         js['center'] = self.get_center().tolist()
         
         
-        js['total_distance'] = self.total_distance
-        js['predicted_total_time'] = time.strftime('%H:%M:%S', time.gmtime(js['predicted_time'][-1]))
-        js['moving_time'] = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
+        js['total_distance'] = self.total_distance / meters_per_mile
+        js['predicted_total_time'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
+        js['moving_time'] = time.strftime('%H:%M:%S', time.gmtime(t[-1]))
         # js['grade'] = self.grade.filtered.tolist()
         js['id'] = self.id
         js['ride_rating'] = self.ride_score()
@@ -218,7 +233,10 @@ class StravaActivity(object):
         df['time'] = df['time'] - df['time'].iloc[0]
         df['distance'] = df['distance'] - df['distance'].iloc[0]
         df['ride_difficulty'] = [df['distance'].iloc[-1]*climb[-1]]*n
-        df['fitness_score'] = [self.fitness_level]*n
+        df['fitness10'] = [self.fitness10]*n
+        df['fitness30'] = [self.fitness30]*n
+        df['frequency10'] = [self.frequency10]*n
+        df['frequency30'] = [self.frequency30]*n
 
         # if window != 0:
         #     for i in xrange(-window // 2, window // 2 + 1):
