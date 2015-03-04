@@ -202,6 +202,7 @@ class StravaActivity(object):
         df.pop('athlete_id')
         df['grade'] = smooth(df['grade'], 'scipy')
         df['altitude'] = smooth(df['altitude'], 'scipy', window_len=22)
+        df['velocity'] = smooth(df['velocity'], 'scipy', window_len=100)
         # df['time_int'] = np.append(np.diff(df['time']), 0)
         # df['dist_int'] = np.append(np.diff(df['distance']), 0)
 
@@ -211,7 +212,7 @@ class StravaActivity(object):
         climb = np.append([0], climb)
         grade_smooth = smooth(self.df.grade, 'scipy', window_len=np.min([300, self.df.shape[0]]))
         df['grade_smooth'] = grade_smooth
-        grade_very_smooth = smooth(self.df.grade, 'scipy', window_len=np.min([1000, self.df.shape[0]]))
+        grade_very_smooth = smooth(self.df.grade, 'scipy', window_len=np.min([500, self.df.shape[0]]))
         df['grade_very_smooth'] = grade_very_smooth
         df['climb'] = climb
         df['time'] = df['time'] - df['time'].iloc[0]
@@ -227,7 +228,7 @@ class StravaActivity(object):
 
         #     df.rename(columns={'grade': 'grade_0'}, inplace=True)
         df.pop('time')
-        df.pop('ride_difficulty')
+        # df.pop('ride_difficulty')
         # df.pop('distance')
         df.pop('altitude')
         df.fillna(0, inplace=True)
