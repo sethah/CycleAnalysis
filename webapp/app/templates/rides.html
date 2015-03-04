@@ -42,17 +42,26 @@ function setMap(a) {
     strokeColor: '#393'
   };
 
+var mapIcons;
+if (a['type'] != 'route'){
+  mapIcons = [{
+    icon: lineSymbol,
+    offset: '100%'
+  },
+  {
+      icon: lineSymbolA,
+      offset: '100%'
+    }]
+  }
+else {mapIcons = mapIcons = [{
+    icon: lineSymbol,
+    offset: '100%'
+  }]
+}
   line = new google.maps.Polyline({
     path: coords,
     strokeColor: '#1da1cc',
-    icons: [{
-      icon: lineSymbol,
-      offset: '100%'
-    },
-    {
-      icon: lineSymbolA,
-      offset: '100%'
-    }],
+    icons: mapIcons,
     map: map
   });
 
@@ -94,8 +103,8 @@ function lineChart(a) {
     data = zip([a.plot_distance, a.plot_altitude]);
     data1 = zip([a.plot_predicted_distance, a.plot_predicted_altitude]);
     console.log(data)
-    var ymin = Math.min.apply(null, a.altitude)
-    var ymax = Math.max.apply(null, a.altitude)
+    var ymin = Math.min.apply(null, a.plot_altitude)
+    var ymax = Math.max.apply(null, a.plot_altitude)
         chart = new Highcharts.Chart({
             chart: {
                 renderTo: 'container'
@@ -128,7 +137,6 @@ function lineChart(a) {
               name: 'Altitude',
               fillOpacity: 0.5,
               data: data,
-
               lineWidth: 2
             }
             ]
@@ -146,10 +154,23 @@ function simRide(a) {
     simInterval = window.setInterval(function() {
       // console.log(count)
       // console.log(d.length)
+      var isDone = false
+
       var offset1 = d[count]*100.0/total_distance
       var offset2 = pd[count]*100.0/total_distance
+      console.log(offset1, offset2)
+      if (a['type'] != 'route'){
+        if ((offset1 > 99.8) & (offset2 > 99.8)) {
+          isDone = true;
+        }
+      }
+      else {
+        if (offset1 > 99.5){
+          isDone = true;
+        }
+      }
       // console.log(offset1, offset2)
-      if ((offset1 > 99.8) & (offset2 > 99.8)) {
+      if (isDone) {
         console.log('cleared')
         clearInterval(simInterval)
       }
@@ -158,20 +179,26 @@ function simRide(a) {
         var icons = line.get('icons');
         
         icons[0].offset = offset1 + '%';
-        icons[1].offset = offset2 + '%';
+        
         line.set('icons', icons);
         duration = moment.duration(a.plot_time[count]*1000, 'seconds');
         var p1 = chart.series[0].points[count];
         // var p2 = chart.series[1].points[count];
         addCrosshair(p1.x, p1.y, '#000')
-        addCrosshair(a.plot_predicted_distance[count], a.plot_predicted_altitude[count], '#390')
+        if (a['type'] != 'route'){
+          icons[1].offset = offset2 + '%';
+          addCrosshair(a.plot_predicted_distance[count], a.plot_predicted_altitude[count], '#390')
+        }
+        
         chart.tooltip.refresh(p1);
         // chart.tooltip.refresh(p2);
         if (count != 0){
           var previous1 = chart.series[0].points[count - 10];
           // var previous2 = chart.series[1].points[count - 10];
-          removeCrosshair(previous1.x, previous1.y) 
-          removeCrosshair(a.plot_predicted_distance[count -10], a.plot_predicted_altitude[count-10]) 
+          removeCrosshair(previous1.x, previous1.y)
+          if (a['type'] != 'route'){
+            removeCrosshair(a.plot_predicted_distance[count -10], a.plot_predicted_altitude[count-10])
+          }
         }
         
         

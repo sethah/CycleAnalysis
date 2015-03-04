@@ -60,10 +60,11 @@ class StravaAPI(object):
             table.update({'athlete.id': athlete_id, 'id': a['id']},
                          {'$set': {'fitness_level': level}})
 
-    def store_activities(self):
+    def store_activities(self, store_streams=True):
         DB = StravaDB()
         table = self.db.activities
         activities = self.list_activities()
+        activities = self.fitness_score(activities)
         for a in activities:
             if a['type'] != 'Ride':
                 continue
@@ -78,39 +79,51 @@ class StravaAPI(object):
                  'elapsed_time': a['elapsed_time'],
                  'distance': a['distance'],
                  'moving_time': a['moving_time'],
-                 'fitness_level': 0,
+                 'fitness_level': a['fitness_score'],
                  'average_speed': a['average_speed'],
                  'max_speed': a['max_speed'],
                  'name': a['name'],
                  'total_elevation_gain': a['total_elevation_gain'],
                  'athlete_id': a['athlete']['id']
             }
-            data = DB.process_streams(self.get_stream(a['id']), a['athlete']['id'], a['id'])
-            print len(data)
+            if store_streams:
+                data = DB.process_streams(self.get_stream(a['id']), a['athlete']['id'], a['id'])
+                print len(data)
+
+                try:
+                    q = """ INSERT INTO streams (activity_id, athlete_id, time, distance, grade, altitude, velocity, latitude, longitude)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """
+                    DB.cur.executemany(q, data)
+                except IntegrityError:
+                    print traceback.format_exc()
+                    continue
             # break
             try:
                 DB.insert_values('activities', d)
             except IntegrityError:
                 print traceback.format_exc()
                 continue
-            try:
-                q = """ INSERT INTO streams (activity_id, athlete_id, time, distance, grade, altitude, velocity, latitude, longitude)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """
-                DB.cur.executemany(q, data)
-            except IntegrityError:
-                print traceback.format_exc()
-                continue
+
+            
 
             print 'Stored activity for %s on %s' % (
                                                     a['athlete']['id'],
                                                     a['start_date'])
         DB.conn.commit()
 
-    # def store_streams(self, athlete_id):
-    #     DB = StravaDB()
-    #     q = """ SELECT """
-    #     activities = DB.cur.execute(q)
+    def fitness_score(self, activities):
+        for i, a1 in enumerate(activities):
+            score = 0
+            dt = datetime.strptime(a1['start_date_local'], '%Y-%m-%dT%H:%M:%SZ')
+            for a2 in activities[i:]:
+                dt2 = datetime.strptime(a2['start_date_local'], '%Y-%m-%dT%H:%M:%SZ')
+                if dt2 < dt and dt2 >= dt - timedelta(30):
+                    score += a2['total_elevation_gain']*a2['distance']
+
+            a1['fitness_score'] = score / float(1e9)
+
+        return activities
 
     def downsample(self, t, vec, num_samples=5000):
         if len(vec) < num_samples:

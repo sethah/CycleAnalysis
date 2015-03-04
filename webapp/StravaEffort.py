@@ -121,6 +121,7 @@ class StravaActivity(object):
 
         d = (self.df.distance.values - self.df.distance.values[0]) / meters_per_mile
         t = (self.df.time.values - self.df.time.values[0])
+        print t
         js['predicted_distance'] = np.interp(t, js['predicted_time'], d).tolist()
         js['predicted_altitude'] = np.interp(js['predicted_distance'], d, js['altitude']).tolist()
         js['time'] = t.tolist()
@@ -129,13 +130,25 @@ class StravaActivity(object):
         # for the ride simulation we need to go until the time when both have finished
         max_time = np.max([t[-1], js['predicted_time'][-1]])
         new_t = np.linspace(0, max_time, 5000)
-        js['plot_time'] = new_t.tolist()
-        js['plot_distance'] = np.interp(new_t, t, d).tolist()
-        js['plot_altitude'] = np.interp(js['plot_distance'], js['distance'], js['altitude']).tolist()
-        js['plot_predicted_distance'] = np.interp(new_t, js['predicted_time'], js['distance']).tolist()
-        js['plot_predicted_altitude'] = np.interp(js['plot_predicted_distance'], js['predicted_distance'], js['predicted_altitude']).tolist()
-        js['plot_distance_difference'] = (np.interp(new_t, t, d) - np.interp(new_t, js['predicted_time'], js['distance'])).tolist()
+        print new_t[:10]
         
+        if self.is_route:
+            new_t = np.linspace(0, js['predicted_time'][-1], 5000)
+            js['plot_time'] = new_t.tolist()
+            js['plot_distance'] = np.interp(new_t, js['predicted_time'], js['distance']).tolist()
+            js['plot_altitude'] = np.interp(new_t, js['predicted_time'], js['altitude']).tolist()
+            js['plot_predicted_distance'] = js['predicted_distance']
+            js['plot_predicted_altitude'] = js['altitude']
+            js['plot_distance_difference'] = js['predicted_distance']
+            js['type'] = 'route'
+        else:
+            js['plot_time'] = new_t.tolist()
+            js['plot_distance'] = np.interp(new_t, t, d).tolist()
+            js['plot_altitude'] = np.interp(js['plot_distance'], js['distance'], js['altitude']).tolist()
+            js['plot_predicted_distance'] = np.interp(new_t, js['predicted_time'], js['distance']).tolist()
+            js['plot_predicted_altitude'] = np.interp(js['plot_predicted_distance'], js['predicted_distance'], js['predicted_altitude']).tolist()
+            js['plot_distance_difference'] = (np.interp(new_t, t, d) - np.interp(new_t, js['predicted_time'], js['distance'])).tolist()
+            js['type'] = 'activity'
         
         js['latitude'] = self.df.latitude.values.tolist()
         js['longitude'] = self.df.longitude.values.tolist()
@@ -196,18 +209,23 @@ class StravaActivity(object):
         alt_diff = np.diff(df['altitude'])
         climb = np.cumsum(np.where(alt_diff < 0, 0, alt_diff))
         climb = np.append([0], climb)
+        grade_smooth = smooth(self.df.grade, 'scipy', window_len=np.min([300, self.df.shape[0]]))
+        df['grade_smooth'] = grade_smooth
+        grade_very_smooth = smooth(self.df.grade, 'scipy', window_len=np.min([1000, self.df.shape[0]]))
+        df['grade_very_smooth'] = grade_very_smooth
         df['climb'] = climb
         df['time'] = df['time'] - df['time'].iloc[0]
         df['distance'] = df['distance'] - df['distance'].iloc[0]
         df['ride_difficulty'] = [df['distance'].iloc[-1]*climb[-1]]*n
+        df['fitness_score'] = [self.fitness_level]*n
 
-        if window != 0:
-            for i in xrange(-window // 2, window // 2 + 1):
-                if i == 0:
-                    continue
-                df['%s_%s' % ('grade', -i)] = df['grade'].shift(i)
+        # if window != 0:
+        #     for i in xrange(-window // 2, window // 2 + 1):
+        #         if i == 0:
+        #             continue
+        #         df['%s_%s' % ('grade', -i)] = df['grade'].shift(i)
 
-            df.rename(columns={'grade': 'grade_0'}, inplace=True)
+        #     df.rename(columns={'grade': 'grade_0'}, inplace=True)
         df.pop('time')
         df.pop('ride_difficulty')
         # df.pop('distance')
@@ -219,97 +237,6 @@ class StravaActivity(object):
         return '<%s, %s, %s>' % \
             (self.name, self.dt, self.city)
 
-
-class StravaHill(object):
-    """
-    Possible features: variance of grade/altitude, date (getting better over time?)
-    """
-
-    def __init__(self, effort_dict, activity, previous_hill=None):
-        self.init(effort_dict)
-        self.activity = activity
-        self.previous_hill = previous_hill
-        self.score = self.hill_score()
-        self.rating = np.mean(self.velocity.filtered)*self.score/50.
-        self.dt = time.mktime(self.activity.date.timetuple())
-
-    def hill_score(self):
-        grade_vec = self.grade.raw_data
-        dist_vec = self.distance.raw_data
-
-        mean_grade = weighted_average(grade_vec, dist_vec)
-        distance = self.distance.raw_data[-1] - self.distance.raw_data[0]
-
-        return distance*mean_grade
-
-    def hill_features(self):
-        self.previous_climb = self.past_climb()
-        self.time_elapsed = self.time.raw_data[0]
-        self.distance_elapsed = self.distance.raw_data[0]
-        if self.previous_hill is not None:
-            self.time_since_last_climb = self.time.raw_data[0] - self.previous_hill.time.raw_data[-1]
-            self.score_last_climb = self.previous_hill.score
-        else:
-            self.time_since_last_climb = 100000
-            self.score_last_climb = 0
-
-    def start_index(self):
-        hill_start_time = self.time.raw_data[0]
-        start = (np.abs(self.activity.time.raw_data-hill_start_time)).argmin()
-        return start
-
-    def past_climb(self):
-        start = self.start_index()
-        # print start
-        diff = np.diff(self.activity.altitude.raw_data[0:start])
-        return np.sum(np.where(diff < 0, 0, diff))
-
-    def make_df(self):
-        self.hill_features()
-        n = self.grade.filtered.shape[0]
-        d = {'activity_id': [self.activity.id]*n,
-             'hill_id': [self.id]*n,
-             'previous_climb': [self.previous_climb]*n,
-             'time_elapsed': [self.time_elapsed]*n,
-             'date': [self.dt]*n,
-             'distance_elapsed': [self.distance_elapsed]*n,
-             'time_since_last_climb': [self.time_since_last_climb]*n,
-             'score_last_climb': [self.score_last_climb]*n,
-             'grade': self.grade.filtered,
-             'time': self.time.raw_data - self.time.raw_data[0],
-             'distance': self.distance.raw_data - self.distance.raw_data[0],
-             'altitude': self.altitude.raw_data - self.altitude.raw_data[0],
-             'velocity': self.velocity.filtered
-             }
-        if d['time'][0] != 0:
-            print d['time']
-
-        return pd.DataFrame(d)
-
-    def __repr__(self):
-        return '<%s, %s>' % \
-            (self.score, len(self.distance.raw_data))
-
-class StravaStream(object):
-
-    def __init__(self, stream_type, stream_dict, change_units=True):
-        self.raw_data = np.array(stream_dict['data'])
-        self.stream_type = stream_type
-        self.filter()
-
-    def filter(self):
-        self.filtered = smooth(self.raw_data, 'scipy')
-
-    def convert_units(self):
-        if self.stream_type == 'distance':
-            self.raw_data /= meters_per_mile
-        elif self.stream_type == 'velocity':
-            self.raw_data *= 3600
-            self.raw_data /= meters_per_mile
-        elif self.stream_type == 'altitude':
-            self.raw_data *= feet_per_meter
-
-        self.filter()
 
 if __name__ == '__main__':
     pass

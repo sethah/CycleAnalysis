@@ -24,10 +24,10 @@ feet_per_meter = 3.280
 
 class StravaUser(object):
 
-    def __init__(self, athlete_id, get_streams=False):
+    def __init__(self, athlete_id, get_streams=False, get_routes=True):
         self.userid = athlete_id
         self.init()
-        self.load_activities(get_streams)
+        self.load_activities(get_streams, get_routes)
         # self.recent_fitness_level()
 
     def init(self):
@@ -43,7 +43,7 @@ class StravaUser(object):
             self.model = pickle.loads(athlete['model'])
 
 
-    def load_activities(self, get_streams, min_length=990):
+    def load_activities(self, get_streams, get_routes, min_length=990):
 
         # find all the activities in the db for this user
         DB = StravaDB()
@@ -58,15 +58,16 @@ class StravaUser(object):
             a = StravaActivity(activity[0], self.userid, get_streams)
             self.activities.append(a)
 
-        # get the routes for this user also
-        q = """ SELECT id
-                FROM routes
-                WHERE athlete_id = %s
-            """ % self.userid
-        results = DB.execute(q)
-        for route in results:
-            r = StravaActivity(route[0], self.userid, get_streams, is_route=True)
-            self.activities.append(r)
+        if get_routes:
+            # get the routes for this user also
+            q = """ SELECT id
+                    FROM routes
+                    WHERE athlete_id = %s
+                """ % self.userid
+            results = DB.execute(q)
+            for route in results:
+                r = StravaActivity(route[0], self.userid, get_streams, is_route=True)
+                self.activities.append(r)
 
     def has_full_predictions(self):
         if self.activities is None:
@@ -93,16 +94,13 @@ class StravaUser(object):
             level /= 1e9
             a.fitness_level(level)
 
-    def make_df(self, activities=None):
-        if activities is not None:
-            start = activities[0]
-            stop = activities[1]
-        else:
-            start = 0
-            stop = len(self.activities)
+    def make_df(self, indices=None):
+        if indices is None:
+            indices = np.arange(len(self.activities))
 
         df = None
-        for a in self.activities[start:stop]:
+        for ix in indices:
+            a = self.activities[ix]
             if df is None:
                 df = a.make_df()
             else:

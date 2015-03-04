@@ -322,3 +322,35 @@ class StravaDB(object):
 
 if __name__ == '__main__':
     main()
+
+    """ CREATE TABLE fitness AS
+        
+    """
+
+
+    """ UPDATE 
+            activities a, 
+            (SELECT 
+                a_dt as dt,
+                id as activity_id,
+                athlete_id as athlete_id,
+                SUM(score) as fitness_score
+            FROM (SELECT
+                    a.id,
+                    a.athlete_id,
+                    a.start_dt AS a_dt,
+                    b.total_elevation_gain,
+                    b.distance,
+                    b.distance*b.total_elevation_gain AS score,
+                    b.start_dt
+                FROM activities a
+                JOIN activities b
+                ON b.start_dt >= DATE_SUB(a.start_dt, INTERVAL 30 DAY)
+                AND b.start_dt < a.start_dt
+                AND a.athlete_id = b.athlete_id
+                ORDER BY a_dt) scores
+            GROUP BY a_dt, id, athlete_id) f
+        SET a.fitness_level = f.fitness_score
+        WHERE a.id = f.activity_id
+        AND a.athlete_id = f.athlete_id;
+    """
