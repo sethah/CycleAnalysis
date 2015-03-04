@@ -1,9 +1,8 @@
-*Get gpx file uploads working
-*Separate routes and rides into different tables
+*streaming prediction page (show the prediction update as the ride progresses)
 *Fix rides table to show only ten rides... pagination?
 * Make sure sign ups work fully through
 * Some glitches on the playback of rides to fix
-*start times are wrong in rides table
+
 
 ###Wants
 *Gradient encoded polylines

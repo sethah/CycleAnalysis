@@ -1,5 +1,5 @@
 *.pyc
-*.ipynb
+*.ipynb_checkpoints
 *.dat
 *.pkl
 *.gpx
