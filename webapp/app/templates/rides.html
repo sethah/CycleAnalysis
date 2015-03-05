@@ -111,6 +111,9 @@ function lineChart(a) {
             chart: {
                 renderTo: 'container'
             },
+            tooltip: {
+              shared: true
+            },
             xAxis: {
               min: xmin,
               max: xmax,
@@ -130,7 +133,14 @@ function lineChart(a) {
             {
                 title: {
                     text: 'Time (s)'
-                }
+                },
+                labels: {
+                  formatter: function(){
+                    return moment.utc(this.value*1000).format("HH:mm:ss")
+                    // return this.value + 's'
+                  }
+                },
+                opposite: true
             }],
             title: {
                 text: 'Ride profile'
@@ -145,6 +155,11 @@ function lineChart(a) {
               type: 'area',
               name: 'Altitude',
               yAxis: 0,
+              tooltip: {
+                pointFormatter: function(){
+                  return '<b>'+ this.series.name +'</b>: '+ Highcharts.numberFormat(this.y, 0, ".", ",") +'<br/>';
+                }
+              },
               fillOpacity: 0.5,
               data: data,
               lineWidth: 2
@@ -153,6 +168,11 @@ function lineChart(a) {
               type: 'spline',
               name: 'Predicted Time',
               yAxis: 1,
+              tooltip: {
+                pointFormatter: function(){
+                  return '<b>'+ this.series.name +'</b>: '+ moment.utc(this.y*1000).format("HH:mm:ss") +'<br/>';
+                }
+              },
               data: data1,
               lineWidth: 2
             },
@@ -160,7 +180,7 @@ function lineChart(a) {
               type: 'line',
               name: 'Actual Time',
               yAxis: 1,
-              data: [[-100, a.plot_time[a.plot_time.length - 1]], [600, a.plot_time[a.plot_time.length - 1]]]
+              data: [[-100, a.moving_time], [600, a.moving_time]]
             }
             ]
         });
@@ -180,7 +200,7 @@ function simRide(a) {
       var offset2 = pd[count]*100.0/a.total_distance
       console.log(offset1, offset2)
       if (a['type'] != 'route'){
-        if ((offset1 > 99.8) & (offset2 > 99.8)) {
+        if ((offset1 >= 100) & (offset2 >= 100)) {
           isDone = true;
         }
       }
@@ -262,7 +282,7 @@ function switchActivity(a) {
   $(document.getElementById('activity_date')).text(a['date']);
   $(document.getElementById('activity_rating')).text(a['ride_rating'][1]);
   $(document.getElementById('activity_start')).text(a['start_time']);
-  $(document.getElementById('activity_moving_time')).text(a['moving_time']);
+  $(document.getElementById('activity_moving_time')).text(a['moving_time_string']);
   $(document.getElementById('activity_pred_time')).text(a['predicted_total_time']);
   if (typeof simInterval !== 'undefined') {
     clearInterval(simInterval)

@@ -104,6 +104,8 @@ def fit():
 def upload_gpx():
     uid = int(request.form.get('athlete_id', 0))
     ride_name = request.form.get('ride_title', 'New Route')
+    if ride_name.strip() == '':
+        ride_name = 'New Route'
     f = request.files['file']
 
     if f:

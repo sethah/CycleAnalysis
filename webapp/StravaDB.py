@@ -214,19 +214,53 @@ class StravaDB(object):
         return seg_frame.sort('distance')
 
     def create_route(self, gpx_file, athlete_id, name):
+
         gpx_file = open(gpx_file, 'r')
         gpx = gpxpy.parse(gpx_file)
         route = gpx.tracks[0].segments[0]
         df = self.gpx_to_df(route)
 
-        d = {'start_dt': datetime.now(),
+        dt = datetime.now().date() - timedelta(200)
+
+        cols = ['id', 'start_dt', 'distance', 'total_elevation_gain']
+
+        q = """ SELECT %s
+                FROM activities
+                WHERE start_dt >= '%s'
+                AND start_dt < '%s'
+                AND athlete_id = %s
+            """ % (', '.join(cols), dt - timedelta(30), dt, athlete_id)
+
+        results = self.execute(q)
+        difficulties10 = []
+        difficulties30 = []
+        for a in results:
+            d = dict(zip(cols, a))
+            print d
+            dt2 = d['start_dt'].date()
+            if dt2 < dt and dt2 >= dt - timedelta(30):
+                difficulty = d['total_elevation_gain']*d['distance']
+                difficulties30.append(difficulty)
+            if dt2 < dt and dt2 >= dt - timedelta(10):
+                difficulty = d['total_elevation_gain']*d['distance']
+                difficulties10.append(difficulty)
+        fitness10 = np.sum(difficulties10)
+        fitness30 = np.sum(difficulties30)
+        frequencies10 = len(difficulties10)
+        frequencies30 = len(difficulties30)
+
+
+        d = {'start_dt': dt,
              'timezone': None,
              'city': None,
              'country': None,
              'start_longitude': route.points[0].longitude,
              'start_latitude': route.points[0].latitude,
              'distance': df.distance.iloc[-1],
-             'fitness_level': 0,
+             'fitness10': fitness10,
+             'fitness10': fitness30,
+             'frequency10': frequencies10,
+             'frequency10': frequencies30,
              'name': name,
              'total_elevation_gain': 0,
              'athlete_id': athlete_id

@@ -126,11 +126,9 @@ class StravaAPI(object):
             for a2 in activities[i:]:
                 dt2 = datetime.strptime(a2['start_date_local'], '%Y-%m-%dT%H:%M:%SZ')
                 if dt2 < dt and dt2 >= dt - timedelta(30):
-                    # score += a2['total_elevation_gain']*a2['distance']
                     difficulty = a2['total_elevation_gain']*a2['distance']
                     difficulties30.append(difficulty)
                 if dt2 < dt and dt2 >= dt - timedelta(10):
-                    # score += a2['total_elevation_gain']*a2['distance']
                     difficulty = a2['total_elevation_gain']*a2['distance']
                     difficulties10.append(difficulty)
 

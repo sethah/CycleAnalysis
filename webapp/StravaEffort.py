@@ -31,11 +31,11 @@ class StravaActivity(object):
         self.city = d['city']
         self.total_distance = d['distance']
         self.total_climb = d['total_elevation_gain']
-        if not is_route:
-            self.fitness10 = d['fitness10']
-            self.fitness30 = d['fitness30']
-            self.frequency10 = d['frequency10']
-            self.frequency30 = d['frequency30']
+
+        self.fitness10 = d['fitness10']
+        self.fitness30 = d['fitness30']
+        self.frequency10 = d['frequency10']
+        self.frequency30 = d['frequency30']
 
         if get_streams:
             self.init_streams()
@@ -49,7 +49,8 @@ class StravaActivity(object):
         if self.is_route:
             table = 'routes'
             cols = ['id', 'athlete_id', 'start_dt', 'name',
-                'city', 'fitness_level', 'total_elevation_gain', 'distance']
+                'city', 'fitness10', 'fitness30', 'frequency10', 'frequency30',
+                'total_elevation_gain', 'distance']
         else:
             table = 'activities'
             cols = ['id', 'athlete_id', 'start_dt', 'name', 'moving_time',
@@ -135,7 +136,7 @@ class StravaActivity(object):
         num_samples = 5000
         if self.is_route:
             # we convert the time to evenly spaced samples of length num_samples
-            new_t = np.linspace(0, js['predicted_time'][-1], num_samples)
+            new_t = np.linspace(0, pt[-1], num_samples)
             js['type'] = 'route'
         else:
             # for the ride simulation we need to go until the time when both have finished
@@ -148,7 +149,7 @@ class StravaActivity(object):
         js['plot_time'] = new_t.tolist()
         js['plot_distance'] = np.interp(new_t, t, d).tolist()
         js['plot_altitude'] = np.interp(new_t, t, alt).tolist()
-        js['streaming_predict'] = np.interp(new_t, t, stream_predict).tolist()
+        js['streaming_predict'] = smooth(np.interp(new_t, t, stream_predict), 'scipy', window_len=200).tolist()
 
         # convert the predicted distance and altitude to the new time axis
         js['plot_predicted_distance'] = np.interp(new_t, t, pd).tolist()
@@ -172,8 +173,8 @@ class StravaActivity(object):
         
         js['total_distance'] = self.total_distance / meters_per_mile
         js['predicted_total_time'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
-        js['moving_time'] = time.strftime('%H:%M:%S', time.gmtime(t[-1]))
-        # js['grade'] = self.grade.filtered.tolist()
+        js['moving_time_string'] = time.strftime('%H:%M:%S', time.gmtime(t[-1]))
+        js['moving_time'] = t[-1]
         js['id'] = self.id
         js['ride_rating'] = self.ride_score()
 
