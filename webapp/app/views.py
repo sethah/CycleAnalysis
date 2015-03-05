@@ -215,13 +215,27 @@ def compare(activity_id, userid):
     
     the_ride.predict(the_dict[the_user.userid]['model'])
     the_other_ride.predict(other_dict[other_user.userid]['model'])
+    if the_ride.moving_time > the_other_ride.predicted_moving_time:
+        ride_js = the_ride.to_dict()
+        other_ride_js = the_other_ride.to_dict(ride_js['plot_time'][1] - ride_js['plot_time'][0])
+    else:
+        other_ride_js = the_other_ride.to_dict()
+        ride_js = the_ride.to_dict(other_ride_js['plot_time'][1] - other_ride_js['plot_time'][0])
 
+    # ride_js = the_ride.to_dict()
+    # other_ride_js = the_other_ride.to_dict()
+
+    min_dim = min(len(other_ride_js['plot_predicted_distance']), len(ride_js['plot_distance']))
+    other_ride_js['distance_diff'] = (np.array(other_ride_js['plot_predicted_distance'][:min_dim]) - np.array(ride_js['plot_distance'][:min_dim])).tolist()
+        
     return render_template(
         'compare.html',
         the_athlete = the_user,
         the_other_athlete=other_user,
-        ride=json.dumps(the_ride.to_dict()),
-        other_ride=json.dumps(the_other_ride.to_dict()))
+        ride=the_ride,
+        other_ride=the_other_ride,
+        ride_js=json.dumps(ride_js),
+        other_ride_js=json.dumps(other_ride_js))
 
 @app.route('/change', methods=['POST'])
 def change():

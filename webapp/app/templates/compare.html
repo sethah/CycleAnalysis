@@ -10,11 +10,11 @@
 
 <script>
 var line;
-ride = {{ride|safe}}
-other_ride = {{other_ride|safe}}
+ride_js = {{ride_js|safe}}
+other_ride_js = {{other_ride_js|safe}}
 function initialize() {
-  setMap(ride)
-  lineChart(ride, other_ride)
+  setMap(ride_js)
+  lineChart(ride_js, other_ride_js)
 }
 
 function setMap(a) {
@@ -100,6 +100,7 @@ function removeCrosshair(x,y) {
 function lineChart(a1, a2) {
     
     data = zip([a1.plot_predicted_distance, a1.plot_predicted_altitude]);
+    data1 = zip([a2.plot_predicted_distance, a2.distance_diff]);
     var ymin = Math.min.apply(null, a1.plot_predicted_altitude)
     var ymax = Math.max.apply(null, a1.plot_predicted_altitude)
     var xmin = Math.min.apply(null, a1.plot_predicted_distance)
@@ -115,6 +116,13 @@ function lineChart(a1, a2) {
         },
         fillOpacity: 0.5,
         data: data,
+        lineWidth: 2
+      },
+      {     
+        type: 'spline',
+        name: 'Altitude',
+        yAxis: 1,
+        data: data1,
         lineWidth: 2
       }]
 
@@ -147,11 +155,6 @@ function lineChart(a1, a2) {
                 title: {
                     text: 'Time (s)'
                 },
-                labels: {
-                  formatter: function(){
-                    return moment.utc(this.value*1000).format("HH:mm:ss")
-                  }
-                },
                 opposite: true
             }],
             title: {
@@ -165,26 +168,24 @@ function lineChart(a1, a2) {
             series: series
         });
 };
-
 function simRide(a1, a2) {
-  debugger;
     var count = 0;
-    d1 = a1['plot_distance'];
-    d2 = a2['plot_predicted_distance'];
-    console.log(d2)
-    console.log(a2.total_distance)
+    d = a1['plot_distance'];
+    pd = a2['plot_predicted_distance'];
+    debugger;
     var duration = moment.duration(0, 'seconds');
 
     simInterval = window.setInterval(function() {
-    var isDone = false
+      var isDone = false
 
 
-    offset1 = d1[count]*100.0/a1.total_distance
-    offset2 = d2[count]*100.0/a2.total_distance
-    console.log(offset1, offset2)
-    if ((offset1 >= 100) & (offset2 >= 100)) {
-      isDone = true;
-    }
+      offset1 = d[Math.min(count, d.length -1)]*100.0/a1.total_distance
+      offset2 = pd[Math.min(count, pd.length -1)]*100.0/a2.total_distance
+
+      console.log(offset1, offset2)
+      if ((count > d.length) & (count > pd.length)) {
+        isDone = true;
+      }
 
 
       if (isDone) {
@@ -197,22 +198,20 @@ function simRide(a1, a2) {
         
         icons[0].offset = offset1 + '%';
         
-        
+        line.set('icons', icons);
+        icons[1].offset = offset2 + '%';
         duration = moment.duration(a1.plot_time[count]*1000, 'seconds');
         // var p1 = chart.series[0].points[count];
-        // addCrosshair(p1.x, p1.y, '#000')
- 
-        icons[1].offset = offset2 + '%';
-        line.set('icons', icons);
-        // addCrosshair(a.plot_predicted_distance[count], a.plot_predicted_altitude[count], '#390')
+        // var p2 = chart.series[1].points[count];
+        addCrosshair(a1.plot_distance[count], a1.plot_altitude[count], '#000')
+        addCrosshair(a2.plot_predicted_distance[count], a2.plot_predicted_altitude[count], '#390')
 
-
+        // debugger;
+        // chart.tooltip.refresh(p1);
+        // chart.tooltip.refresh(p2);
         if (count != 0){
-          var previous1 = chart.series[0].points[count - 10];
-          removeCrosshair(previous1.x, previous1.y)
-          // if (a['type'] != 'route'){
-          //   removeCrosshair(a.plot_predicted_distance[count -10], a.plot_predicted_altitude[count-10])
-          // }
+          removeCrosshair(a1.plot_distance[count -10], a1.plot_altitude[count-10])
+          removeCrosshair(a2.plot_predicted_distance[count -10], a2.plot_predicted_altitude[count-10])
         }
         
       }
@@ -227,8 +226,19 @@ function simRide(a1, a2) {
     <div class="row">
     <div class='span6 main' style="margin-left: 52px;">
 
+      <table>
+        <thead><th colspan="2">Ride Summary</th></thead>
+        <tr><td>Rider:</td><td>{{the_other_athlete.name}}</td></tr>
+        <tr><td>Compared to:</td><td><span id="activity_desc">{{the_athlete.name}}</span></td></tr>
+        <tr><td>Ride:</td><td><span id="activity_desc">{{ride.name}}</span></td></tr>
+        <tr><td>Date:</td><td><span id="activity_date">{{ride.dt.strftime("%A %B %d, %Y")}}</span></td></tr>
+        <tr><td>{{ the_athlete.firstname }}'s Time:</td><td><span id="activity_moving_time">{{ride.moving_time_string}}</span></td></tr>
+        <tr><td>Your Predicted Time:</td><td><span id="activity_pred_time">{{other_ride.predicted_moving_time}}</span></td></tr>
+        <!-- <tr><td>Ride Rating:</td><td><span id="activity_rating"></span></td></tr> -->
+      </table>
+
       <div class="wrapper">
-          <button id="play" onclick="simRide(ride, other_ride)">Play Ride</button>
+          <button id="play" onclick="simRide(ride_js, other_ride_js)">Play Ride</button>
       </div>
       
       <div class="map" id="map-canvas" style="width:500px;height:380px;"></div>

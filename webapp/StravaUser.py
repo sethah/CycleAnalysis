@@ -37,7 +37,9 @@ class StravaUser(object):
         DB.cur.execute(q)
         athlete = DB.cur.fetchone()
         athlete = {col: val for col, val in zip(cols, athlete)}
-        self.name = athlete['firstname'] + ' ' + athlete['lastname']
+        self.firstname = athlete['firstname']
+        self.lastname = athlete['lastname']
+        self.name = self.firstname + ' ' + self.lastname
         self.access_token = athlete['access_token']
         if 'model' in athlete:
             self.model = pickle.loads(athlete['model'])

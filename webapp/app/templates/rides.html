@@ -227,7 +227,7 @@ function simRide(a) {
       if (a['type'] != 'route'){
         offset1 = d[count]*100.0/a.total_distance
         offset2 = pd[count]*100.0/a.total_distance
-        if ((offset1 >= 100) & (offset2 >= 100)) {
+        if ((offset1 >= 99.75) & (offset2 >= 99.75)) {
           isDone = true;
         }
       }
