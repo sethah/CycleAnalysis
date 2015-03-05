@@ -69,51 +69,55 @@ class StravaAPI(object):
             if a['type'] != 'Ride':
                 continue
 
-            d = {'id': a['id'],
-                 'start_dt': datetime.strptime(a['start_date_local'], '%Y-%m-%dT%H:%M:%SZ'),
-                 'timezone': a['timezone'],
-                 'city': a['location_city'],
-                 'country': a['location_country'],
-                 'start_longitude': a['start_longitude'],
-                 'start_latitude': a['start_latitude'],
-                 'elapsed_time': a['elapsed_time'],
-                 'distance': a['distance'],
-                 'moving_time': a['moving_time'],
-                 'fitness10': a['fitness10'],
-                 'fitness30': a['fitness30'],
-                 'frequency10': a['frequencies10'],
-                 'frequency30': a['frequencies30'],
-                 'average_speed': a['average_speed'],
-                 'max_speed': a['max_speed'],
-                 'name': a['name'],
-                 'total_elevation_gain': a['total_elevation_gain'],
-                 'athlete_id': a['athlete']['id']
-            }
-            if store_streams:
-                data = DB.process_streams(self.get_stream(a['id']), a['athlete']['id'], a['id'])
-                print len(data)
+            self.store_activity(a, store_streams=store_streams)
+        DB.conn.commit()
 
-                try:
-                    q = """ INSERT INTO streams (activity_id, athlete_id, time, distance, grade, altitude, velocity, latitude, longitude)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        """
-                    DB.cur.executemany(q, data)
-                except IntegrityError:
-                    print traceback.format_exc()
-                    continue
-            # break
+    def store_activity(self, activity, store_streams=False):
+        DB = StravaDB()
+        a = activity
+
+        d = {'id': a['id'],
+             'start_dt': datetime.strptime(a['start_date_local'], '%Y-%m-%dT%H:%M:%SZ'),
+             'timezone': a['timezone'],
+             'city': a['location_city'],
+             'country': a['location_country'],
+             'start_longitude': a['start_longitude'],
+             'start_latitude': a['start_latitude'],
+             'elapsed_time': a['elapsed_time'],
+             'distance': a['distance'],
+             'moving_time': a['moving_time'],
+             'fitness10': a.get('fitness10', 0),
+             'fitness30':  a.get('fitness30', 0),
+             'frequency10':  a.get('frequencies10', 0),
+             'frequency30':  a.get('frequencies30', 0),
+             'average_speed': a['average_speed'],
+             'max_speed': a['max_speed'],
+             'name': a['name'],
+             'total_elevation_gain': a['total_elevation_gain'],
+             'athlete_id': a['athlete']['id']
+        }
+        if store_streams:
+            data = DB.process_streams(self.get_stream(a['id']), a['athlete']['id'], a['id'])
+            print len(data)
+
             try:
-                DB.insert_values('activities', d)
+                q = """ INSERT INTO streams (activity_id, athlete_id, time, distance, grade, altitude, velocity, latitude, longitude)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """
+                DB.cur.executemany(q, data)
             except IntegrityError:
                 print traceback.format_exc()
-                continue
+        # break
+        try:
+            DB.insert_values('activities', d)
+        except IntegrityError:
+            print traceback.format_exc()
+        
 
-            
-
-            print 'Stored activity for %s on %s' % (
-                                                    a['athlete']['id'],
-                                                    a['start_date'])
-        DB.conn.commit()
+        print 'Stored activity for %s on %s' % (
+                                                a['athlete']['id'],
+                                                a['start_date'])
+        return True
 
     def fitness_score(self, activities):
         # rides in last 10 days * avg difficult of ride
@@ -145,6 +149,16 @@ class StravaAPI(object):
         new_t = np.linspace(t[0], t[-1], num_samples)
         print len(new_t), len(t), len(vec)
         return np.interp(new_t, np.array(t), np.array(vec)).tolist()
+
+    def get_activity(self, activity_id):
+        url = 'activities/%s' % activity_id
+        # after = calendar.timegm(time.strptime('2014-01-01', '%Y-%m-%d'))
+        # before = calendar.timegm(time.gmtime())
+        # payload = {'before': before, 'after': after, 'per_page': 100}
+        payload = {}
+        response = self.execute(url, payload)
+
+        return response.json()
 
     def get_stream(self, stream_id, types=None, stream_type='activity'):
         payload = {'resolution': 'high'}

@@ -218,7 +218,7 @@ class StravaDB(object):
         route = gpx.tracks[0].segments[0]
         df = self.gpx_to_df(route)
 
-        dt = datetime.now().date() - timedelta(200)
+        dt = datetime.now().date()
 
         cols = ['id', 'start_dt', 'distance', 'total_elevation_gain']
 

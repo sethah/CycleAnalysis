@@ -119,7 +119,7 @@ class StravaActivity(object):
         js = {}
         js['name'] = self.name
         js['date'] = datetime.strftime(self.dt.date(), '%A %B %d, %Y')
-        js['start_time'] = datetime.strftime(self.dt, '%H:%M:%S %p')
+        
         js['athlete'] = self.athlete
         pt = self.df.predicted_time.values.tolist()
         stream_predict = self.streaming_predict()
@@ -140,6 +140,10 @@ class StravaActivity(object):
             # convert the predicted distance and altitude to the new time axis
             js['plot_predicted_distance'] = np.interp(new_t, pt, d).tolist()
             js['plot_predicted_altitude'] = np.interp(new_t, pt, alt).tolist()
+            js['ride_rating'] = [0, 'NA']
+            js['moving_time'] = 0
+            js['moving_time_string'] = 'NA'
+            js['start_time'] = 'NA'
         else:
             # for the ride simulation we need to go until the time when both have finished
             max_time = np.max([t[-1], pt[-1]])
@@ -154,23 +158,16 @@ class StravaActivity(object):
             js['plot_predicted_altitude'] = np.interp(new_t, t, palt).tolist()
             
             js['type'] = 'activity'
+            js['ride_rating'] = self.ride_score()
+            js['moving_time'] = t[-1]
+            js['start_time'] = datetime.strftime(self.dt, '%H:%M:%S %p')
+            js['moving_time_string'] = time.strftime('%H:%M:%S', time.gmtime(t[-1]))
 
         # convert the actual distance and altitude to the new time axis
         js['plot_time'] = new_t.tolist()
         js['plot_distance'] = np.interp(new_t, t, d).tolist()
         js['plot_altitude'] = np.interp(new_t, t, alt).tolist()
         js['streaming_predict'] = smooth(np.interp(new_t, t, stream_predict), 'scipy', window_len=200).tolist()
-
-        
-
-        # # convert the actual distance and altitude to the new time axis
-        # js['plot_time'] = new_t.tolist()
-        # js['plot_distance'] = np.interp(new_t, js['predicted_time'], d).tolist()
-        # js['plot_altitude'] = np.interp(new_t, js['predicted_time'], alt).tolist()
-
-        # # convert the predicted distance and altitude to the new time axis
-        # js['plot_predicted_distance'] = js['predicted_distance']
-        # js['plot_predicted_altitude'] = alt
         
         # it doesn't matter that the latlng values do not correspond to the other vectors
         # because of the way the google maps markers are moved on a polyline
@@ -178,13 +175,12 @@ class StravaActivity(object):
         js['longitude'] = self.df.longitude.values.tolist()
         js['center'] = self.get_center().tolist()
         
-        
         js['total_distance'] = self.total_distance / meters_per_mile
         js['predicted_total_time'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
-        js['moving_time_string'] = time.strftime('%H:%M:%S', time.gmtime(t[-1]))
-        js['moving_time'] = t[-1]
+        
+        
         js['id'] = self.id
-        js['ride_rating'] = self.ride_score()
+        
 
         return js
 
