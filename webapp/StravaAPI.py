@@ -173,6 +173,7 @@ class StravaAPI(object):
 
         response = self.execute(url, payload)
         data = response.json()
+        raise
         data = {x['type']:x for x in data}
 
         return data

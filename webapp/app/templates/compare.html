@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block content %}
+
+    <style>
+      #map-canvas {text-align: center;}
+    </style>
+    <link href="/static/css/rides.css" rel="stylesheet">
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
+
+<script>
+var line;
+ride = {{ride|safe}}
+other_ride = {{other_ride|safe}}
+function initialize() {
+  setMap(ride)
+  lineChart(ride, other_ride)
+}
+
+function setMap(a) {
+
+  var mapOptions = {
+    mapTypeId: google.maps.MapTypeId.TERRAIN
+  };
+
+  var map = new google.maps.Map(document.getElementById('map-canvas'),
+      mapOptions);
+
+  var coords = [];
+
+  for (var i = 0; i < a.latitude.length; i++) {
+    coords.push(new google.maps.LatLng(a.latitude[i], a.longitude[i]));
+  }
+
+  var lineSymbol = {
+    path: google.maps.SymbolPath.CIRCLE,
+    scale: 8,
+    strokeColor: '#000'
+  };
+
+  var lineSymbolA = {
+    path: google.maps.SymbolPath.CIRCLE,
+    scale: 8,
+    strokeColor: '#393'
+  };
+
+var mapIcons;
+
+  mapIcons = [{
+    icon: lineSymbol,
+    offset: '0%'
+  },
+  {
+      icon: lineSymbolA,
+      offset: '0%'
+    }]
+
+
+  line = new google.maps.Polyline({
+    path: coords,
+    strokeColor: '#1da1cc',
+    icons: mapIcons,
+    map: map
+  });
+
+  var sw = new google.maps.LatLng(a['center'][0][0], a['center'][0][1])
+  var ne = new google.maps.LatLng(a['center'][1][0], a['center'][1][1])
+  var bounds = new google.maps.LatLngBounds(sw, ne)
+  map.fitBounds(bounds);
+
+}
+
+google.load('visualization', '1.0', {'packages':['corechart']});
+
+function zip(arrays) {
+    return arrays[0].map(function(_,i){
+        return arrays.map(function(array){return array[i]})
+    });
+}
+function addCrosshair(x, y, color) {
+    chart.xAxis[0].addPlotLine({
+        id: 'xPlotLine'+x,
+        value: x,
+      width: 2,
+      color: color
+    });
+    
+    // chart.yAxis[0].addPlotLine({
+    //     id: 'yPlotLine'+y,
+    //     value: y,
+    //   width: 2,
+    //   color: color
+    // });
+}
+
+function removeCrosshair(x,y) {
+    chart.xAxis[0].removePlotLine('xPlotLine'+x);
+    chart.yAxis[0].removePlotLine('yPlotLine'+y);
+}
+function lineChart(a1, a2) {
+    
+    data = zip([a1.plot_predicted_distance, a1.plot_predicted_altitude]);
+    var ymin = Math.min.apply(null, a1.plot_predicted_altitude)
+    var ymax = Math.max.apply(null, a1.plot_predicted_altitude)
+    var xmin = Math.min.apply(null, a1.plot_predicted_distance)
+    var xmax = Math.max.apply(null, a1.plot_predicted_distance)
+    var series = [{     
+        type: 'area',
+        name: 'Altitude',
+        yAxis: 0,
+        tooltip: {
+          pointFormatter: function(){
+            return '<b>'+ this.series.name +'</b>: '+ Highcharts.numberFormat(this.y, 0, ".", ",") +'<br/>';
+          }
+        },
+        fillOpacity: 0.5,
+        data: data,
+        lineWidth: 2
+      }]
+
+
+    console.log(series)
+        chart = new Highcharts.Chart({
+            chart: {
+                renderTo: 'container'
+            },
+            tooltip: {
+              shared: true
+            },
+            xAxis: {
+              min: xmin,
+              max: xmax,
+                title: {
+                    enabled: true,
+                    text: 'Distance (mi)'
+                },
+                ordinal: false
+            },
+            yAxis: [{
+                min: ymin,
+                max: ymax,
+                title: {
+                    text: 'Altitude (ft)'
+                }
+            },
+            {
+                title: {
+                    text: 'Time (s)'
+                },
+                labels: {
+                  formatter: function(){
+                    return moment.utc(this.value*1000).format("HH:mm:ss")
+                  }
+                },
+                opposite: true
+            }],
+            title: {
+                text: 'Ride profile'
+            },
+            plotOptions: {
+                    series: {
+                        compare: 'percent'
+                    }
+                },
+            series: series
+        });
+};
+
+function simRide(a1, a2) {
+  debugger;
+    var count = 0;
+    d1 = a1['plot_distance'];
+    d2 = a2['plot_predicted_distance'];
+    console.log(d2)
+    console.log(a2.total_distance)
+    var duration = moment.duration(0, 'seconds');
+
+    simInterval = window.setInterval(function() {
+    var isDone = false
+
+
+    offset1 = d1[count]*100.0/a1.total_distance
+    offset2 = d2[count]*100.0/a2.total_distance
+    console.log(offset1, offset2)
+    if ((offset1 >= 100) & (offset2 >= 100)) {
+      isDone = true;
+    }
+
+
+      if (isDone) {
+        console.log('cleared')
+        clearInterval(simInterval)
+      }
+      else {
+
+        var icons = line.get('icons');
+        
+        icons[0].offset = offset1 + '%';
+        
+        
+        duration = moment.duration(a1.plot_time[count]*1000, 'seconds');
+        // var p1 = chart.series[0].points[count];
+        // addCrosshair(p1.x, p1.y, '#000')
+ 
+        icons[1].offset = offset2 + '%';
+        line.set('icons', icons);
+        // addCrosshair(a.plot_predicted_distance[count], a.plot_predicted_altitude[count], '#390')
+
+
+        if (count != 0){
+          var previous1 = chart.series[0].points[count - 10];
+          removeCrosshair(previous1.x, previous1.y)
+          // if (a['type'] != 'route'){
+          //   removeCrosshair(a.plot_predicted_distance[count -10], a.plot_predicted_altitude[count-10])
+          // }
+        }
+        
+      }
+      count = count + 10;
+  }, 50);
+}
+
+
+      google.maps.event.addDomListener(window, 'load', initialize);
+
+    </script>
+    <div class="row">
+    <div class='span6 main' style="margin-left: 52px;">
+
+      <div class="wrapper">
+          <button id="play" onclick="simRide(ride, other_ride)">Play Ride</button>
+      </div>
+      
+      <div class="map" id="map-canvas" style="width:500px;height:380px;"></div>
+      <div id="container" style="min-width: 310px; height: 400px; max-width: 800px; margin: 0 auto"></div>
+    </div>
+      <div class='span2 main'></div>
+</div>
+
+    <script type="text/javascript" charset="utf-8">
+      $(document).ready(function() {
+        $("table").tablecloth({
+          theme: "stats",
+          striped: true,
+          sortable: true,
+          condensed: true,
+          clean: true
+        });
+      });
+    </script>
+  <!-- </body> -->
+
+
+{% endblock %}

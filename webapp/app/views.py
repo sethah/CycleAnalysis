@@ -48,7 +48,7 @@ def token_exchange():
     data = api.exchange_token(code)
     ath = data['athlete']
     ath['token'] = data['access_token']
-
+    DB = StravaDB()
     d = {'id': ath['id'],
          'firstname': ath['firstname'],
          'lastname': ath['lastname'],
@@ -56,7 +56,7 @@ def token_exchange():
          'city': ath['city'],
          'state': ath['state'],
          'country': ath['country'],
-         'access_token': ath['token']}
+         'access_key': ath['token']}
     DB.insert_values('athletes', d)
     DB.conn.commit()
 
@@ -198,6 +198,30 @@ def rides(userid):
         activities=activities,
         routes=routes,
         activity = activity)
+
+@app.route('/compare/<activity_id>/<userid>', methods=['GET', 'POST'])
+def compare(activity_id, userid):
+
+    print 'creating user'
+    # otherid = request.form.get('otherid', 0)
+    otherid = 4496814
+    the_user = StravaUser(int(userid))
+    other_user = StravaUser(int(otherid))
+    the_ride = StravaActivity(activity_id, the_user.userid, get_streams=True)
+    the_other_ride = StravaActivity(activity_id, other_user.userid, belongs_to='other', get_streams=True)
+
+    the_dict = pickle.load(open('model_%s.pkl' % the_user.userid, 'rb'))
+    other_dict = pickle.load(open('model_%s.pkl' % other_user.userid, 'rb'))
+    
+    the_ride.predict(the_dict[the_user.userid]['model'])
+    the_other_ride.predict(other_dict[other_user.userid]['model'])
+
+    return render_template(
+        'compare.html',
+        the_athlete = the_user,
+        the_other_athlete=other_user,
+        ride=json.dumps(the_ride.to_dict()),
+        other_ride=json.dumps(the_other_ride.to_dict()))
 
 @app.route('/change', methods=['POST'])
 def change():

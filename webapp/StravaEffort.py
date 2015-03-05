@@ -6,7 +6,7 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 import matplotlib.pyplot as plt
 from PlotTools import PlotTool
 from StravaDB import StravaDB
-from datetime import datetime
+from datetime import datetime, timedelta, date
 import pymongo
 import seaborn as sns
 import time
@@ -20,28 +20,32 @@ DB = StravaDB()
 
 class StravaActivity(object):
 
-    def __init__(self, activity_id, athlete_id, get_streams=False, is_route=False):
+    def __init__(self, activity_id, athlete_id, get_streams=False, is_route=False, belongs_to='athlete'):
         self.is_route = is_route
-        d = self.fetch_activity(activity_id, athlete_id)
-        self.name = d['name']
-        self.dt = d['start_dt']
-        self.total_distance = d['distance']
-        self.moving_time = int(d.get('moving_time', 0))
-        self.moving_time_string = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
-        self.city = d['city']
-        self.total_distance = d['distance']
-        self.total_climb = d['total_elevation_gain']
+        self.belongs_to = belongs_to
+        if belongs_to == 'other':
+            self.init_from_other(activity_id, athlete_id, get_streams)
+        else:
+            d = self.fetch_activity(activity_id, athlete_id, belongs_to)
+            self.name = d['name']
+            self.dt = d['start_dt']
+            self.total_distance = d['distance']
+            self.moving_time = int(d.get('moving_time', 0))
+            self.moving_time_string = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
+            self.city = d['city']
+            self.total_distance = d['distance']
+            self.total_climb = d['total_elevation_gain']
 
-        self.fitness10 = d['fitness10']
-        self.fitness30 = d['fitness30']
-        self.frequency10 = d['frequency10']
-        self.frequency30 = d['frequency30']
+            self.fitness10 = d['fitness10']
+            self.fitness30 = d['fitness30']
+            self.frequency10 = d['frequency10']
+            self.frequency30 = d['frequency30']
 
-        if get_streams:
-            self.init_streams()
-            self.center = self.get_center()
+            if get_streams:
+                self.init_streams()
+                self.center = self.get_center()
 
-    def fetch_activity(self, activity_id, athlete_id):
+    def fetch_activity(self, activity_id, athlete_id, belongs_to):
         DB = StravaDB()
         self.id = activity_id
         self.athlete = athlete_id
@@ -56,8 +60,15 @@ class StravaActivity(object):
             cols = ['id', 'athlete_id', 'start_dt', 'name', 'moving_time',
                 'city', 'fitness10', 'fitness30', 'frequency10', 'frequency30',
                 'total_elevation_gain', 'distance']
-        q = """ SELECT %s FROM %s WHERE id = %s AND athlete_id = %s
+
+        if belongs_to == 'other':
+            q = """ SELECT %s FROM %s WHERE id = %s
+            """ % (', '.join(cols), table, self.id)
+        else:
+            q = """ SELECT %s FROM %s WHERE id = %s AND athlete_id = %s
             """ % (', '.join(cols), table, self.id, self.athlete)
+
+        print q
 
         DB.cur.execute(q)
         results = DB.cur.fetchone()
@@ -73,6 +84,28 @@ class StravaActivity(object):
         self.df = pd.read_sql(q, DB.conn)
         if self.is_route:
             self.df = self.df.sort('distance')
+
+    def init_from_other(self, activity_id, athlete_id, get_streams, dt=None):
+        d = self.fetch_activity(activity_id, athlete_id, 'other')
+        self.name = d['name']
+        if dt == None:
+            self.dt = datetime.now().date()
+        else:
+            self.dt = dt
+        self.total_distance = d['distance']
+        self.moving_time = 0
+        self.moving_time_string = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
+        self.city = d['city']
+        self.total_distance = d['distance']
+        self.total_climb = d['total_elevation_gain']
+
+        self.get_my_fitness()
+
+        if get_streams:
+            self.init_streams()
+            self.df.time = np.arange(-1, -self.df.shape[0] - 1, -1)
+            self.df.velocity = np.array([-1]*self.df.shape[0])
+            self.center = self.get_center()
 
     def strava_date(self, date_string):
         return datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%SZ')
@@ -118,7 +151,7 @@ class StravaActivity(object):
     def to_dict(self):
         js = {}
         js['name'] = self.name
-        js['date'] = datetime.strftime(self.dt.date(), '%A %B %d, %Y')
+        js['date'] = datetime.strftime(self.dt, '%A %B %d, %Y')
         
         js['athlete'] = self.athlete
         pt = self.df.predicted_time.values.tolist()
@@ -132,7 +165,7 @@ class StravaActivity(object):
         
 
         num_samples = 5000
-        if self.is_route:
+        if self.is_route or self.belongs_to == 'other':
             # we convert the time to evenly spaced samples of length num_samples
             new_t = np.linspace(0, pt[-1], num_samples)
             js['type'] = 'route'
@@ -197,6 +230,36 @@ class StravaActivity(object):
             ind = np.argmin(np.where(tmp < 0, 999, tmp))
 
         return (scores[ind], ratings[ind])
+
+    def get_my_fitness(self):
+        DB = StravaDB()
+        dt = self.dt
+
+        cols = ['id', 'start_dt', 'distance', 'total_elevation_gain']
+
+        q = """ SELECT %s
+                FROM activities
+                WHERE start_dt >= '%s'
+                AND start_dt < '%s'
+                AND athlete_id = %s
+            """ % (', '.join(cols), dt - timedelta(30), dt, self.athlete)
+
+        results = DB.execute(q)
+        difficulties10 = []
+        difficulties30 = []
+        for a in results:
+            d = dict(zip(cols, a))
+            dt2 = d['start_dt'].date()
+            if dt2 < dt and dt2 >= dt - timedelta(30):
+                difficulty = d['total_elevation_gain']*d['distance']
+                difficulties30.append(difficulty)
+            if dt2 < dt and dt2 >= dt - timedelta(10):
+                difficulty = d['total_elevation_gain']*d['distance']
+                difficulties10.append(difficulty)
+        self.fitness10 = np.sum(difficulties10)
+        self.fitness30 = np.sum(difficulties30)
+        self.frequency10 = len(difficulties10)
+        self.frequency30 = len(difficulties30)
 
     def get_center(self):
         max_left = np.min(self.df.latitude)
