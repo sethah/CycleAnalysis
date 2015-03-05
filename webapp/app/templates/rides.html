@@ -46,16 +46,16 @@ var mapIcons;
 if (a['type'] != 'route'){
   mapIcons = [{
     icon: lineSymbol,
-    offset: '100%'
+    offset: '0%'
   },
   {
       icon: lineSymbolA,
-      offset: '100%'
+      offset: '0%'
     }]
   }
 else {mapIcons = mapIcons = [{
     icon: lineSymbol,
-    offset: '100%'
+    offset: '0%'
   }]
 }
   line = new google.maps.Polyline({
@@ -100,13 +100,71 @@ function removeCrosshair(x,y) {
     chart.yAxis[0].removePlotLine('yPlotLine'+y);
 }
 function lineChart(a) {
-    data = zip([a.plot_distance, a.plot_altitude]);
-    data1 = zip([a.plot_distance, a.streaming_predict]);
-    console.log(data)
-    var ymin = Math.min.apply(null, a.plot_altitude)
-    var ymax = Math.max.apply(null, a.plot_altitude)
-    var xmin = Math.min.apply(null, a.plot_distance)
-    var xmax = Math.max.apply(null, a.plot_distance)
+    
+    // console.log(data)
+    
+
+    if (a['type'] == 'route'){
+      data = zip([a.plot_predicted_distance, a.plot_predicted_altitude]);
+      var ymin = Math.min.apply(null, a.plot_predicted_altitude)
+      var ymax = Math.max.apply(null, a.plot_predicted_altitude)
+      var xmin = Math.min.apply(null, a.plot_predicted_distance)
+      var xmax = Math.max.apply(null, a.plot_predicted_distance)
+      var series = [{     
+          type: 'area',
+          name: 'Altitude',
+          yAxis: 0,
+          tooltip: {
+            pointFormatter: function(){
+              return '<b>'+ this.series.name +'</b>: '+ Highcharts.numberFormat(this.y, 0, ".", ",") +'<br/>';
+            }
+          },
+          fillOpacity: 0.5,
+          data: data,
+          lineWidth: 2
+        }]
+    }
+    else {
+      data = zip([a.plot_distance, a.plot_altitude]);
+      data1 = zip([a.plot_distance, a.streaming_predict]);
+      var ymin = Math.min.apply(null, a.plot_altitude)
+      var ymax = Math.max.apply(null, a.plot_altitude)
+      var xmin = Math.min.apply(null, a.plot_distance)
+      var xmax = Math.max.apply(null, a.plot_distance)
+      var series = [
+        {     
+          type: 'area',
+          name: 'Altitude',
+          yAxis: 0,
+          tooltip: {
+            pointFormatter: function(){
+              return '<b>'+ this.series.name +'</b>: '+ Highcharts.numberFormat(this.y, 0, ".", ",") +'<br/>';
+            }
+          },
+          fillOpacity: 0.5,
+          data: data,
+          lineWidth: 2
+        },
+        {
+          type: 'spline',
+          name: 'Predicted Time',
+          yAxis: 1,
+          tooltip: {
+            pointFormatter: function(){
+              return '<b>'+ this.series.name +'</b>: '+ moment.utc(this.y*1000).format("HH:mm:ss") +'<br/>';
+            }
+          },
+          data: data1,
+          lineWidth: 2
+        },
+        {
+          type: 'line',
+          name: 'Actual Time',
+          yAxis: 1,
+          data: [[-100, a.moving_time], [600, a.moving_time]]
+        }]
+    }
+    console.log(series)
         chart = new Highcharts.Chart({
             chart: {
                 renderTo: 'container'
@@ -150,39 +208,7 @@ function lineChart(a) {
                         compare: 'percent'
                     }
                 },
-            series: [
-            {
-              type: 'area',
-              name: 'Altitude',
-              yAxis: 0,
-              tooltip: {
-                pointFormatter: function(){
-                  return '<b>'+ this.series.name +'</b>: '+ Highcharts.numberFormat(this.y, 0, ".", ",") +'<br/>';
-                }
-              },
-              fillOpacity: 0.5,
-              data: data,
-              lineWidth: 2
-            },
-            {
-              type: 'spline',
-              name: 'Predicted Time',
-              yAxis: 1,
-              tooltip: {
-                pointFormatter: function(){
-                  return '<b>'+ this.series.name +'</b>: '+ moment.utc(this.y*1000).format("HH:mm:ss") +'<br/>';
-                }
-              },
-              data: data1,
-              lineWidth: 2
-            },
-            {
-              type: 'line',
-              name: 'Actual Time',
-              yAxis: 1,
-              data: [[-100, a.moving_time], [600, a.moving_time]]
-            }
-            ]
+            series: series
         });
 };
 
@@ -196,19 +222,22 @@ function simRide(a) {
     simInterval = window.setInterval(function() {
       var isDone = false
 
-      var offset1 = d[count]*100.0/a.total_distance
-      var offset2 = pd[count]*100.0/a.total_distance
-      console.log(offset1, offset2)
+      // debugger;
+      // console.log(offset1, offset2)
       if (a['type'] != 'route'){
+        offset1 = d[count]*100.0/a.total_distance
+        offset2 = pd[count]*100.0/a.total_distance
         if ((offset1 >= 100) & (offset2 >= 100)) {
           isDone = true;
         }
       }
       else {
+        offset1 = pd[count]*100.0/a.total_distance
         if (offset1 > 99.5){
           isDone = true;
         }
       }
+      // debugger;
       // console.log(offset1, offset2)
       if (isDone) {
         console.log('cleared')
@@ -229,8 +258,9 @@ function simRide(a) {
           icons[1].offset = offset2 + '%';
           addCrosshair(a.plot_predicted_distance[count], a.plot_predicted_altitude[count], '#390')
         }
-        
-        chart.tooltip.refresh(p1);
+        console.log('a')
+        // debugger;
+        // chart.tooltip.refresh(p1);
         // chart.tooltip.refresh(p2);
         if (count != 0){
           var previous1 = chart.series[0].points[count - 10];
@@ -240,14 +270,17 @@ function simRide(a) {
             removeCrosshair(a.plot_predicted_distance[count -10], a.plot_predicted_altitude[count-10])
           }
         }
+        
         // debugger;
         
         // chart.series[1].setData([[a.plot_distance[count], 0], [a.plot_distance[count], 10000]]);
         // chart.series[2].setData([[a.plot_predicted_distance[count], 0], [a.plot_predicted_distance[count], 10000]]);
 
-        document.getElementById('playback-timer').innerHTML = moment.utc(a.plot_time[count]*1000).format("HH:mm")
-        document.getElementById('playback-margin').innerHTML = (d[count] - pd[count]).toFixed(2);
-        document.getElementById('playback-distance').innerHTML = d[count].toFixed(2);
+        // document.getElementById('playback-timer').innerHTML = moment.utc(a.plot_time[count]*1000).format("HH:mm")
+        // document.getElementById('playback-margin').innerHTML = (d[count] - pd[count]).toFixed(2);
+        // document.getElementById('playback-distance').innerHTML = d[count].toFixed(2);
+        console.log('b')
+        // debugger;
       }
       count = count + 10;
   }, 50);

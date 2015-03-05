@@ -151,7 +151,6 @@ class StravaDB(object):
         find = {'id': 1, 'athlete': 1, 'streams': 1, 'start_date_local': 1}
         activities = MongoDB.activities.find({}, find)
         for a in activities:
-            # a = MongoDB.activities.find_one()
             start_time = datetime.strptime(a['start_date_local'], '%Y-%m-%dT%H:%M:%SZ')
             data = self.process_streams(a)
             print a['start_date_local'], len(data)
@@ -208,7 +207,6 @@ class StravaDB(object):
         d['distance'] = new_dist
 
         seg_frame = pd.DataFrame(d)
-        # seg_frame['distance'] = np.cumsum(seg_frame['distance'])
         seg_frame['grade'] = np.append(np.diff(seg_frame['altitude']), 0) * 100 / \
                         np.append(np.diff(seg_frame['distance']), 0.01)
         return seg_frame.sort('distance')

@@ -129,19 +129,29 @@ class StravaActivity(object):
         t = (self.df.time.values - self.df.time.values[0])
         alt = (self.df.altitude.values * feet_per_meter).tolist()
 
-        # interpolate the predictions to have the same time axis
-        pd = np.interp(t, pt, d)
-        palt = np.interp(t, pt, alt)
+        
 
         num_samples = 5000
         if self.is_route:
             # we convert the time to evenly spaced samples of length num_samples
             new_t = np.linspace(0, pt[-1], num_samples)
             js['type'] = 'route'
+
+            # convert the predicted distance and altitude to the new time axis
+            js['plot_predicted_distance'] = np.interp(new_t, pt, d).tolist()
+            js['plot_predicted_altitude'] = np.interp(new_t, pt, alt).tolist()
         else:
             # for the ride simulation we need to go until the time when both have finished
             max_time = np.max([t[-1], pt[-1]])
             new_t = np.linspace(0, max_time, num_samples)
+
+            # interpolate the predictions to have the same time axis
+            pd = np.interp(t, pt, d)
+            palt = np.interp(t, pt, alt)
+
+            # convert the predicted distance and altitude to the new time axis
+            js['plot_predicted_distance'] = np.interp(new_t, t, pd).tolist()
+            js['plot_predicted_altitude'] = np.interp(new_t, t, palt).tolist()
             
             js['type'] = 'activity'
 
@@ -151,9 +161,7 @@ class StravaActivity(object):
         js['plot_altitude'] = np.interp(new_t, t, alt).tolist()
         js['streaming_predict'] = smooth(np.interp(new_t, t, stream_predict), 'scipy', window_len=200).tolist()
 
-        # convert the predicted distance and altitude to the new time axis
-        js['plot_predicted_distance'] = np.interp(new_t, t, pd).tolist()
-        js['plot_predicted_altitude'] = np.interp(new_t, t, palt).tolist()
+        
 
         # # convert the actual distance and altitude to the new time axis
         # js['plot_time'] = new_t.tolist()
