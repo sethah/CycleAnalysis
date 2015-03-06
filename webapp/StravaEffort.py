@@ -21,15 +21,31 @@ DB = StravaDB()
 class StravaActivity(object):
 
     def __init__(self, activity_id, athlete_id, get_streams=False, is_route=False, belongs_to='athlete'):
+        """
+        INPUT: StravaActivity, INT, INT, BOOL, BOOL, STRING
+        OUTPUT: None
+
+        Initialize a StravaActivity
+
+        activity_id is the integer id assigned to this activity by Strava. If the
+        activity is a route, then this id was assigned automatically by the database.
+        athlete_id is the integer id of the parent StravaUser
+        get_streams is a Boolean which indicates a Boolean which indicates whether to get the raw data
+        streams for the user.
+        is_route is a Boolean which indicates if this is a ride that the user has not done
+        yet and thus does not have time/velocity streams.
+        belongs_to is a Boolean which indicates whether this activity belongs to the parent
+        StravaUser. If belongs_to == 'other', then this athlete does not have time/velocity
+        streams and the activity is treated like a route.
+        """
         self.is_route = is_route
-        print is_route
         self.belongs_to = belongs_to
         if belongs_to == 'other':
             self.init_from_other(activity_id, athlete_id, get_streams)
         else:
             d = self.fetch_activity(activity_id, athlete_id, belongs_to)
-            self.name = d['name']
-            self.dt = d['start_dt']
+            self.name = d['name']  # description of the ride
+            self.dt = d['start_dt']  # timestampof the ride's start
             self.total_distance = d['distance']
             self.moving_time = int(d.get('moving_time', 0))
             self.moving_time_string = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
@@ -37,16 +53,22 @@ class StravaActivity(object):
             self.total_distance = d['distance']
             self.total_climb = d['total_elevation_gain']
 
-            self.fitness10 = d['fitness10']
+            self.fitness10 = d['fitness10']  # difficulty of rides in last 10 days
             self.fitness30 = d['fitness30']
-            self.frequency10 = d['frequency10']
+            self.frequency10 = d['frequency10']  # number of rides in last 10 days
             self.frequency30 = d['frequency30']
 
             if get_streams:
                 self.init_streams()
-                self.center = self.get_center()
+                self.center = self.get_bounds()
 
     def fetch_activity(self, activity_id, athlete_id, belongs_to):
+        """
+        INPUT: StravaActivity, INT, INT, BOOL, STRING
+        OUTPUT: DICTIONARY
+
+        Get an activity from the database.
+        """
         DB = StravaDB()
         self.id = activity_id
         self.athlete = athlete_id
@@ -69,8 +91,6 @@ class StravaActivity(object):
             q = """ SELECT %s FROM %s WHERE id = %s AND athlete_id = %s
             """ % (', '.join(cols), table, self.id, self.athlete)
 
-        print q
-        print self.is_route
         DB.cur.execute(q)
         results = DB.cur.fetchone()
         d = dict(zip(cols, results))
@@ -78,6 +98,12 @@ class StravaActivity(object):
         return d
 
     def init_streams(self):
+        """
+        INPUT: StravaActivity
+        OUTPUT: None
+
+        Load the activity's streams into a Pandas dataframe.
+        """
         DB = StravaDB()
         cols = ['activity_id', 'athlete_id', 'time', 'distance',
                 'velocity', 'grade', 'altitude', 'latitude', 'longitude']
@@ -88,6 +114,16 @@ class StravaActivity(object):
             self.df = self.df.sort('distance')
 
     def init_from_other(self, activity_id, athlete_id, get_streams, dt=None):
+        """
+        INPUT: StravaActivity, INT, INT, BOOL, DATETIME DATE
+        OUTPUT: None
+
+        Initialize an activity for the parent athlete that belongs to another
+        athlete.
+
+        This method is used to create what is essentially a route from an activity
+        that another user has done, but this user has not. There is no moving data.
+        """
         d = self.fetch_activity(activity_id, athlete_id, 'other')
         self.name = d['name']
         if dt == None:
@@ -107,31 +143,26 @@ class StravaActivity(object):
             self.init_streams()
             self.df.time = np.arange(-1, -self.df.shape[0] - 1, -1)
             self.df.velocity = np.array([-1]*self.df.shape[0])
-            self.center = self.get_center()
+            self.center = self.get_bounds()
 
     def strava_date(self, date_string):
+        """
+        INPUT: StravaActivity, STRING
+        OUTPUT: DATETIME
+
+        Convert a Strava date string to datetime object.
+        """
         return datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%SZ')
 
-    def init_stream(self, stream_dict, stream_type):
-        if stream_type not in stream_dict:
-            return None
-        return StravaStream(stream_type, stream_dict[stream_type])
-
-    def get_moving(self):
-        not_moving = np.where(~self.moving.raw_data)[0]
-        for ind in not_moving:
-            self.time.raw_data[ind:] -= (self.time.raw_data[ind] - \
-                                         self.time.raw_data[ind -1])
-
-        dd = np.diff(self.df.distance)
-        dt = np.diff(self.df.time)
-        not_moving = np.where(dd/dt < 1)[0]
-        for ind in not_moving:
-            ind += 1
-            self.df.time.iloc[ind:] -= (self.df.time.iloc[ind] - \
-                                         self.df.time.iloc[ind -1])
-
     def predict(self, model):
+        """
+        INPUT: StravaActivity, SKLEARN MODEL
+        OUTPUT: None
+
+        Construct feature dataframe and predict time and velocity.
+
+        model is a scikit-learn model object. 
+        """
         df = self.make_df()
 
         df.pop('velocity')
@@ -142,6 +173,14 @@ class StravaActivity(object):
         self.predicted_moving_time = time.strftime('%H:%M:%S', time.gmtime(self.df['predicted_time'].iloc[-1]))
 
     def streaming_predict(self):
+        """
+        INPUT: StravaActivity
+        OUTPUT: 1D NUMPY ARRAY
+
+        Return a streaming prediction of the user for every time
+        sample. This is the prediction if it were updated with the
+        user's real tim data. It should converge to the true value.
+        """
 
         t = (self.df.time - self.df.time.iloc[0]).values
         pt = self.df.predicted_time.values
@@ -151,6 +190,19 @@ class StravaActivity(object):
 
 
     def to_dict(self, time_spacing=None):
+        """
+        INPUT: StravaActivity, FLOAT
+        OUTPUT: None
+
+        Convert the activity to a dictionary with uniformly
+        spaced time vectors for actual and predictions.
+
+        time_spacing indicates the space between time samples.
+
+        This method interpolates the values so that the predicted and
+        actual time vectors have the same spacing. They are not the same
+        length, however.
+        """
         js = {}
         js['name'] = self.name
         js['date'] = datetime.strftime(self.dt, '%A %B %d, %Y')
@@ -218,18 +270,25 @@ class StravaActivity(object):
         # because of the way the google maps markers are moved on a polyline
         js['latitude'] = self.df.latitude.values.tolist()
         js['longitude'] = self.df.longitude.values.tolist()
-        js['center'] = self.get_center().tolist()
+        js['center'] = self.get_bounds().tolist()
         
         js['total_distance'] = self.total_distance / meters_per_mile
         js['predicted_total_time'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
-        
-        
         js['id'] = self.id
         
 
         return js
 
     def ride_score(self):
+        """
+        INPUT: StravaActivity
+        OUTPUT: TUPLE
+
+        Return a tuple of numeric and string rating of the ride.
+
+        This method compares the actual time to the predicted time
+        to evaluate and score a rider's performance.
+        """
         ratings = ['Poor', 'Below Average', 'Average', 'Good', 'Great!', 'Excellent']
         scores = range(len(ratings))
         criteria = np.array([0.5, 0.3, 0, -0.2, -0.3, -0.4])
@@ -244,6 +303,14 @@ class StravaActivity(object):
         return (scores[ind], ratings[ind])
 
     def get_my_fitness(self):
+        """
+        INPUT: StravaActivity
+        OUTPUT: None
+
+        Get the fitness/frequency features for the activity. If the activity
+        belongs to the user then these are already populated in the database.
+        This method is used when the activity is a route.
+        """
         DB = StravaDB()
         dt = self.dt
 
@@ -273,7 +340,13 @@ class StravaActivity(object):
         self.frequency10 = len(difficulties10)
         self.frequency30 = len(difficulties30)
 
-    def get_center(self):
+    def get_bounds(self):
+        """
+        INPUT: StravaActivity
+        OUTPUT: 2D NUMPY ARRAY
+
+        Return the SW and NE lat/lng bounds for the ride.
+        """
         max_left = np.min(self.df.latitude)
         max_right = np.max(self.df.latitude)
         max_down = np.min(self.df.longitude)
@@ -284,10 +357,13 @@ class StravaActivity(object):
 
         return np.array([sw, ne])
 
-    def fitness_level(self, level):
-        self.fit_level = level
+    def make_df(self):
+        """
+        INPUT: StravaActivity
+        OUTPUT: None
 
-    def make_df(self, window=6):
+        Construct the feature/target dataframe for the activity.
+        """
         n = self.df.shape[0]
         df = self.df.copy()
         df.pop('latitude')
@@ -333,8 +409,8 @@ class StravaActivity(object):
         return df
 
     def __repr__(self):
-        return '<%s, %s, %s>' % \
-            (self.name, self.dt, self.city)
+        return '<%s, %s, %s, %s>' % \
+            (self.name, self.dt, self.city, self.total_distance)
 
 
 if __name__ == '__main__':

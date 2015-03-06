@@ -79,7 +79,7 @@ function zip(arrays) {
         return arrays.map(function(array){return array[i]})
     });
 }
-function addCrosshair(x, y, color) {
+function addCrosshair(x, color) {
     chart.xAxis[0].addPlotLine({
         id: 'xPlotLine'+x,
         value: x,
@@ -88,9 +88,9 @@ function addCrosshair(x, y, color) {
     });
 }
 
-function removeCrosshair(x,y) {
+function removeCrosshair(x) {
     chart.xAxis[0].removePlotLine('xPlotLine'+x);
-    chart.yAxis[0].removePlotLine('yPlotLine'+y);
+    // chart.yAxis[0].removePlotLine('yPlotLine'+y);
 }
 
 function barGauge(xmax) {
@@ -258,109 +258,107 @@ function lineChart(a) {
 function simRide(a) {
     
     // document.getElementById("ride-console").style.visibility = "visible";
-    document.getElementById("gauges").style.width="auto";
-    document.getElementById("gauges").style.height="100px";
-    document.getElementById("gauges").style.textAlign="center";
-    // document.getElementById("gauges").innerHTML = '<div id="gauge-bar" style="height: 100px"></div><div id="gauge-speed" style="width: 300px; height: 200px; float: left"></div><div id="gauge-other" style="width: 300px; height: 200px; float: left"></div>';
-    document.getElementById("gauges").innerHTML = '<div id="gauge-bar" style="height: 70px; background-color:#393;margin:0px auto;"></div>';
-    var xmin = Math.min.apply(null, a.distance_diff)
-    var xmax = Math.max.apply(null, a.distance_diff)
-    xmax = Math.max(Math.abs(xmin), Math.abs(xmax))
-    xmax = Math.round(xmax*2)/2;
-    barGauge(xmax)
-    // gauges(a, 'gauge-speed')
-    // gauges(a, 'gauge-other')
+    if (a.type != 'route') {
+      document.getElementById("gauges").style.width="auto";
+      document.getElementById("gauges").style.height="100px";
+      document.getElementById("gauges").style.textAlign="center";
+      document.getElementById("gauges").innerHTML = '<div id="gauge-bar" style="height: 70px; background-color:#393;margin:0px auto;"></div>';
+      var xmin = Math.min.apply(null, a.distance_diff)
+      var xmax = Math.max.apply(null, a.distance_diff)
+      xmax = Math.max(Math.abs(xmin), Math.abs(xmax))
+      xmax = Math.round(xmax*2)/2;
+      barGauge(xmax)
+    }
+    
     var count = 0;
     d = a['plot_distance'];
     pd = a['plot_predicted_distance'];
     var duration = moment.duration(0, 'seconds');
+    pidx = 0;
+    idx = 0;
+
     spacing = 20;
     timeStep = 100;
 
     simInterval = window.setInterval(function() {
       var isDone = false
+      var icons = line.get('icons');
 
       if (a['type'] != 'route'){
-        offset1 = d[Math.min(count, d.length -1)]*100.0/a.total_distance
-        offset2 = pd[Math.min(count, pd.length -1)]*100.0/a.total_distance
+        if (count != 0){
+          removeCrosshair(a.plot_distance[idx])
+          removeCrosshair(a.plot_predicted_distance[pidx])
+        }
+        idx = Math.min(count, d.length -1)
+        pidx = Math.min(count, pd.length -1)
+        offset = d[idx]*100.0/a.total_distance
+        poffset = pd[pidx]*100.0/a.total_distance
+
+        icons[0].offset = offset + '%';
+        icons[1].offset = poffset + '%';
+        
+        addCrosshair(a.plot_distance[idx], '#FF7519')
+        addCrosshair(a.plot_predicted_distance[pidx], '#5C005C')
+
+        gauge = $('#gauge-bar').highcharts();
+          if (gauge) {
+              if (idx != 0){
+                var previousDiff = a.distance_diff[idx - spacing];
+              }
+              else {
+                var previousDiff = 0;
+              }
+
+              if (a.distance_diff[idx] < 0 & previousDiff >= 0){
+                gauge.series[0].options.color = '#F00';
+                gauge.series[0].update(gauge.series[0].options);
+              }
+              else if (a.distance_diff[idx] > 0 & previousDiff <= 0){
+                gauge.series[0].options.color = '#393';
+                gauge.series[0].update(gauge.series[0].options);
+              }
+              point = gauge.series[0].points[0];
+              point.update(a.distance_diff[idx]);
+            }
+        
 
         if ((count > d.length) & (count > pd.length)) {
-          isDone = true;
+          removeCrosshair(a.plot_distance[idx])
+          removeCrosshair(a.plot_predicted_distance[pidx])
+          console.log('cleared')
+          clearInterval(simInterval)
         }
       }
       else {
-        offset1 = pd[Math.min(count, pd.length -1)]*100.0/a.total_distance
-        if (count > pd.length){
-          isDone = true;
-        }
-      }
-
-      if (isDone) {
-        console.log('cleared')
-        clearInterval(simInterval)
-      }
-      else {
-        // gauge = $('#gauge-speed').highcharts();
-        // if (gauge) {
-        //     point = gauge.series[0].points[0];
-        //     point.update(a.plot_velocity[count]);
-        //   }
-        gauge = $('#gauge-bar').highcharts();
-        if (gauge) {
-            if (count != 0){
-              var previousDiff = a.distance_diff[count - spacing];
-            }
-            else {
-              var previousDiff = 0;
-            }
-
-            if (a.distance_diff[count] < 0 & previousDiff >= 0){
-              gauge.series[0].options.color = '#F00';
-              gauge.series[0].update(gauge.series[0].options);
-            }
-            else if (a.distance_diff[count] > 0 & previousDiff <= 0){
-              gauge.series[0].options.color = '#393';
-              gauge.series[0].update(gauge.series[0].options);
-            }
-            point = gauge.series[0].points[0];
-            // console.log(a.distance_diff[count])
-            point.update(a.distance_diff[count]);
-          }
-
-        var icons = line.get('icons');
-        
-        icons[0].offset = offset1 + '%';
-        
-        line.set('icons', icons);
-        duration = moment.duration(a.plot_time[count]*1000, 'seconds');
-        var p1 = chart.series[0].points[count];
-        addCrosshair(p1.x, p1.y, '#FF7519')
-        if (a['type'] != 'route'){
-          icons[1].offset = offset2 + '%';
-          addCrosshair(a.plot_predicted_distance[count], a.plot_predicted_altitude[count], '#5C005C')
-        }
-
         if (count != 0){
-          var previous1 = chart.series[0].points[count - spacing];
-          removeCrosshair(previous1.x, previous1.y)
-          if (a['type'] != 'route'){
-            removeCrosshair(a.plot_predicted_distance[count -spacing], a.plot_predicted_altitude[count-spacing])
-          }
+          removeCrosshair(a.plot_predicted_distance[pidx])
         }
-        
-        // debugger;
-        
-        // chart.series[1].setData([[a.plot_distance[count], 0], [a.plot_distance[count], 10000]]);
-        // chart.series[2].setData([[a.plot_predicted_distance[count], 0], [a.plot_predicted_distance[count], 10000]]);
 
-        document.getElementById('ride-console').innerHTML = '<br/><table><tr>' + 
-        '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
-        '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
-        '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
-        '</tr></table><br/>'
+        pidx = Math.min(count, pd.length - 1);
+        poffset = pd[pidx]*100.0/a.total_distance
+        icons[0].offset = poffset + '%';
+        addCrosshair(a.plot_predicted_distance[pidx], '#5C005C')
+        if (count > pd.length){
+          console.log('cleared')
+          removeCrosshair(a.plot_predicted_distance[pidx])
+          clearInterval(simInterval)
+        }
+      }
+      line.set('icons', icons);
+      duration = moment.duration(a.plot_time[count]*1000, 'seconds');
+
+
+
+      
+
+        // document.getElementById('ride-console').innerHTML = '<br/><table><tr>' + 
+        // '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
+        // '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
+        // '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
+        // '</tr></table><br/>'
         // document.getElementById('playback-margin').innerHTML = (d[count] - pd[count]).toFixed(2);
         // document.getElementById('playback-distance').innerHTML = d[count].toFixed(2);
-      }
+      // }
       count = count + spacing;
   }, timeStep);
 }
@@ -389,6 +387,7 @@ function deleteRoute(rid, uid, routeElement) {
 }
 
 function switchActivity(a) {
+  document.getElementById("gauges").innerHTML = '<div style="height: 0px"></div>'
   activity = a
   $(document.getElementById('activity_desc')).text(a['name']);
   $(document.getElementById('activity_date')).text(a['date']);

@@ -18,19 +18,31 @@ from itertools import izip
 meters_per_mile = 1609.34
 feet_per_meter = 3.280
 
-
-# CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
-
-
 class StravaUser(object):
 
     def __init__(self, athlete_id, get_streams=False, get_routes=True):
+        """
+        INPUT: DECISIONTREE, INT, BOOL, BOOL
+        OUTPUT: None
+        Initialize a Strava user.
+        
+        athlete_id is an integer id for a Strava app athlete.
+        get_streams is a Boolean which indicates whether to get the raw data
+        streams for the user.
+        get_routes is a Boolean which indicates whether to load the user's
+        routes as activities.
+        """
         self.userid = athlete_id
         self.init()
         self.load_activities(get_streams, get_routes)
-        # self.recent_fitness_level()
 
     def init(self):
+        """
+        INPUT: StravaUser
+        OUTPUT: None
+
+        Get the user's attributes from the database.
+        """
         DB = StravaDB()
         cols = ['id', 'firstname', 'lastname', 'sex', 'city', 'state', 'country', 'access_token']
         q = """SELECT * FROM athletes WHERE id = %s""" % self.userid
@@ -45,7 +57,13 @@ class StravaUser(object):
             self.model = pickle.loads(athlete['model'])
 
 
-    def load_activities(self, get_streams, get_routes, min_length=990):
+    def load_activities(self, get_streams, get_routes):
+        """
+        INPUT: StravaUser, BOOL, BOOL
+        OUTPUT: None
+
+        Populate the activities attribute as a list of StravaActivity objects.
+        """
 
         # find all the activities in the db for this user
         DB = StravaDB()
@@ -71,32 +89,29 @@ class StravaUser(object):
                 r = StravaActivity(route[0], self.userid, get_streams, is_route=True)
                 self.activities.append(r)
 
-    def has_full_predictions(self):
-        if self.activities is None:
-            return False
-
-        for a in self.activities:
-            if not a.has_prediction:
-                return False
-
-        return True
-
     def get_activities(self):
+        """
+        INPUT: StravaUser
+        OUTPUT: None
+
+        Use the user's auth token to get their activities from the
+        Strava API.
+        """
         api = StravaAPI(self.access_token)
         print 'Storing activities...............'
         api.store_activities()
         print 'Got \'em!'
 
-    def recent_fitness_level(self):
-        for a in self.activities:
-            level = np.sum([x.total_distance*x.total_climb \
-                    for x in self.activities \
-                    if ((x.dt >= a.dt - timedelta(30)) and (x.dt < a.dt))])
-            level = np.min([1e9, level])
-            level /= 1e9
-            a.fitness_level(level)
-
     def make_df(self, indices=None):
+        """
+        INPUT: StravaUser, 1D NUMPY ARRAY
+        OUTPUT: None
+
+        Make a dataframe of time samples to be used for predictions.
+
+        indices is a 1D numpy array which indicates which activities to 
+        use for predictions.
+        """
         if indices is None:
             indices = np.arange(len(self.activities))
 
@@ -109,23 +124,3 @@ class StravaUser(object):
                 df = df.append(a.make_df(), ignore_index=True)
 
         return df
-
-
-if __name__ == '__main__':
-    u = StravaUser('Seth')
-    df = u.make_df((0,30))
-    df = df[df['velocity'] > 3]
-    y = df.pop('velocity')
-    # df.pop('altitude')
-    X = df.values
-    X_train, X_test, y_train, y_test = train_test_split(X, y)
-
-    rf = RandomForestRegressor()
-    rf.fit(X_train, y_train)
-    # rf.score(X_test, y_test)
-    # cvscore = cross_val_score(rf, X_train, y_train, cv=10, scoring='r2')
-    # print np.mean(cvscore)
-    # importances = sorted(zip(rf.feature_importances_, df.columns),
-    #                      key=lambda x: x[0], reverse=True)
-    # for feature in importances:
-    #     print feature

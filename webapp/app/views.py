@@ -22,7 +22,6 @@ import os.path
 from werkzeug import secure_filename
 
 
-# CLIENT = pymongo.MongoClient()
 CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
 MONGODB = CLIENT.strava
 DB = StravaDB()
@@ -32,6 +31,9 @@ app.config['UPLOAD_FOLDER'] = 'app/uploads/'
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/index')
 def index():
+    """
+    Main page to display current users
+    """
     DB = StravaDB()
     # get all users
     q = """ SELECT
@@ -39,11 +41,15 @@ def index():
             FROM athletes;
         """
     athletes = DB.execute(q)
-    # athletes = DB.athletes.find()[:]
+
     return render_template('home.html', athletes=athletes)
 
 @app.route('/token_exchange', methods=['GET', 'POST'])
 def token_exchange():
+    """
+    This page receives an auth token for a user from Strava's API
+    and then stores this token and the user in the database.
+    """
     code = request.args.get('code', None)
     api = StravaAPI()
     data = api.exchange_token(code)
@@ -66,9 +72,10 @@ def token_exchange():
 
 @app.route('/fit', methods=['POST'])
 def fit():
-    # get the strava data if not already there
-
-    # train a model on all of the data
+    """
+    Fit a model to a user's data and store the pickled model
+    """
+    # train a model on some of the data
     uid = int(request.form.get('userid', None))
 
     user = StravaUser(uid, get_streams=True, get_routes=False)
@@ -103,6 +110,10 @@ def fit():
 
 @app.route('/upload', methods=['POST'])
 def upload_gpx():
+    """
+    Receive an uploaded gpx file, parse it, and store the path
+    as a route in the database.
+    """
     uid = int(request.form.get('athlete_id', 0))
     ride_name = request.form.get('ride_title', 'New Route')
     if ride_name.strip() == '':
@@ -120,6 +131,8 @@ def upload_gpx():
 
 @app.route('/delete/route', methods=['POST'])
 def delete_route():
+    """Delete an uploaded route from the database"""
+
     route_id = int(request.form.get('route_id', 0))
     athlete_id = int(request.form.get('athlete_id', 0))
 
@@ -142,8 +155,9 @@ def delete_route():
 
 @app.route('/get-data', methods=['POST'])
 def get_data():
+    """Retrieve a user's data from the Strava API"""
+
     uid = request.form.get('userid', None)
-    print uid
     u = StravaUser(int(uid))
     u.get_activities()
 
@@ -151,6 +165,8 @@ def get_data():
 
 @app.route('/check', methods=['POST'])
 def check():
+    """Check if a user has data and/or has a model fit to their data"""
+
     uid = request.form.get('userid', None)
     print 'checkid', uid
 
@@ -159,13 +175,11 @@ def check():
     q = """SELECT COUNT(*) FROM activities WHERE athlete_id = %s""" % uid
     DB.cur.execute(q)
     num_activities = DB.cur.fetchone()[0]
+
     print 'Number of activities: ', num_activities
     if num_activities == 0:
         return 'new'
 
-    # query = {'athlete.id': int(uid),
-    #          'predicted_moving_time': {'$exists': True}}
-    # num_predictions = DB.activities.find(query).count()
     has_model = os.path.isfile('model_%s.pkl' % uid)
     print 'Has model', has_model
 
@@ -176,6 +190,10 @@ def check():
 
 @app.route('/rides/<userid>', methods=['GET', 'POST'])
 def rides(userid):
+    """
+    Rides page shows a user's rides and displays predictions and a map
+    for one of their rides.
+    """
 
     print 'creating user'
     u = StravaUser(int(userid))
@@ -199,8 +217,10 @@ def rides(userid):
         activities=activities,
         routes=routes,
         activity = activity)
+
 @app.route('/compare/<activity_id>/<userid>', methods=['GET', 'POST'])
 def compare_home(activity_id, userid):
+    """Select which user to compare to for the given activity and userid"""
 
     DB = StravaDB()
     # get all users
@@ -209,11 +229,15 @@ def compare_home(activity_id, userid):
             FROM athletes;
         """
     athletes = DB.execute(q)
-    # return str(athletes)
+
     return render_template('compare_home.html', activity_id=activity_id, this_athlete=userid, athletes=athletes)
 
 @app.route('/compare/<activity_id>/<userid>/<otherid>', methods=['GET', 'POST'])
 def compare(activity_id, userid, otherid):
+    """
+    This page compares an existing activity or route for one user to 
+    the predictions for another user.
+    """
 
     print 'creating user'
     the_user = StravaUser(int(userid))
@@ -263,6 +287,10 @@ def compare(activity_id, userid, otherid):
 
 @app.route('/change', methods=['POST'])
 def change():
+    """
+    Get an activity or route from the database and return a 
+    json object containing the necessary vectors.
+    """
 
     aid = int(request.form.get('activity_id', 0))
     uid = int(request.form.get('athlete_id', 0))
@@ -272,13 +300,14 @@ def change():
         a = StravaActivity(aid, uid, get_streams=True, is_route=True)
     else:
         a = StravaActivity(aid, uid, get_streams=True)
+    
     print 'Loading model'
     d = pickle.load(open('model_%s.pkl' % uid, 'rb'))
-    print d
+
     print 'Predicting'
     a.predict(d[uid]['model'])
     print 'Predicted'
-    print 'max is ', a.df.altitude.max()
+
     js = a.to_dict()
     if not a.is_route:
         d, pd = truncate(js['plot_distance'], js['plot_predicted_distance'])

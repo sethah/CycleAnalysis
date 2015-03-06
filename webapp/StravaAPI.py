@@ -7,14 +7,25 @@ import time
 import calendar
 from StravaDB import StravaDB
 import traceback
+import MySQLdb
 
 ACCESS_TOKEN = '535848c783c374e8f33549d22f089c1ce0d56cd6'
-# ACCESS_TOKEN = 'c12c290c0e9241b09314c850cd24ce97e036ac4f'
-
 
 class StravaAPI(object):
 
     def __init__(self, access_token=ACCESS_TOKEN):
+        """
+        INPUT: StravaAPI, STRING
+        OUTPUT: None
+
+        Initialize a StravaAPI object.
+
+        access_token is the access token for the user who's data will be retrieved.
+
+        This class is used to interface with the Strava API. A client id and
+        access token are required. These are provided by Strava after registering
+        for a developer account.
+        """
         self.access_token = access_token
         self.client_secret = '4c72c397da5890b14a7f71c02d9f5a58c24ceec5'
         self.client_id = 4554
@@ -24,16 +35,42 @@ class StravaAPI(object):
         self.db = self.client.strava
 
     def execute(self, url, payload={}):
-        # print self.base_url + url
+        """
+        INPUT: StravaAPI, STRING, DICTIONARY
+        OUTPUT: REQUESTS.RESPONSE
+
+        Query the Strava API and return the response.
+
+        url is the url suffix for the query. Different data types have
+        differt suffixes.
+        payload is a dictionary of query arguments for the query.
+        """
         return r.get(self.base_url + url, headers=self.header, params=payload)
 
     def exchange_token(self, code):
+        """
+        INPUT: StravaAPI, STRING
+        OUTPUT: JSON
+
+        Retrieve an access key from the Strava API. 
+
+        code is a string provided by the Strava authentication page and can be
+        exchanged for an access key for the authorized user.
+        """
         payload = {'client_id': self.client_id, 'client_secret': self.client_secret, 'code': code}
         response = r.post('https://www.strava.com/oauth/token', headers=self.header, params=payload)
 
         return response.json()
 
     def list_activities(self, start_dt=None):
+        """
+        INPUT: StravaAPI, STRING
+        OUTPUT: JSON
+
+        List the activities for a given user between now and start_dt.
+
+        start_dt is a string specifying the lower time bound.
+        """
         url = 'athlete/activities'
         if start_dt is not None:
             after = calendar.timegm(time.strptime(start_dt, '%Y-%m-%d'))
@@ -45,25 +82,17 @@ class StravaAPI(object):
 
         return response.json()
 
-    def recent_activities(self, athlete_id):
-        table = self.db.activities
-        find = {'id': 1, 'total_elevation_gain': 1, 'distance': 1, 'start_date_local': 1}
-        activities = list(table.find({'athlete.id': athlete_id}, find))
-        print len(activities)
-        for a in activities:
-            dt1 = datetime.strptime(a['start_date_local'], '%Y-%m-%dT%H:%M:%SZ')
-            levels = []
-            for x in activities:
-                dt2 = datetime.strptime(x['start_date_local'], '%Y-%m-%dT%H:%M:%SZ')
-                if ((dt2 >= dt1 - timedelta(30)) and (dt2 < dt1)):
-                    levels.append(x['distance']*x['total_elevation_gain'])
-            level = np.sum(levels)
-            level = np.min([1e9, level])
-            level /= 1e9
-            table.update({'athlete.id': athlete_id, 'id': a['id']},
-                         {'$set': {'fitness_level': level}})
-
     def store_activities(self, start_dt=None, store_streams=True):
+        """
+        INPUT: StravaAPI, STRING, BOOLEAN
+        OUTPUT: None
+
+        Retrieve and store the activities for a user.
+
+        start_dt is a string specifying the lower time bound for activities.
+        store_streams is a Boolean which indicates whether or not to store
+        the raw data streams for the activitiy.
+        """
         DB = StravaDB()
         table = self.db.activities
         activities = self.list_activities(start_dt=start_dt)
@@ -79,6 +108,14 @@ class StravaAPI(object):
         DB.conn.commit()
 
     def store_activity(self, activity, store_streams=False):
+        """
+        INPUT: StravaAPI, JSON, BOOLEAN
+        OUTPUT: None
+
+        Store a single activity in the database.
+
+        NOTES: This should be in the StravaDB object, not here.
+        """
         DB = StravaDB()
         a = activity
 
@@ -111,23 +148,27 @@ class StravaAPI(object):
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """
                 DB.cur.executemany(q, data)
-            except IntegrityError:
+            except MySQLdb.IntegrityError:
                 print traceback.format_exc()
-        # break
         try:
             DB.insert_values('activities', d)
-        except IntegrityError:
+        except MySQLdb.IntegrityError:
             print traceback.format_exc()
         
 
         print 'Stored activity for %s on %s' % (
                                                 a['athlete']['id'],
                                                 a['start_date'])
-        return True
 
     def fitness_score(self, activities):
-        # rides in last 10 days * avg difficult of ride
-        # rides in last 30 days * avg difficulty of ride
+        """
+        INPUT: StravaAPI, LIST
+        OUTPUT: LIST
+
+        Compute fitness levels for each activity.
+
+        activities is a list containing JSON descriptions of the activities.
+        """
         for i, a1 in enumerate(activities):
             score = 0
             difficulties10 = []
@@ -149,18 +190,16 @@ class StravaAPI(object):
 
         return activities
 
-    def downsample(self, t, vec, num_samples=5000):
-        if len(vec) < num_samples:
-            return vec
-        new_t = np.linspace(t[0], t[-1], num_samples)
-        print len(new_t), len(t), len(vec)
-        return np.interp(new_t, np.array(t), np.array(vec)).tolist()
-
     def get_activity(self, activity_id):
+        """
+        INPUT: StravaAPI, INT
+        OUTPUT: JSON
+
+        Get a single activity from the Strava API.
+
+        activity_id is the integer id assigned to the activity by Strava.
+        """
         url = 'activities/%s' % activity_id
-        # after = calendar.timegm(time.strptime('2014-01-01', '%Y-%m-%d'))
-        # before = calendar.timegm(time.gmtime())
-        # payload = {'before': before, 'after': after, 'per_page': 100}
         payload = {}
         response = self.execute(url, payload)
 
