@@ -28,9 +28,6 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     
     output = np.convolve(m[::-1], y_new, mode='valid')
 
-    # if output.shape[0] == y.shape[0]:
-    #     print y.shape[0], output.shape[0]
-
     return output
 
 
@@ -98,6 +95,15 @@ def scipy_smooth(x, window_len=11, window='hanning'):
 
 
 def smooth(vec, filt_type, window_len=11):
+    """
+    INPUT: 1D NUMPY ARRAY, STRING, INT
+    OUTPUT: 1D NUMPY ARRAY
+
+    Smooth a vector.
+
+    NOTES: Savitzky Golay method does not guarantee that input
+    shape == output shape
+    """
     if filt_type == 'savgol':
         smoothed = savitzky_golay(vec.ravel(), 51, 3)
     elif filt_type == 'scipy':
@@ -121,17 +127,18 @@ def diff(x, t):
     dxdt_flat = np.append(dxdt, dxdt[-1])
     return dxdt_flat.reshape(dxdt.shape[0] + 1, dxdt.shape[1])
 
+
 def vel_to_time(v, d):
+    """
+    INPUT: 1D NUMPY ARRAY, 1D NUMPY ARRAY
+    OUTPUT: 1D NUMPY ARRAY
+
+    Calculate a time vector given distance and velocity.
+
+    This function is essentially a trapezoidal Riemann sum.
+    """
     dx = np.diff(d)
     v_avg = (v + np.roll(v, -1)) / 2.
     t = dx / v_avg[:-1]
     t = np.append(0, t)
     return np.cumsum(t)
-
-
-def main():
-    pass
-
-
-if __name__ == '__main__':
-    main()

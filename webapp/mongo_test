@@ -1,7 +1,0 @@
-import pymong
-
-client = pymongo.MongoClient("mongodb://<xxx>:<xxx.xxx.xxx>@ds<port>.mongolab.com:<port>/<databasename>")
-
-db = client.<databasename>
-
-print db.collection_names()
