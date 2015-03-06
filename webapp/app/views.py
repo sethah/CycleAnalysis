@@ -218,8 +218,14 @@ def compare(activity_id, userid, otherid):
     print 'creating user'
     the_user = StravaUser(int(userid))
     other_user = StravaUser(int(otherid))
-    the_ride = StravaActivity(activity_id, the_user.userid, get_streams=True)
-    the_other_ride = StravaActivity(activity_id, other_user.userid, belongs_to='other', get_streams=True)
+
+    if int(activity_id) < 10000:
+        the_ride = StravaActivity(activity_id, the_user.userid, get_streams=True, is_route=True)
+        print the_ride, 'asdf'
+        the_other_ride = StravaActivity(activity_id, other_user.userid, belongs_to='other', is_route=True, get_streams=True)
+    else:
+        the_ride = StravaActivity(activity_id, the_user.userid, get_streams=True)
+        the_other_ride = StravaActivity(activity_id, other_user.userid, belongs_to='other', get_streams=True)
 
     the_dict = pickle.load(open('model_%s.pkl' % the_user.userid, 'rb'))
     other_dict = pickle.load(open('model_%s.pkl' % other_user.userid, 'rb'))
@@ -236,8 +242,15 @@ def compare(activity_id, userid, otherid):
     # ride_js = the_ride.to_dict()
     # other_ride_js = the_other_ride.to_dict()
 
-    min_dim = min(len(other_ride_js['plot_predicted_distance']), len(ride_js['plot_distance']))
-    other_ride_js['distance_diff'] = (np.array(other_ride_js['plot_predicted_distance'][:min_dim]) - np.array(ride_js['plot_distance'][:min_dim])).tolist()
+    if not the_ride.is_route:
+        d, pd = truncate(ride_js['plot_distance'], other_ride_js['plot_predicted_distance'])
+    else:
+        d, pd = truncate(ride_js['plot_predicted_distance'], other_ride_js['plot_predicted_distance'])
+    print len(d), len(pd), 'asdfas'
+    other_ride_js['distance_diff'] = (np.array(d) - np.array(pd)).tolist()
+
+    # min_dim = min(len(other_ride_js['plot_predicted_distance']), len(ride_js['plot_distance']))
+    # other_ride_js['distance_diff'] = (np.array(other_ride_js['plot_predicted_distance'][:min_dim]) - np.array(ride_js['plot_distance'][:min_dim])).tolist()
         
     return render_template(
         'compare.html',

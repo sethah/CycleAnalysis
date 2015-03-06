@@ -22,6 +22,7 @@ class StravaActivity(object):
 
     def __init__(self, activity_id, athlete_id, get_streams=False, is_route=False, belongs_to='athlete'):
         self.is_route = is_route
+        print is_route
         self.belongs_to = belongs_to
         if belongs_to == 'other':
             self.init_from_other(activity_id, athlete_id, get_streams)
@@ -68,6 +69,8 @@ class StravaActivity(object):
             q = """ SELECT %s FROM %s WHERE id = %s AND athlete_id = %s
             """ % (', '.join(cols), table, self.id, self.athlete)
 
+        print q
+        print self.is_route
         DB.cur.execute(q)
         results = DB.cur.fetchone()
         d = dict(zip(cols, results))

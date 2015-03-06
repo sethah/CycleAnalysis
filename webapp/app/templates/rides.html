@@ -33,13 +33,13 @@ function setMap(a) {
   var lineSymbol = {
     path: google.maps.SymbolPath.CIRCLE,
     scale: 8,
-    strokeColor: '#000'
+    strokeColor: '#FF7519'
   };
 
   var lineSymbolA = {
     path: google.maps.SymbolPath.CIRCLE,
     scale: 8,
-    strokeColor: '#393'
+    strokeColor: '#5C005C'
   };
 
 var mapIcons;
@@ -93,7 +93,8 @@ function removeCrosshair(x,y) {
     chart.yAxis[0].removePlotLine('yPlotLine'+y);
 }
 
-function barGauge() {
+function barGauge(xmax) {
+  console.log(xmax)
   var chart = new Highcharts.Chart({
             chart: {
                 renderTo: 'gauge-bar',
@@ -118,7 +119,7 @@ function barGauge() {
                 tickLength: 0
             },
             title: {
-                text: null
+                text: 'Miles Behind'
             },
             legend: {
                 enabled: false
@@ -130,136 +131,20 @@ function barGauge() {
                 labels: {
                     y: 20
                 },
-                min: -1,
-                max: 1,
-                tickInterval: 1,
-                minorTickInterval: 0.5
-                // tickWidth: 1,
-                // tickLength: 8,
-                // minorTickLength: 5,
-                // minorTickWidth: 1,
-                // minorGridLineWidth: 0
+                min: -xmax,
+                max: xmax,
+                tickInterval: xmax/4,
+                minorTickInterval: xmax/8
             },
             plotOptions: {},
             series: [{
                 borderRadius: 3,
                 borderWidth: 1,
-                // color: {
-                //     linearGradient: {
-                //         x1: 0,
-                //         y1: 0,
-                //         x2: 1,
-                //         y2: 0
-                //     },
-                //     stops: [ //[ 0.35, '#7070B8' ], [0, '#D69999'],
-                //                                    [0.3, '#B84D4D'],
-                //                                    [0.45, '#7A0000'],
-                //                                    [0.55, '#7A0000'],
-                //                                    [0.7, '#B84D4D'],
-                //                                    [1, '#D69999']]
-                // },
                 pointWidth: 50,
                 data: [0]}]
         });
 }
 
-function gauges(a, renderElement) {
-    gaugeChart = new Highcharts.Chart({
-
-        chart: {
-            type: 'gauge',
-            plotBackgroundColor: null,
-            plotBackgroundImage: null,
-            plotBorderWidth: 0,
-            plotShadow: false,
-            renderTo: renderElement
-        },
-
-        title: {
-            text: 'Speedometer'
-        },
-
-        pane: {
-            startAngle: -150,
-            endAngle: 150,
-            background: [{
-                backgroundColor: {
-                    linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
-                    stops: [
-                        [0, '#FFF'],
-                        [1, '#333']
-                    ]
-                },
-                borderWidth: 0,
-                outerRadius: '109%'
-            }, {
-                backgroundColor: {
-                    linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
-                    stops: [
-                        [0, '#333'],
-                        [1, '#FFF']
-                    ]
-                },
-                borderWidth: 1,
-                outerRadius: '107%'
-            }, {
-                // default background
-            }, {
-                backgroundColor: '#DDD',
-                borderWidth: 0,
-                outerRadius: '105%',
-                innerRadius: '103%'
-            }]
-        },
-
-        // the value axis
-        yAxis: {
-            min: 0,
-            max: 40,
-
-            minorTickInterval: 'auto',
-            minorTickWidth: 1,
-            minorTickLength: 10,
-            minorTickPosition: 'inside',
-            minorTickColor: '#666',
-
-            tickPixelInterval: 30,
-            tickWidth: 2,
-            tickPosition: 'inside',
-            tickLength: 10,
-            tickColor: '#666',
-            labels: {
-                step: 2,
-                rotation: 'auto'
-            },
-            title: {
-                text: 'km/h'
-            },
-            plotBands: [{
-                from: 0,
-                to: 120,
-                color: '#55BF3B' // green
-            }, {
-                from: 120,
-                to: 160,
-                color: '#DDDF0D' // yellow
-            }, {
-                from: 160,
-                to: 200,
-                color: '#DF5353' // red
-            }]
-        },
-
-        series: [{
-            name: 'Speed',
-            data: [0],
-            tooltip: {
-                valueSuffix: ' km/h'
-            }
-        }]
-
-    });
-}
 function lineChart(a) {
 
     if (a['type'] == 'route'){
@@ -305,7 +190,7 @@ function lineChart(a) {
         },
         {
           type: 'spline',
-          name: 'Predicted Time',
+          name: 'Streaming Prediction',
           yAxis: 1,
           tooltip: {
             pointFormatter: function(){
@@ -317,7 +202,7 @@ function lineChart(a) {
         },
         {
           type: 'line',
-          name: 'Actual Time',
+          name: 'Predicted Time',
           yAxis: 1,
           data: [[-100, a.moving_time], [600, a.moving_time]]
         }]
@@ -378,7 +263,11 @@ function simRide(a) {
     document.getElementById("gauges").style.textAlign="center";
     // document.getElementById("gauges").innerHTML = '<div id="gauge-bar" style="height: 100px"></div><div id="gauge-speed" style="width: 300px; height: 200px; float: left"></div><div id="gauge-other" style="width: 300px; height: 200px; float: left"></div>';
     document.getElementById("gauges").innerHTML = '<div id="gauge-bar" style="height: 70px; background-color:#393;margin:0px auto;"></div>';
-    barGauge()
+    var xmin = Math.min.apply(null, a.distance_diff)
+    var xmax = Math.max.apply(null, a.distance_diff)
+    xmax = Math.max(Math.abs(xmin), Math.abs(xmax))
+    xmax = Math.round(xmax*2)/2;
+    barGauge(xmax)
     // gauges(a, 'gauge-speed')
     // gauges(a, 'gauge-other')
     var count = 0;
@@ -434,7 +323,7 @@ function simRide(a) {
               gauge.series[0].update(gauge.series[0].options);
             }
             point = gauge.series[0].points[0];
-            console.log(a.distance_diff[count])
+            // console.log(a.distance_diff[count])
             point.update(a.distance_diff[count]);
           }
 
@@ -445,10 +334,10 @@ function simRide(a) {
         line.set('icons', icons);
         duration = moment.duration(a.plot_time[count]*1000, 'seconds');
         var p1 = chart.series[0].points[count];
-        addCrosshair(p1.x, p1.y, '#000')
+        addCrosshair(p1.x, p1.y, '#FF7519')
         if (a['type'] != 'route'){
           icons[1].offset = offset2 + '%';
-          addCrosshair(a.plot_predicted_distance[count], a.plot_predicted_altitude[count], '#390')
+          addCrosshair(a.plot_predicted_distance[count], a.plot_predicted_altitude[count], '#5C005C')
         }
 
         if (count != 0){
@@ -464,11 +353,11 @@ function simRide(a) {
         // chart.series[1].setData([[a.plot_distance[count], 0], [a.plot_distance[count], 10000]]);
         // chart.series[2].setData([[a.plot_predicted_distance[count], 0], [a.plot_predicted_distance[count], 10000]]);
 
-        // document.getElementById('ride-console').innerHTML = '<br/><table><tr>' + 
-        // '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
-        // '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
-        // '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
-        // '</tr></table><br/>'
+        document.getElementById('ride-console').innerHTML = '<br/><table><tr>' + 
+        '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
+        '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
+        '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
+        '</tr></table><br/>'
         // document.getElementById('playback-margin').innerHTML = (d[count] - pd[count]).toFixed(2);
         // document.getElementById('playback-distance').innerHTML = d[count].toFixed(2);
       }
@@ -539,7 +428,7 @@ function uploadRoute(){
                }
     </style>
     <div class="row">
-    <div class='span6 main' style="margin-left: 52px;">
+    <div class='span9 main' style="margin-left: 52px;">
 
       <table>
         <thead><th colspan="2">Ride Summary</th></thead>
@@ -562,8 +451,8 @@ function uploadRoute(){
       <div id="gauges"></div>
       <div id="container" style="min-width: 310px; height: 400px; max-width: 800px; margin: 0 auto"></div>
     </div>
-      <div class='span2 main'></div>
-      <div class='span6 main'>
+      <div class='span1 main'></div>
+      <div class='span7 main'>
 
       <div><h4 style="float: left;">Your routes</h4>
       <div style="float: right;" id="route-upload"><p><a class='button' onclick="uploadRoute()">Upload a Route</a></p></div></div>
@@ -573,12 +462,14 @@ function uploadRoute(){
           <th>Date</th>
           <th>Distance</th>
           <th></th>
+          <th></th>
         </thead>
       {% for r in routes %}
       <tr id="route{{r.id}}">
         <td><a href="javascript:getActivity({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">{{r.name}}</a></td>
         <td>{{r.dt.strftime("%B %d, %Y")}}</td>
         <td>{{(r.total_distance / 1609.34)|round(0, 'floor')}}</td>
+        <td><a href="/compare/{{r.id}}/{{athlete.userid}}">See how you stack up<a/></td>
         <td><a href="javascript:deleteRoute({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">delete</a></td>
       </tr>
       {% endfor %}
@@ -590,12 +481,14 @@ function uploadRoute(){
           <th>Ride Name</th>
           <th>Date</th>
           <th>Distance</th>
+          <th></th>
         </thead>
       {% for a in activities %}
       <tr>
         <td><a href="javascript:getActivity({{a.id}}, {{athlete.userid}}, '#activity{{ a.id }}');">{{a.name}}</a></td>
         <td>{{a.dt.strftime("%B %d, %Y")}}</td>
         <td>{{(a.total_distance / 1609.34)|round(0, 'floor')}}</td>
+        <td><a href="/compare/{{a.id}}/{{athlete.userid}}">See how you stack up<a/></td>
       </tr>
       {% endfor %}
     </table>

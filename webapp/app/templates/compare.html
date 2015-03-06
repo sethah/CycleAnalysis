@@ -99,8 +99,15 @@ function removeCrosshair(x,y) {
 }
 function lineChart(a1, a2) {
     
-    data = zip([a1.plot_distance, a1.plot_altitude]);
-    data1 = zip([a2.plot_predicted_distance, a2.distance_diff]);
+    debugger;
+    data = zip([a2.plot_predicted_distance, a2.plot_predicted_altitude]);
+    if (a1.plot_predicted_distance.length > a2.plot_predicted_distance.length) {
+      data1 = zip([a2.plot_predicted_distance, a2.distance_diff]);
+    }
+    else {
+      data1 = zip([a1.plot_predicted_distance, a2.distance_diff]);
+    }
+    
 
     var ymin = Math.min.apply(null, a1.plot_predicted_altitude)
     var ymax = Math.max.apply(null, a1.plot_predicted_altitude)
@@ -154,7 +161,7 @@ function lineChart(a1, a2) {
             },
             {
                 title: {
-                    text: 'Time (s)'
+                    text: 'Distance Difference (mi)'
                 },
                 opposite: true
             }],
@@ -170,10 +177,15 @@ function lineChart(a1, a2) {
         });
 };
 function simRide(a1, a2, startIndex) {
-    debugger;
     var count = startIndex;
-    d = a1['plot_distance'];
-    pd = a2['plot_predicted_distance'];
+    if (a1['type'] == 'route'){
+      d1 = a1['plot_predicted_distance'];
+    }
+    else {
+      d1 = a1['plot_distance'];
+    }
+    
+    d2 = a2['plot_predicted_distance'];
 
     var duration = moment.duration(0, 'seconds');
 
@@ -181,11 +193,10 @@ function simRide(a1, a2, startIndex) {
       var isDone = false
 
 
-      offset1 = d[Math.min(count, d.length -1)]*100.0/a1.total_distance
-      offset2 = pd[Math.min(count, pd.length -1)]*100.0/a2.total_distance
+      offset1 = d1[Math.min(count, d1.length -1)]*100.0/a1.total_distance
+      offset2 = d2[Math.min(count, d2.length -1)]*100.0/a2.total_distance
 
-      console.log(offset1, offset2)
-      if ((count > d.length) & (count > pd.length)) {
+      if ((count > d1.length) & (count > d2.length)) {
         isDone = true;
       }
 
@@ -205,15 +216,15 @@ function simRide(a1, a2, startIndex) {
         duration = moment.duration(a1.plot_time[count]*1000, 'seconds');
         // var p1 = chart.series[0].points[count];
         // var p2 = chart.series[1].points[count];
-        addCrosshair(a1.plot_distance[count], a1.plot_altitude[count], '#000')
-        addCrosshair(a2.plot_predicted_distance[count], a2.plot_predicted_altitude[count], '#390')
+        addCrosshair(d1[count], a1.plot_altitude[count], '#000')
+        addCrosshair(d2[count], a2.plot_predicted_altitude[count], '#390')
 
         // debugger;
         // chart.tooltip.refresh(p1);
         // chart.tooltip.refresh(p2);
         if (count != 0){
-          removeCrosshair(a1.plot_distance[count -10], a1.plot_altitude[count-10])
-          removeCrosshair(a2.plot_predicted_distance[count -10], a2.plot_predicted_altitude[count-10])
+          removeCrosshair(d1[count -10], a1.plot_altitude[count-10])
+          removeCrosshair(d2[count -10], a2.plot_predicted_altitude[count-10])
         }
         
       }
@@ -230,11 +241,15 @@ function simRide(a1, a2, startIndex) {
 
       <table>
         <thead><th colspan="2">Ride Summary</th></thead>
-        <tr><td>Rider:</td><td>{{the_other_athlete.name}}</td></tr>
-        <tr><td>Compared to:</td><td><span id="activity_desc">{{the_athlete.name}}</span></td></tr>
-        <tr><td>Ride:</td><td><span id="activity_desc">{{ride.name}}</span></td></tr>
-        <tr><td>Date:</td><td><span id="activity_date">{{ride.dt.strftime("%A %B %d, %Y")}}</span></td></tr>
-        <tr><td>{{ the_athlete.firstname }}'s Time:</td><td><span id="activity_moving_time">{{ride.moving_time_string}}</span></td></tr>
+        <tr><td>Rider:</td><td><a href="/rides/{{the_other_athlete.userid}}">{{the_other_athlete.name}}</a></td></tr>
+        <tr><td>Compared to:</td><td><a href="/rides/{{the_athlete.userid}}">{{the_athlete.name}}</a></td></tr>
+        <tr><td>Ride:</td><td>{{ride.name}}</td></tr>
+        <tr><td>Date:</td><td>{{ride.dt.strftime("%A %B %d, %Y")}}</td></tr>
+        {% if ride.is_route %}
+          <tr><td>{{ the_athlete.firstname }}'s Predicted Time:</td><td>{{ride.predicted_moving_time}}</td></tr>
+        {% else %}
+          <tr><td>{{ the_athlete.firstname }}'s Time:</td><td>{{ride.moving_time_string}}</td></tr>
+        {% endif %}
         <tr><td>Your Predicted Time:</td><td><span id="activity_pred_time">{{other_ride.predicted_moving_time}}</span></td></tr>
         <!-- <tr><td>Ride Rating:</td><td><span id="activity_rating"></span></td></tr> -->
       </table>

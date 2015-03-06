@@ -33,9 +33,12 @@ class StravaAPI(object):
 
         return response.json()
 
-    def list_activities(self):
+    def list_activities(self, start_dt=None):
         url = 'athlete/activities'
-        after = calendar.timegm(time.strptime('2014-01-01', '%Y-%m-%d'))
+        if start_dt is not None:
+            after = calendar.timegm(time.strptime(start_dt, '%Y-%m-%d'))
+        else:
+            after = calendar.timegm(time.strptime('2014-01-01', '%Y-%m-%d'))
         before = calendar.timegm(time.gmtime())
         payload = {'before': before, 'after': after, 'per_page': 100}
         response = self.execute(url, payload)
@@ -60,16 +63,19 @@ class StravaAPI(object):
             table.update({'athlete.id': athlete_id, 'id': a['id']},
                          {'$set': {'fitness_level': level}})
 
-    def store_activities(self, store_streams=True):
+    def store_activities(self, start_dt=None, store_streams=True):
         DB = StravaDB()
         table = self.db.activities
-        activities = self.list_activities()
+        activities = self.list_activities(start_dt=start_dt)
         activities = self.fitness_score(activities)
         for a in activities:
             if a['type'] != 'Ride':
                 continue
-
-            self.store_activity(a, store_streams=store_streams)
+            try:
+                self.store_activity(a, store_streams=store_streams)
+            except:
+                print 'failed storing activity %s' % a['start_date_local']
+                continue
         DB.conn.commit()
 
     def store_activity(self, activity, store_streams=False):
@@ -172,9 +178,12 @@ class StravaAPI(object):
             url = ''
 
         response = self.execute(url, payload)
-        data = response.json()
-        raise
-        data = {x['type']:x for x in data}
+        try:
+            data = response.json()
+            data = {x['type']:x for x in data}
+        except:
+            print response.json()
+            raise
 
         return data
 
