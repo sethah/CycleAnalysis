@@ -101,13 +101,14 @@ function barGauge(xmax) {
                 defaultSeriesType: 'bar',
                 animation:false,
                 plotBorderWidth: 2,
-                plotBackgroundColor: '#F5E6E6',
                 plotBorderColor: '#D8D8D8',
-                plotShadow: true,
                 spacingTop: 0,
                 spacingLeft: 50,
                 spacingRight: 50,
                 spacingBottom: 0
+            },
+            tooltip: {
+              enabled: false,
             },
             credits: {
                 enabled: false
@@ -136,11 +137,13 @@ function barGauge(xmax) {
                 tickInterval: xmax/4,
                 minorTickInterval: xmax/8
             },
-            plotOptions: {},
+            plotOptions: {
+            },
             series: [{
                 borderRadius: 3,
                 borderWidth: 1,
                 pointWidth: 50,
+                color: '#FFFF00',
                 data: [0]}]
         });
 }
@@ -157,11 +160,11 @@ function lineChart(a) {
           type: 'area',
           name: 'Altitude',
           yAxis: 0,
-          tooltip: {
-            pointFormatter: function(){
-              return '<b>'+ this.series.name +'</b>: '+ Highcharts.numberFormat(this.y, 0, ".", ",") +'<br/>';
-            }
-          },
+          // tooltip: {
+          //   pointFormatter: function(){
+          //     return '<b>'+ this.series.name +'</b>: '+ Highcharts.numberFormat(this.y, 0, ".", ",") +'<br/>';
+          //   }
+          // },
           fillOpacity: 0.5,
           data: data,
           lineWidth: 2
@@ -179,11 +182,11 @@ function lineChart(a) {
           type: 'area',
           name: 'Altitude',
           yAxis: 0,
-          tooltip: {
-            pointFormatter: function(){
-              return '<b>'+ this.series.name +'</b>: '+ Highcharts.numberFormat(this.y, 0, ".", ",") +'<br/>';
-            }
-          },
+          // tooltip: {
+          //   pointFormatter: function(){
+          //     return '<b>'+ this.series.name +'</b>: '+ Highcharts.numberFormat(this.y, 0, ".", ",") +'<br/>';
+          //   }
+          // },
           fillOpacity: 0.5,
           data: data,
           lineWidth: 2
@@ -192,11 +195,11 @@ function lineChart(a) {
           type: 'spline',
           name: 'Streaming Prediction',
           yAxis: 1,
-          tooltip: {
-            pointFormatter: function(){
-              return '<b>'+ this.series.name +'</b>: '+ moment.utc(this.y*1000).format("HH:mm:ss") +'<br/>';
-            }
-          },
+          // tooltip: {
+          //   pointFormatter: function(){
+          //     return '<b>'+ this.series.name +'</b>: '+ moment.utc(this.y*1000).format("HH:mm:ss") +'<br/>';
+          //   }
+          // },
           data: data1,
           lineWidth: 2
         },
@@ -210,10 +213,31 @@ function lineChart(a) {
     console.log(series)
         chart = new Highcharts.Chart({
             chart: {
-                renderTo: 'container'
+                renderTo: 'container',
+                spacingTop: 0,
+                spacingLeft: 0,
+                spacingRight: 0,
+                spacingBottom: 0
             },
             tooltip: {
-              shared: true
+                formatter: function() {
+                    var s = ['<b>Distance</b>: '+ Highcharts.numberFormat(this.x, 2, ".", ",")];
+
+                    $.each(this.points, function(i, point) {
+                      if (point.series.name === 'Altitude'){
+                        text = '<b>'+ point.series.name +' : '+
+                            Highcharts.numberFormat(point.y, 0, ".", ",") +'</b>';
+                      }
+                      else {
+                        text = '<b>'+ point.series.name +'</b>: '+ moment.utc(this.y*1000).format("HH:mm:ss") +'<br/>';
+                      }
+                        s.push(text);
+                    });
+
+                    return s.join('<br>');
+                },
+                shared: true,
+                crosshairs: true,
             },
             xAxis: {
               min: xmin,
@@ -262,7 +286,7 @@ function simRide(a) {
       document.getElementById("gauges").style.width="auto";
       document.getElementById("gauges").style.height="100px";
       document.getElementById("gauges").style.textAlign="center";
-      document.getElementById("gauges").innerHTML = '<div id="gauge-bar" style="height: 70px; background-color:#393;margin:0px auto;"></div>';
+      document.getElementById("gauges").innerHTML = '<div id="gauge-bar" style="height: 70px;margin:0px auto;"></div>';
       var xmin = Math.min.apply(null, a.distance_diff)
       var xmax = Math.max.apply(null, a.distance_diff)
       xmax = Math.max(Math.abs(xmin), Math.abs(xmax))
@@ -302,19 +326,34 @@ function simRide(a) {
 
         gauge = $('#gauge-bar').highcharts();
           if (gauge) {
+              var transition = false;
               if (idx != 0){
                 var previousDiff = a.distance_diff[idx - spacing];
               }
               else {
                 var previousDiff = 0;
               }
-
-              if (a.distance_diff[idx] < 0 & previousDiff >= 0){
-                gauge.series[0].options.color = '#F00';
-                gauge.series[0].update(gauge.series[0].options);
+              if (a.distance_diff[idx] >= -xmax*0.25 && previousDiff < -xmax*0.25) {
+                // red to yellow
+                gauge.series[0].options.color = '#FFFF00';
+                transition = true;
               }
-              else if (a.distance_diff[idx] > 0 & previousDiff <= 0){
+              else if (a.distance_diff[idx] >= xmax*0.25 && previousDiff < xmax*0.25) {
+                // yellow to green
                 gauge.series[0].options.color = '#393';
+                transition = true;
+              }
+              else if (previousDiff >= xmax*0.25 && a.distance_diff[idx] < xmax*0.25) {
+                // green to yellow
+                gauge.series[0].options.color = '#FFFF00';
+                transition = true;
+              }
+              else if (previousDiff >= -xmax*0.25 && a.distance_diff[idx] < -xmax*0.25) {
+                //yellow to red
+                gauge.series[0].options.color = '#F00';
+                transition = true;
+              }
+              if (transition){
                 gauge.series[0].update(gauge.series[0].options);
               }
               point = gauge.series[0].points[0];
@@ -427,7 +466,7 @@ function uploadRoute(){
                }
     </style>
     <div class="row">
-    <div class='span9 main' style="margin-left: 52px;">
+    <div class='span7 main' style="margin-left: 52px;">
 
       <table>
         <thead><th colspan="2">Ride Summary</th></thead>
@@ -443,12 +482,12 @@ function uploadRoute(){
           <button id="play" onclick="simRide(activity)">Play Ride</button>
       </div>
       
-      <div class="map" id="map-canvas" style="width:500px;height:380px;"></div>
+      <div class="map" id="map-canvas" style="width:700px;height:380px;"></div>
       <div id="ride-console" style="visibility: hidden;">
       </div>
       <br>
       <div id="gauges"></div>
-      <div id="container" style="min-width: 310px; height: 400px; max-width: 800px; margin: 0 auto"></div>
+      <div id="container" style="min-width: 310px; height: 250px; max-width: 800px; margin: 0 auto"></div>
     </div>
       <div class='span1 main'></div>
       <div class='span7 main'>

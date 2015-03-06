@@ -13,9 +13,23 @@ MongoDB = CLIENT.strava
 class StravaDB(object):
 
     def __init__(self):
+        """
+        INPUT: StravaDB
+        OUTPUT: None
+
+        Initialize a database object.
+        """
         self.get_cursor()
 
     def get_cursor(self, local=True):
+        """
+        INPUT: StravaDB, BOOLEAN
+        OUTPUT: None
+
+        Get a connection and cursor object to the database.
+
+        local indicates whether to use local or hosted database.
+        """
         if local:
             self.conn = sql.connect(host="127.0.0.1",
                               user="root",
@@ -30,6 +44,14 @@ class StravaDB(object):
         self.cur = self.conn.cursor()
 
     def execute(self, query, fetch=True):
+        """
+        INPUT: StravaDB, STRING, BOOLEAN
+        OUTPUT: None
+
+        Execute a query to the database.
+
+        fetch specifies whether to get results or not.
+        """
         try:
             self.cur.execute(query)
             if fetch:
@@ -39,13 +61,9 @@ class StravaDB(object):
             print query
             self.conn.rollback()
 
-    def show_tables(self):
-        q = """ SHOW tables;
-            """
-
-        print self.execute(q)
-
     def create_athletes_table(self):
+        """Create the athletes table"""
+
         q = """ CREATE TABLE athletes
                 (
                 id INT    PRIMARY KEY    NOT NULL,
@@ -62,6 +80,14 @@ class StravaDB(object):
         self.execute(q, fetch=False)
 
     def create_activities_table(self):
+        """
+        Create the activities table
+
+        NOTES: the primary key id enforces uniqueness on the id
+        column, however this should not be the case. (id, athlete_id)
+        should be unique.
+        """
+
         q = """ CREATE TABLE activities
                 (
                 id INT PRIMARY KEY        NOT NULL,
@@ -74,7 +100,10 @@ class StravaDB(object):
                 elapsed_time INT                  ,
                 distance REAL             NOT NULL,
                 moving_time INT           NOT NULL,
-                fitness_level REAL                ,
+                fitness10 REAL                    ,
+                fitness30 REAL                    ,
+                frequency10 INT(3)                ,
+                frequency30 INT(3)                ,
                 average_speed REAL                ,
                 kilojoules REAL                   ,
                 max_speed REAL                    ,
@@ -87,6 +116,8 @@ class StravaDB(object):
         self.execute(q, fetch=False)
 
     def create_streams_table(self):
+        """Create the streams table"""
+
         q = """ CREATE TABLE streams
                 (
                 activity_id INT NOT NULL REFERENCES activities(id),
@@ -105,6 +136,18 @@ class StravaDB(object):
         self.execute(q, fetch=False)
 
     def get_moving(self, moving, distance, time):
+        """
+        INPUT: StravaDB, 1D NUMPY ARRAY, 1D NUMPY ARRAY, 1D NUMPY ARRAY
+        OUTPUT: 1D NUMPY ARRAY, 1D NUMPY ARRAY
+
+        Get the moving time for this activities.
+
+        Strava by default includes the non-moving time in the streams.
+        These can be removed using the BOOLEAN stream 'moving', however,
+        there are still times where the athlete is not moving but the 
+        'moving' vector indicates otherwise. Use a heuristic to determine
+        if they are moving and correct for that.
+        """
         not_moving = np.where(~moving)[0]
         for ind in not_moving:
             time[ind:] -= (time[ind] - \
@@ -120,7 +163,12 @@ class StravaDB(object):
         return time, distance
 
     def process_streams(self, stream_dict, athlete_id, activity_id):
-        # stream_dict = activity['streams']
+        """
+        INPUT: StravaDB, DICTIONARY, INT, INT
+        OUTPUT: LIST
+
+        Convert the raw streams from Strava to lists for DB insertion.
+        """
         distance = np.array(stream_dict['distance']['data'])
         time = np.array(stream_dict['time']['data'])
         velocity = np.array(stream_dict['velocity_smooth']['data'])
@@ -146,22 +194,9 @@ class StravaDB(object):
         zipped = zip(activity_ids, athlete_ids, new_time, distance, grade, altitude, velocity, latitude, longitude)
         return [list(x) for x in zipped]
 
-
-    def move_streams(self):
-        find = {'id': 1, 'athlete': 1, 'streams': 1, 'start_date_local': 1}
-        activities = MongoDB.activities.find({}, find)
-        for a in activities:
-            start_time = datetime.strptime(a['start_date_local'], '%Y-%m-%dT%H:%M:%SZ')
-            data = self.process_streams(a)
-            print a['start_date_local'], len(data)
-
-            q = """ INSERT INTO streams (activity_id, athlete_id, time, distance, grade, altitude, velocity, latitude, longitude)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """
-            self.cur.executemany(q, data)
-        self.conn.commit()
-
     def create_routes_table(self):
+        """Create the routes table"""
+
         q = """ CREATE TABLE routes
                 (
                 id SERIAL PRIMARY KEY     NOT NULL,
@@ -181,6 +216,14 @@ class StravaDB(object):
         self.execute(q, fetch=False)
 
     def gpx_to_df(self, route):
+        """
+        INPUT: StravaDB, GPX SEGMENT
+        OUTPUT: DATAFRAME
+
+        Build a streams dataframe from a GPX route.
+
+        route is a gpxpy.segment
+        """
         d = collections.defaultdict(list)
 
         previous_point = None
@@ -212,6 +255,16 @@ class StravaDB(object):
         return seg_frame.sort('distance')
 
     def create_route(self, gpx_file, athlete_id, name):
+        """
+        INPUT: StravaDB, STRING, INT, STRING
+        OUTPUT: 1D NUMPY ARRAY, 1D NUMPY ARRAY
+
+        Create a route from a gpx file.
+
+        gpx_file is a string specifying the path to the .gpx file.
+        athlete_id is the id of the athlete who this route belongs to.
+        name is a string description of the route.
+        """
 
         gpx_file = open(gpx_file, 'r')
         gpx = gpxpy.parse(gpx_file)
@@ -290,49 +343,15 @@ class StravaDB(object):
         self.cur.executemany(q, data)
         self.conn.commit()
 
-
-    def move_activities(self):
-        find = {'id': 1, 'start_date_local': 1, 'timezone': 1,
-                    'location_city': 1, 'location_country': 1,
-                    'start_longitude': 1, 'start_latitude': 1,
-                    'elapsed_time': 1, 'distance': 1, 'moving_time': 1,
-                    'fitness_level': 1, 'average_speed': 1, 'kilojoules': 1,
-                    'max_speed': 1, 'name': 1, 'total_elevation_gain': 1,
-                    'athlete': 1}
-        activities = MongoDB.activities.find({}, find)
-        for a in activities:
-            d = {'id': a['id'],
-                 'start_dt': datetime.strptime(a['start_date_local'], '%Y-%m-%dT%H:%M:%SZ'),
-                 'timezone': a['timezone'],
-                 'city': a['location_city'],
-                 'country': a['location_country'],
-                 'start_longitude': a['start_longitude'],
-                 'start_latitude': a['start_latitude'],
-                 'elapsed_time': a['elapsed_time'],
-                 'distance': a['distance'],
-                 'moving_time': a['moving_time'],
-                 'fitness_level': 0,
-                 'average_speed': a['average_speed'],
-                 'max_speed': a['max_speed'],
-                 'name': a['name'],
-                 'total_elevation_gain': a['total_elevation_gain'],
-                 'athlete_id': a['athlete']['id']
-            }
-            self.insert_values('activities', d)
-
-    def move_athletes(self):
-        athletes = MongoDB.athletes.find()
-        for ath in athletes:
-            d = {'id': ath['id'],
-                 'firstname': ath['firstname'],
-                 'lastname': ath['lastname'],
-                 'sex': ath['sex'],
-                 'city': ath['city'],
-                 'state': ath['state'],
-                 'country': ath['country']}
-            self.insert_values('athletes', d)
-
     def insert_values(self, table_name, val_dict):
+        """
+        INPUT: StravaDB, STRING, DICTIONARY
+        OUTPUT: BOOLEAN
+
+        Insert an entry to a MySQL db tables.
+
+        val_dict is a dictionary of (column, value) pairs.
+        """
 
         keys = val_dict.keys()
         values = [val_dict[k] for k in keys]
@@ -351,38 +370,3 @@ class StravaDB(object):
             print traceback.format_exc()
             print q
             return False
-
-if __name__ == '__main__':
-    main()
-
-    """ CREATE TABLE fitness AS
-        
-    """
-
-
-    """ UPDATE 
-            activities a, 
-            (SELECT 
-                a_dt as dt,
-                id as activity_id,
-                athlete_id as athlete_id,
-                SUM(score) as fitness_score
-            FROM (SELECT
-                    a.id,
-                    a.athlete_id,
-                    a.start_dt AS a_dt,
-                    b.total_elevation_gain,
-                    b.distance,
-                    b.distance*b.total_elevation_gain AS score,
-                    b.start_dt
-                FROM activities a
-                JOIN activities b
-                ON b.start_dt >= DATE_SUB(a.start_dt, INTERVAL 30 DAY)
-                AND b.start_dt < a.start_dt
-                AND a.athlete_id = b.athlete_id
-                ORDER BY a_dt) scores
-            GROUP BY a_dt, id, athlete_id) f
-        SET a.fitness_level = f.fitness_score
-        WHERE a.id = f.activity_id
-        AND a.athlete_id = f.athlete_id;
-    """
