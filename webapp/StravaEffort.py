@@ -160,6 +160,7 @@ class StravaActivity(object):
         d = (self.df.distance.values - self.df.distance.values[0]) / meters_per_mile
         t = (self.df.time.values - self.df.time.values[0])
         alt = (self.df.altitude.values * feet_per_meter).tolist()
+        v = (self.df.velocity.values) / meters_per_mile * 3600
         
 
         num_samples = 5000
@@ -195,6 +196,7 @@ class StravaActivity(object):
             # convert the predicted distance and altitude to the new time axis
             js['plot_predicted_distance'] = np.interp(new_time_predicted, pt, d).tolist()
             js['plot_predicted_altitude'] = np.interp(new_time_predicted, pt, alt).tolist()
+            js['plot_predicted_velocity'] = np.interp(new_time_predicted, pt, self.df.predicted_velocity.values / meters_per_mile * 3600).tolist()
             
             js['type'] = 'activity'
             js['ride_rating'] = self.ride_score()
@@ -206,6 +208,7 @@ class StravaActivity(object):
         js['plot_time'] = new_time.tolist()
         js['plot_distance'] = np.interp(new_time, t, d).tolist()
         js['plot_altitude'] = np.interp(new_time, t, alt).tolist()
+        js['plot_velocity'] = np.interp(new_time, t, v).tolist()
         js['streaming_predict'] = smooth(np.interp(new_time, t, stream_predict), 'scipy', window_len=200).tolist()
         
         # it doesn't matter that the latlng values do not correspond to the other vectors

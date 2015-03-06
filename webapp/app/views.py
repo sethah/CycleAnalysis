@@ -9,6 +9,7 @@ from StravaDB import StravaDB
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.cross_validation import cross_val_score, train_test_split
+from SignalProc import smooth
 import numpy as np
 import pandas as pd
 import requests
@@ -198,13 +199,23 @@ def rides(userid):
         activities=activities,
         routes=routes,
         activity = activity)
-
 @app.route('/compare/<activity_id>/<userid>', methods=['GET', 'POST'])
-def compare(activity_id, userid):
+def compare_home(activity_id, userid):
+
+    DB = StravaDB()
+    # get all users
+    q = """ SELECT
+                id, firstname, lastname, city, state
+            FROM athletes;
+        """
+    athletes = DB.execute(q)
+    # return str(athletes)
+    return render_template('compare_home.html', activity_id=activity_id, this_athlete=userid, athletes=athletes)
+
+@app.route('/compare/<activity_id>/<userid>/<otherid>', methods=['GET', 'POST'])
+def compare(activity_id, userid, otherid):
 
     print 'creating user'
-    # otherid = request.form.get('otherid', 0)
-    otherid = 4496814
     the_user = StravaUser(int(userid))
     other_user = StravaUser(int(otherid))
     the_ride = StravaActivity(activity_id, the_user.userid, get_streams=True)
@@ -255,7 +266,15 @@ def change():
     a.predict(d[uid]['model'])
     print 'Predicted'
     print 'max is ', a.df.altitude.max()
-    return jsonify(a.to_dict())
+    js = a.to_dict()
+    if not a.is_route:
+        d, pd = truncate(js['plot_distance'], js['plot_predicted_distance'])
+        js['distance_diff'] = (np.array(d) - np.array(pd)).tolist()
+    return jsonify(js)
+
+def truncate(a, b):
+   min_dim = min(len(a), len(b))
+   return a[:min_dim], b[:min_dim]
 
 @app.route("/chart")
 def chart():

@@ -86,23 +86,181 @@ function addCrosshair(x, y, color) {
       width: 2,
       color: color
     });
-    
-    // chart.yAxis[0].addPlotLine({
-    //     id: 'yPlotLine'+y,
-    //     value: y,
-    //   width: 2,
-    //   color: color
-    // });
 }
 
 function removeCrosshair(x,y) {
     chart.xAxis[0].removePlotLine('xPlotLine'+x);
     chart.yAxis[0].removePlotLine('yPlotLine'+y);
 }
+
+function barGauge() {
+  var chart = new Highcharts.Chart({
+            chart: {
+                renderTo: 'gauge-bar',
+                defaultSeriesType: 'bar',
+                animation:false,
+                plotBorderWidth: 2,
+                plotBackgroundColor: '#F5E6E6',
+                plotBorderColor: '#D8D8D8',
+                plotShadow: true,
+                spacingTop: 0,
+                spacingLeft: 50,
+                spacingRight: 50,
+                spacingBottom: 0
+            },
+            credits: {
+                enabled: false
+            },
+            xAxis: {
+                labels: {
+                    enabled: false
+                },
+                tickLength: 0
+            },
+            title: {
+                text: null
+            },
+            legend: {
+                enabled: false
+            },
+            yAxis: {
+                title: {
+                    text: null
+                },
+                labels: {
+                    y: 20
+                },
+                min: -1,
+                max: 1,
+                tickInterval: 1,
+                minorTickInterval: 0.5
+                // tickWidth: 1,
+                // tickLength: 8,
+                // minorTickLength: 5,
+                // minorTickWidth: 1,
+                // minorGridLineWidth: 0
+            },
+            plotOptions: {},
+            series: [{
+                borderRadius: 3,
+                borderWidth: 1,
+                // color: {
+                //     linearGradient: {
+                //         x1: 0,
+                //         y1: 0,
+                //         x2: 1,
+                //         y2: 0
+                //     },
+                //     stops: [ //[ 0.35, '#7070B8' ], [0, '#D69999'],
+                //                                    [0.3, '#B84D4D'],
+                //                                    [0.45, '#7A0000'],
+                //                                    [0.55, '#7A0000'],
+                //                                    [0.7, '#B84D4D'],
+                //                                    [1, '#D69999']]
+                // },
+                pointWidth: 50,
+                data: [0]}]
+        });
+}
+
+function gauges(a, renderElement) {
+    gaugeChart = new Highcharts.Chart({
+
+        chart: {
+            type: 'gauge',
+            plotBackgroundColor: null,
+            plotBackgroundImage: null,
+            plotBorderWidth: 0,
+            plotShadow: false,
+            renderTo: renderElement
+        },
+
+        title: {
+            text: 'Speedometer'
+        },
+
+        pane: {
+            startAngle: -150,
+            endAngle: 150,
+            background: [{
+                backgroundColor: {
+                    linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                    stops: [
+                        [0, '#FFF'],
+                        [1, '#333']
+                    ]
+                },
+                borderWidth: 0,
+                outerRadius: '109%'
+            }, {
+                backgroundColor: {
+                    linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                    stops: [
+                        [0, '#333'],
+                        [1, '#FFF']
+                    ]
+                },
+                borderWidth: 1,
+                outerRadius: '107%'
+            }, {
+                // default background
+            }, {
+                backgroundColor: '#DDD',
+                borderWidth: 0,
+                outerRadius: '105%',
+                innerRadius: '103%'
+            }]
+        },
+
+        // the value axis
+        yAxis: {
+            min: 0,
+            max: 40,
+
+            minorTickInterval: 'auto',
+            minorTickWidth: 1,
+            minorTickLength: 10,
+            minorTickPosition: 'inside',
+            minorTickColor: '#666',
+
+            tickPixelInterval: 30,
+            tickWidth: 2,
+            tickPosition: 'inside',
+            tickLength: 10,
+            tickColor: '#666',
+            labels: {
+                step: 2,
+                rotation: 'auto'
+            },
+            title: {
+                text: 'km/h'
+            },
+            plotBands: [{
+                from: 0,
+                to: 120,
+                color: '#55BF3B' // green
+            }, {
+                from: 120,
+                to: 160,
+                color: '#DDDF0D' // yellow
+            }, {
+                from: 160,
+                to: 200,
+                color: '#DF5353' // red
+            }]
+        },
+
+        series: [{
+            name: 'Speed',
+            data: [0],
+            tooltip: {
+                valueSuffix: ' km/h'
+            }
+        }]
+
+    });
+}
 function lineChart(a) {
-    
-    // console.log(data)
-    
 
     if (a['type'] == 'route'){
       data = zip([a.plot_predicted_distance, a.plot_predicted_altitude]);
@@ -213,37 +371,72 @@ function lineChart(a) {
 };
 
 function simRide(a) {
-    document.getElementById("ride-console").style.visibility = "visible";
+    
+    // document.getElementById("ride-console").style.visibility = "visible";
+    document.getElementById("gauges").style.width="auto";
+    document.getElementById("gauges").style.height="100px";
+    document.getElementById("gauges").style.textAlign="center";
+    // document.getElementById("gauges").innerHTML = '<div id="gauge-bar" style="height: 100px"></div><div id="gauge-speed" style="width: 300px; height: 200px; float: left"></div><div id="gauge-other" style="width: 300px; height: 200px; float: left"></div>';
+    document.getElementById("gauges").innerHTML = '<div id="gauge-bar" style="height: 70px; background-color:#393;margin:0px auto;"></div>';
+    barGauge()
+    // gauges(a, 'gauge-speed')
+    // gauges(a, 'gauge-other')
     var count = 0;
     d = a['plot_distance'];
     pd = a['plot_predicted_distance'];
     var duration = moment.duration(0, 'seconds');
+    spacing = 20;
+    timeStep = 100;
 
     simInterval = window.setInterval(function() {
       var isDone = false
 
-      // debugger;
-      // console.log(offset1, offset2)
       if (a['type'] != 'route'){
-        offset1 = d[count]*100.0/a.total_distance
-        offset2 = pd[count]*100.0/a.total_distance
-        if ((offset1 >= 99.75) & (offset2 >= 99.75)) {
+        offset1 = d[Math.min(count, d.length -1)]*100.0/a.total_distance
+        offset2 = pd[Math.min(count, pd.length -1)]*100.0/a.total_distance
+
+        if ((count > d.length) & (count > pd.length)) {
           isDone = true;
         }
       }
       else {
-        offset1 = pd[count]*100.0/a.total_distance
-        if (offset1 > 99.5){
+        offset1 = pd[Math.min(count, pd.length -1)]*100.0/a.total_distance
+        if (count > pd.length){
           isDone = true;
         }
       }
-      // debugger;
-      // console.log(offset1, offset2)
+
       if (isDone) {
         console.log('cleared')
         clearInterval(simInterval)
       }
       else {
+        // gauge = $('#gauge-speed').highcharts();
+        // if (gauge) {
+        //     point = gauge.series[0].points[0];
+        //     point.update(a.plot_velocity[count]);
+        //   }
+        gauge = $('#gauge-bar').highcharts();
+        if (gauge) {
+            if (count != 0){
+              var previousDiff = a.distance_diff[count - spacing];
+            }
+            else {
+              var previousDiff = 0;
+            }
+
+            if (a.distance_diff[count] < 0 & previousDiff >= 0){
+              gauge.series[0].options.color = '#F00';
+              gauge.series[0].update(gauge.series[0].options);
+            }
+            else if (a.distance_diff[count] > 0 & previousDiff <= 0){
+              gauge.series[0].options.color = '#393';
+              gauge.series[0].update(gauge.series[0].options);
+            }
+            point = gauge.series[0].points[0];
+            console.log(a.distance_diff[count])
+            point.update(a.distance_diff[count]);
+          }
 
         var icons = line.get('icons');
         
@@ -252,22 +445,17 @@ function simRide(a) {
         line.set('icons', icons);
         duration = moment.duration(a.plot_time[count]*1000, 'seconds');
         var p1 = chart.series[0].points[count];
-        // var p2 = chart.series[1].points[count];
         addCrosshair(p1.x, p1.y, '#000')
         if (a['type'] != 'route'){
           icons[1].offset = offset2 + '%';
           addCrosshair(a.plot_predicted_distance[count], a.plot_predicted_altitude[count], '#390')
         }
-        console.log('a')
-        // debugger;
-        // chart.tooltip.refresh(p1);
-        // chart.tooltip.refresh(p2);
+
         if (count != 0){
-          var previous1 = chart.series[0].points[count - 10];
-          // var previous2 = chart.series[1].points[count - 10];
+          var previous1 = chart.series[0].points[count - spacing];
           removeCrosshair(previous1.x, previous1.y)
           if (a['type'] != 'route'){
-            removeCrosshair(a.plot_predicted_distance[count -10], a.plot_predicted_altitude[count-10])
+            removeCrosshair(a.plot_predicted_distance[count -spacing], a.plot_predicted_altitude[count-spacing])
           }
         }
         
@@ -276,14 +464,16 @@ function simRide(a) {
         // chart.series[1].setData([[a.plot_distance[count], 0], [a.plot_distance[count], 10000]]);
         // chart.series[2].setData([[a.plot_predicted_distance[count], 0], [a.plot_predicted_distance[count], 10000]]);
 
-        // document.getElementById('playback-timer').innerHTML = moment.utc(a.plot_time[count]*1000).format("HH:mm")
+        // document.getElementById('ride-console').innerHTML = '<br/><table><tr>' + 
+        // '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
+        // '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
+        // '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
+        // '</tr></table><br/>'
         // document.getElementById('playback-margin').innerHTML = (d[count] - pd[count]).toFixed(2);
         // document.getElementById('playback-distance').innerHTML = d[count].toFixed(2);
-        console.log('b')
-        // debugger;
       }
-      count = count + 10;
-  }, 50);
+      count = count + spacing;
+  }, timeStep);
 }
 
 function getActivity(aid, uid, activityElement) {
@@ -367,14 +557,9 @@ function uploadRoute(){
       
       <div class="map" id="map-canvas" style="width:500px;height:380px;"></div>
       <div id="ride-console" style="visibility: hidden;">
-        <table>
-          <tr>
-            <td>Time elapsed:</td> <td id="playback-timer"></td>
-            <td>Distance:</td> <td id="playback-distance"></td>
-            <td>Margin:</td> <td id="playback-margin"></td>
-          </tr>
-        </table>
       </div>
+      <br>
+      <div id="gauges"></div>
       <div id="container" style="min-width: 310px; height: 400px; max-width: 800px; margin: 0 auto"></div>
     </div>
       <div class='span2 main'></div>

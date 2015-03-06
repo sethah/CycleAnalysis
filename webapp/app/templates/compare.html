@@ -99,8 +99,9 @@ function removeCrosshair(x,y) {
 }
 function lineChart(a1, a2) {
     
-    data = zip([a1.plot_predicted_distance, a1.plot_predicted_altitude]);
+    data = zip([a1.plot_distance, a1.plot_altitude]);
     data1 = zip([a2.plot_predicted_distance, a2.distance_diff]);
+
     var ymin = Math.min.apply(null, a1.plot_predicted_altitude)
     var ymax = Math.max.apply(null, a1.plot_predicted_altitude)
     var xmin = Math.min.apply(null, a1.plot_predicted_distance)
@@ -168,11 +169,12 @@ function lineChart(a1, a2) {
             series: series
         });
 };
-function simRide(a1, a2) {
-    var count = 0;
+function simRide(a1, a2, startIndex) {
+    debugger;
+    var count = startIndex;
     d = a1['plot_distance'];
     pd = a2['plot_predicted_distance'];
-    debugger;
+
     var duration = moment.duration(0, 'seconds');
 
     simInterval = window.setInterval(function() {
@@ -238,7 +240,7 @@ function simRide(a1, a2) {
       </table>
 
       <div class="wrapper">
-          <button id="play" onclick="simRide(ride_js, other_ride_js)">Play Ride</button>
+          <button id="play" onclick="simRide(ride_js, other_ride_js, 0)">Play Ride</button>
       </div>
       
       <div class="map" id="map-canvas" style="width:500px;height:380px;"></div>
