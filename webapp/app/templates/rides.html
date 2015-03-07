@@ -182,11 +182,6 @@ function lineChart(a) {
           type: 'area',
           name: 'Altitude',
           yAxis: 0,
-          // tooltip: {
-          //   pointFormatter: function(){
-          //     return '<b>'+ this.series.name +'</b>: '+ Highcharts.numberFormat(this.y, 0, ".", ",") +'<br/>';
-          //   }
-          // },
           fillOpacity: 0.5,
           data: data,
           lineWidth: 2
@@ -195,17 +190,12 @@ function lineChart(a) {
           type: 'spline',
           name: 'Streaming Prediction',
           yAxis: 1,
-          // tooltip: {
-          //   pointFormatter: function(){
-          //     return '<b>'+ this.series.name +'</b>: '+ moment.utc(this.y*1000).format("HH:mm:ss") +'<br/>';
-          //   }
-          // },
           data: data1,
           lineWidth: 2
         },
         {
           type: 'line',
-          name: 'Predicted Time',
+          name: 'Actual Time',
           yAxis: 1,
           data: [[-100, a.moving_time], [600, a.moving_time]]
         }]
@@ -214,22 +204,22 @@ function lineChart(a) {
         chart = new Highcharts.Chart({
             chart: {
                 renderTo: 'container',
-                spacingTop: 0,
+                spacingTop: 5,
                 spacingLeft: 0,
                 spacingRight: 0,
                 spacingBottom: 0
             },
             tooltip: {
                 formatter: function() {
-                    var s = ['<b>Distance</b>: '+ Highcharts.numberFormat(this.x, 2, ".", ",")];
+                    var s = ['<b>Distance</b>: '+ Highcharts.numberFormat(this.x, 2, ".", ",") + ' mi'];
 
                     $.each(this.points, function(i, point) {
                       if (point.series.name === 'Altitude'){
-                        text = '<b>'+ point.series.name +' : '+
-                            Highcharts.numberFormat(point.y, 0, ".", ",") +'</b>';
+                        text = '<b>'+ point.series.name +'</b>: '+
+                            Highcharts.numberFormat(point.y, 0, ".", ",") +' ft';
                       }
                       else {
-                        text = '<b>'+ point.series.name +'</b>: '+ moment.utc(this.y*1000).format("HH:mm:ss") +'<br/>';
+                        text = '<b>'+ point.series.name +'</b>: '+ moment.utc(this.y*1000).format("HH:mm:ss");
                       }
                         s.push(text);
                     });
@@ -242,17 +232,23 @@ function lineChart(a) {
             xAxis: {
               min: xmin,
               max: xmax,
-                title: {
-                    enabled: true,
-                    text: 'Distance (mi)'
+              labels: {
+                  formatter: function(){
+                    return this.value + ' mi'
+                  }
                 },
                 ordinal: false
             },
             yAxis: [{
+                title: {
+                    text: ''
+                },
                 min: ymin,
                 max: ymax,
-                title: {
-                    text: 'Altitude (ft)'
+                labels: {
+                  formatter: function(){
+                    return Highcharts.numberFormat(this.value, 0, ".", ",") + ' ft'
+                  }
                 }
             },
             {
@@ -262,13 +258,12 @@ function lineChart(a) {
                 labels: {
                   formatter: function(){
                     return moment.utc(this.value*1000).format("HH:mm:ss")
-                    // return this.value + 's'
                   }
                 },
                 opposite: true
             }],
             title: {
-                text: 'Ride profile'
+                text: ''
             },
             plotOptions: {
                     series: {
@@ -323,6 +318,32 @@ function simRide(a) {
         
         addCrosshair(a.plot_distance[idx], '#FF7519')
         addCrosshair(a.plot_predicted_distance[pidx], '#5C005C')
+
+        var diff = a.distance_diff[Math.min(count, a.distance_diff.length - 1)];
+        if (diff >= 0) {
+          diff = '+' + diff.toFixed(2)
+          diff_color = 'green'
+        }
+        else {
+          diff = diff.toFixed(2)
+          diff_color = 'red'
+        }
+        document.getElementById('distance-diff').innerHTML = diff;
+        document.getElementById('distance-diff').style.color = diff_color;
+
+        var stream_predict = a.streaming_predict[Math.min(count, a.distance_diff.length - 1)];
+        if (stream_predict < a.predicted_total_time) {
+          stream_predict = moment.utc(stream_predict*1000).format("H:mm:ss")
+          stream_color = 'green'
+        }
+        else {
+          stream_predict = moment.utc(stream_predict*1000).format("H:mm:ss")
+          stream_color = 'red'
+        }
+        document.getElementById('stream-predict').innerHTML = stream_predict;
+        document.getElementById('stream-predict').style.color = stream_color;
+        document.getElementById('timer').innerHTML = moment.utc(a.plot_time[Math.min(count, a.plot_time.length - 1)]*1000).format("H:mm:ss");
+        document.getElementById('timer').style.color = 'black';
 
         gauge = $('#gauge-bar').highcharts();
           if (gauge) {
@@ -384,20 +405,6 @@ function simRide(a) {
         }
       }
       line.set('icons', icons);
-      duration = moment.duration(a.plot_time[count]*1000, 'seconds');
-
-
-
-      
-
-        // document.getElementById('ride-console').innerHTML = '<br/><table><tr>' + 
-        // '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
-        // '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
-        // '<td>Time: ' + moment.utc(a.plot_time[count]*1000).format("HH:mm") + '</td>' +
-        // '</tr></table><br/>'
-        // document.getElementById('playback-margin').innerHTML = (d[count] - pd[count]).toFixed(2);
-        // document.getElementById('playback-distance').innerHTML = d[count].toFixed(2);
-      // }
       count = count + spacing;
   }, timeStep);
 }
@@ -433,7 +440,7 @@ function switchActivity(a) {
   $(document.getElementById('activity_rating')).text(a['ride_rating'][1]);
   $(document.getElementById('activity_start')).text(a['start_time']);
   $(document.getElementById('activity_moving_time')).text(a['moving_time_string']);
-  $(document.getElementById('activity_pred_time')).text(a['predicted_total_time']);
+  $(document.getElementById('activity_pred_time')).text(a['predicted_total_time_string']);
   if (typeof simInterval !== 'undefined') {
     clearInterval(simInterval)
   }
@@ -464,30 +471,70 @@ function uploadRoute(){
       .wrapper {text-align: center;
                 padding: 5px 5px 5px 5px;
                }
+      #dashboard {background-color: #F4F4F4;
+                  position: relative;
+                  padding: 0;
+                  border: 1px solid #A8A8A8;
+                  }
+      #dashboard p {margin-left: 5px;}
+      #table-dashboard {position: absolute;
+                        bottom: 0;
+                      width: 100%;
+                    color:#888896;}
+      #table-dashboard td {width: 33%;
+                        text-align: center;
+                        border: 1px solid #A8A8A8;
+                        font-size: small;
+                      background-color: #F4F4F4;}
+      #dashboard-header {background-color:#CACACD;
+                         display:block;
+                         padding: 5px;
+                         font-size: large;
+                         font-weight: bold;
+                         border: 1px solid #A8A8A8;}
     </style>
     <div class="row">
-    <div class='span7 main' style="margin-left: 52px;">
+    <div class='span10 main' style="margin-left: 52px;">
 
-      <table>
-        <thead><th colspan="2">Ride Summary</th></thead>
-        <tr><td>Rider:</td><td>{{athlete.name}}</td></tr>
-        <tr><td>Ride:</td><td><span id="activity_desc">{{activity.name}}</span></td></tr>
-        <tr><td>Date:</td><td><span id="activity_date">{{activity.dt.strftime("%A %B %d, %Y")}}</span></td></tr>
-        <tr><td>Start Time:</td><td><span id="activity_start">{{activity.dt.strftime("%H:%M:%S %p")}}</span></td></tr>
-        <tr><td>Total Time:</td><td><span id="activity_moving_time">{{activity.moving_time_string}}</span></td></tr>
-        <tr><td>Predicted Time:</td><td><span id="activity_pred_time">{{activity.predicted_moving_time}}</span></td></tr>
-        <tr><td>Ride Rating:</td><td><span id="activity_rating"></span></td></tr>
-      </table>
+      
       <div class="wrapper">
           <button id="play" onclick="simRide(activity)">Play Ride</button>
       </div>
+      <table class="table table-bordered">
+        <tr>
+          <td style="padding:0px;" width="400px" height="300px">
+            <div class="map" id="map-canvas" style="width:100%; height:100%"></div>
+          </td>
+          <td id="dashboard">
+              <span id="dashboard-header"><img src="/static/img/logo_small.png" style="padding:5px; width:auto; height:20px;">{{athlete.name}} - <span id="activity_desc">{{activity.name}}</span></span>
+              <p><br>Date: <span id="activity_date">{{activity.dt.strftime("%A %B %d, %Y")}}</span>
+              <br>Start Time: <span id="activity_start">{{activity.dt.strftime("%H:%M:%S %p")}}</span>
+              <br>Predicted Time: <span id="activity_pred_time">{{activity.predicted_moving_time}}</span>
+              <br>Total Time: <span id="activity_moving_time">{{activity.moving_time_string}}</span> 
+              <br>Ride Rating: <span id="activity_rating"></span></p>
+
+                <table id="table-dashboard" cellpadding="0" cellspacing="0" style=>
+                  <tr>
+                  <td class="dashboard-cell">TIME<br><span id="timer" style="font-size:x-large"></span><br>HOURS</td>
+                  <td class="dashboard-cell">DISTANCE<br><span id="distance-diff" style="font-size:x-large"></span><br>MILES</td>
+                  <td class="dashboard-cell">PREDICTION<br><span id="stream-predict" style="font-size:x-large"></span><br>HOURS</td>
+                </tr>
+              </table>
+              <!-- <p>Time: <span id="timer"></span></p>
+              <p>Distance Diff: <span id="distance-diff"></span></p>
+              <p>New Predic ted Time: <span id="stream-predict"></span></p> -->
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <div id="gauges"></div>
+            <div id="container" style="min-width: 310px; height: 250px; max-width: 800px; margin: 0 auto"></div>
+          </td>
+        </tr>
+      </table>
       
-      <div class="map" id="map-canvas" style="width:700px;height:380px;"></div>
-      <div id="ride-console" style="visibility: hidden;">
-      </div>
       <br>
-      <div id="gauges"></div>
-      <div id="container" style="min-width: 310px; height: 250px; max-width: 800px; margin: 0 auto"></div>
+      
     </div>
       <div class='span1 main'></div>
       <div class='span7 main'>
@@ -535,15 +582,15 @@ function uploadRoute(){
 <script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
 
     <script type="text/javascript" charset="utf-8">
-      $(document).ready(function() {
-        $("table").tablecloth({
-          theme: "stats",
-          striped: true,
-          sortable: true,
-          condensed: true,
-          clean: true
-        });
-      });
+      // $(document).ready(function() {
+      //   $("table").tablecloth({
+      //     theme: "stats",
+      //     striped: true,
+      //     sortable: true,
+      //     condensed: true,
+      //     clean: true
+      //   });
+      // });
     </script>
   <!-- </body> -->
 

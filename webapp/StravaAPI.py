@@ -231,17 +231,12 @@ class StravaAPI(object):
         payload = {'per_page': 10}
         response = self.execute(url, payload)
         data = response.json()
-        # effort_ids = [(entry['effort_id'], entry['athlete_name']) for entry in data['entries']]
-        print data['entries'][0].keys()
+
         efforts = []
         for effort in data['entries']:
-            # efforts.append(get_effort(eid[0], eid[1]))
-            # effort = get_effort
             streams = self.get_effort_streams(effort['effort_id'])
-            # print streams
             effort['streams'] = streams
             efforts.append(effort)
-            # break
 
         return efforts
 
@@ -254,40 +249,13 @@ class StravaAPI(object):
         response = self.execute(url, payload)
         data = response.json()
         data = {x['type']:x for x in data}
-        # data['name'] = name
 
         return data
 
     def store_efforts(self, segment_id):
         table = self.db.efforts
-        # table.remove()
         efforts = self.get_efforts(segment_id)
 
         for effort in efforts:
             effort['segment_id'] = segment_id
             table.insert(effort)
-
-def main():
-    segment_ids = [7673423, 4980024]
-
-
-
-if __name__ == '__main__':
-    pass
-    # strava = StravaAPI()
-    # # strava.store_efforts(7673423)
-    # # r = strava.list_activities()
-    # table = strava.db.activities
-    # table.remove()
-    # strava.store_activities()
-
-    # for activity in table.find():
-    #     # print activity['streams'].keys()
-    #     for stream in activity['streams']:
-    #         print stream, len(activity['streams'][stream]['data'])
-    #         break
-
-
-
-
-

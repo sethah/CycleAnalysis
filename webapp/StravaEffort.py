@@ -29,11 +29,15 @@ class StravaActivity(object):
 
         activity_id is the integer id assigned to this activity by Strava. If the
         activity is a route, then this id was assigned automatically by the database.
+        
         athlete_id is the integer id of the parent StravaUser
+        
         get_streams is a Boolean which indicates a Boolean which indicates whether to get the raw data
         streams for the user.
+        
         is_route is a Boolean which indicates if this is a ride that the user has not done
         yet and thus does not have time/velocity streams.
+        
         belongs_to is a Boolean which indicates whether this activity belongs to the parent
         StravaUser. If belongs_to == 'other', then this athlete does not have time/velocity
         streams and the activity is treated like a route.
@@ -45,7 +49,7 @@ class StravaActivity(object):
         else:
             d = self.fetch_activity(activity_id, athlete_id, belongs_to)
             self.name = d['name']  # description of the ride
-            self.dt = d['start_dt']  # timestampof the ride's start
+            self.dt = d['start_dt']  # timestamp of the ride's start
             self.total_distance = d['distance']
             self.moving_time = int(d.get('moving_time', 0))
             self.moving_time_string = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
@@ -273,7 +277,8 @@ class StravaActivity(object):
         js['center'] = self.get_bounds().tolist()
         
         js['total_distance'] = self.total_distance / meters_per_mile
-        js['predicted_total_time'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
+        js['predicted_total_time'] = pt[-1]
+        js['predicted_total_time_string'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
         js['id'] = self.id
         
 

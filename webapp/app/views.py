@@ -26,7 +26,7 @@ CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:4916
 MONGODB = CLIENT.strava
 DB = StravaDB()
 
-app.config['UPLOAD_FOLDER'] = 'app/uploads/'
+app.config['UPLOAD_FOLDER'] = 'app/uploads/'  # this breaks on pythonanywhere
 
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/index')
