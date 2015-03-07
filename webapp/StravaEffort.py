@@ -283,6 +283,108 @@ class StravaActivity(object):
         
 
         return js
+    def to_dict2(self, time_spacing=None):
+        """
+        INPUT: StravaActivity, FLOAT
+        OUTPUT: None
+
+        Convert the activity to a dictionary with uniformly
+        spaced time vectors for actual and predictions.
+
+        time_spacing indicates the space between time samples.
+
+        This method interpolates the values so that the predicted and
+        actual time vectors have the same spacing. They are not the same
+        length, however.
+        """
+       
+        predicted = {}
+        actual = {}
+        predicted['name'] = self.name
+        predicted['date'] = datetime.strftime(self.dt, '%A %B %d, %Y')
+        predicted['athlete'] = self.athlete
+        predicted['latitude'] = self.df.latitude.values.tolist()
+        predicted['longitude'] = self.df.longitude.values.tolist()
+        predicted['center'] = self.get_bounds().tolist()
+        predicted['id'] = self.id
+
+        pt = self.df.predicted_time.values.tolist()
+        stream_predict = self.streaming_predict()
+        
+        # time, distance, altitude in the correct units
+        d = (self.df.distance.values - self.df.distance.values[0]) / meters_per_mile
+        alt = (self.df.altitude.values * feet_per_meter).tolist()
+        
+        num_samples = 5000
+        if self.is_route or self.belongs_to == 'other':
+            # we convert the time to evenly spaced samples
+
+            if time_spacing is None:
+                new_time = np.arange(0, pt[-1], pt[-1]/float(num_samples))
+            else:
+                new_time = np.arange(0, pt[-1], time_spacing)
+
+            predicted['type'] = 'route'
+
+            # convert the predicted distance and altitude to the new time axis
+            predicted['plot_time'] = new_time.tolist()
+            predicted['plot_distance'] = np.interp(new_time, pt, d).tolist()
+            predicted['plot_altitude'] = np.interp(new_time, pt, alt).tolist()
+            predicted['ride_rating'] = [0, 'NA']
+            predicted['moving_time'] = pt[-1]
+            predicted['moving_time_string'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
+            predicted['start_time'] = 'NA'
+            predicted['total_distance'] = self.total_distance / meters_per_mile
+        else:
+            
+            actual['name'] = self.name
+            actual['date'] = datetime.strftime(self.dt, '%A %B %d, %Y')
+            actual['athlete'] = self.athlete
+
+            t = (self.df.time.values - self.df.time.values[0])
+            v = (self.df.velocity.values) / meters_per_mile * 3600
+            # for the ride simulation we need to go until the time when both have finished
+            if time_spacing is None:
+                min_time = np.min([t[-1], pt[-1]])
+                spacing = min_time / num_samples
+                new_time_predicted = np.arange(0, pt[-1], spacing)
+                new_time = np.arange(0, t[-1], spacing)
+            else:
+                new_time = np.arange(0, t[-1], time_spacing)
+                new_time_predicted = np.arange(0, pt[-1], time_spacing)
+
+            actual['plot_time'] = new_time.tolist()
+            actual['plot_distance'] = np.interp(new_time, t, d).tolist()
+            actual['plot_altitude'] = np.interp(new_time, t, alt).tolist()
+            actual['plot_velocity'] = np.interp(new_time, t, v).tolist()            
+
+            # convert the predicted distance and altitude to the new time axis
+            predicted['plot_distance'] = np.interp(new_time_predicted, pt, d).tolist()
+            predicted['plot_altitude'] = np.interp(new_time_predicted, pt, alt).tolist()
+            predicted['plot_velocity'] = np.interp(new_time_predicted, pt, self.df.predicted_velocity.values / meters_per_mile * 3600).tolist()
+            
+            predicted['type'] = 'activity'
+            predicted['ride_rating'] = self.ride_score()
+            predicted['moving_time'] = pt[-1]
+            predicted['start_time'] = datetime.strftime(self.dt, '%H:%M:%S %p')
+            predicted['moving_time_string'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
+            predicted['total_distance'] = self.total_distance / meters_per_mile
+            predicted['plot_time'] = new_time_predicted.tolist()
+
+            actual['type'] = 'activity'
+            actual['ride_rating'] = self.ride_score()
+            actual['moving_time'] = t[-1]
+            actual['start_time'] = datetime.strftime(self.dt, '%H:%M:%S %p')
+            actual['moving_time_string'] = time.strftime('%H:%M:%S', time.gmtime(t[-1]))
+            actual['total_distance'] = self.total_distance / meters_per_mile
+            actual['plot_time'] = new_time.tolist()
+
+            actual['latitude'] = self.df.latitude.values.tolist()
+            actual['longitude'] = self.df.longitude.values.tolist()
+            actual['center'] = self.get_bounds().tolist()
+            actual['id'] = self.id
+
+        return actual, predicted
 
     def ride_score(self):
         """

@@ -1,0 +1,539 @@
+{% extends "base.html" %}
+{% block content %}
+
+    <style>
+      #map-canvas {text-align: center;}
+    </style>
+    <link href="/static/css/rides.css" rel="stylesheet">
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
+
+<script>
+var line;
+colors = ['#8A2BE2', '#DC143C', '#006400'];
+function initialize() {
+  getActivity('{{activities[0].id}}', '{{athlete.userid}}', '#activity{{activities[0].id }}');
+}
+
+function setMap(activities) {
+
+  var mapOptions = {
+    mapTypeId: google.maps.MapTypeId.TERRAIN
+  };
+
+  var map = new google.maps.Map(document.getElementById('map-canvas'),
+      mapOptions);
+
+  var coords = [];
+  
+  // set the map with the first activity
+  a = activities[0]
+  for (var i = 0; i < a.latitude.length; i++) {
+    coords.push(new google.maps.LatLng(a.latitude[i], a.longitude[i]));
+  }
+
+  var lineSymbols = [];
+  var mapIcons = []
+  for (var i = 0; i < activities.length; i++) {
+    var lineSymbol = {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 8,
+      strokeColor: colors[i]
+    };
+    mapIcon = {icon: lineSymbol, offset: '0%'};
+    mapIcons.push(mapIcon) 
+  }
+  
+  line = new google.maps.Polyline({
+    path: coords,
+    strokeColor: '#1da1cc',
+    icons: mapIcons,
+    map: map
+  });
+
+  var sw = new google.maps.LatLng(a.center[0][0], a.center[0][1])
+  var ne = new google.maps.LatLng(a.center[1][0], a.center[1][1])
+  var bounds = new google.maps.LatLngBounds(sw, ne)
+  map.fitBounds(bounds);
+}
+
+google.load('visualization', '1.0', {'packages':['corechart']});
+
+function zip(arrays) {
+    return arrays[0].map(function(_,i){
+        return arrays.map(function(array){return array[i]})
+    });
+}
+function addCrosshair(x, color) {
+    chart.xAxis[0].addPlotLine({
+        id: 'xPlotLine'+x,
+        value: x,
+      width: 2,
+      color: color
+    });
+}
+
+function removeCrosshair(x) {
+    chart.xAxis[0].removePlotLine('xPlotLine'+x);
+    // chart.yAxis[0].removePlotLine('yPlotLine'+y);
+}
+
+function barGauge(xmax) {
+  console.log(xmax)
+  var chart = new Highcharts.Chart({
+            chart: {
+                renderTo: 'gauge-bar',
+                defaultSeriesType: 'bar',
+                animation:false,
+                plotBorderWidth: 2,
+                plotBorderColor: '#D8D8D8',
+                spacingTop: 0,
+                spacingLeft: 50,
+                spacingRight: 50,
+                spacingBottom: 0
+            },
+            tooltip: {
+              enabled: false,
+            },
+            credits: {
+                enabled: false
+            },
+            xAxis: {
+                labels: {
+                    enabled: false
+                },
+                tickLength: 0
+            },
+            title: {
+                text: 'Miles Behind'
+            },
+            legend: {
+                enabled: false
+            },
+            yAxis: {
+                title: {
+                    text: null
+                },
+                labels: {
+                    y: 20
+                },
+                min: -xmax,
+                max: xmax,
+                labels: {
+                  formatter: function(){
+                    return this.value + ' mi'
+                  }
+                },
+                tickInterval: 0.25,
+            },
+            plotOptions: {
+            },
+            series: [{
+                borderRadius: 3,
+                borderWidth: 1,
+                pointWidth: 50,
+                color: '#FFFF00',
+                data: [0]}]
+        });
+}
+
+function lineChart(a) {
+
+    if (a['type'] == 'route'){
+      data = zip([a.plot_predicted_distance, a.plot_predicted_altitude]);
+      var ymin = Math.min.apply(null, a.plot_predicted_altitude)
+      var ymax = Math.max.apply(null, a.plot_predicted_altitude)
+      var xmin = Math.min.apply(null, a.plot_predicted_distance)
+      var xmax = Math.max.apply(null, a.plot_predicted_distance)
+      var series = [{     
+          type: 'area',
+          name: 'Altitude',
+          yAxis: 0,
+          // tooltip: {
+          //   pointFormatter: function(){
+          //     return '<b>'+ this.series.name +'</b>: '+ Highcharts.numberFormat(this.y, 0, ".", ",") +'<br/>';
+          //   }
+          // },
+          fillOpacity: 0.5,
+          data: data,
+          lineWidth: 2
+        }]
+    }
+    else {
+      data = zip([a.plot_distance, a.plot_altitude]);
+      data1 = zip([a.plot_distance, a.streaming_predict]);
+      var ymin = Math.min.apply(null, a.plot_altitude)
+      var ymax = Math.max.apply(null, a.plot_altitude)
+      var xmin = Math.min.apply(null, a.plot_distance)
+      var xmax = Math.max.apply(null, a.plot_distance)
+      var series = [
+        {     
+          type: 'area',
+          name: 'Altitude',
+          yAxis: 0,
+          fillOpacity: 0.5,
+          data: data,
+          lineWidth: 2
+        },
+        {
+          type: 'spline',
+          name: 'Streaming Prediction',
+          yAxis: 1,
+          data: data1,
+          lineWidth: 2
+        },
+        {
+          type: 'line',
+          name: 'Actual Time',
+          yAxis: 1,
+          data: [[-100, a.moving_time], [600, a.moving_time]]
+        }]
+    }
+    console.log(series)
+        chart = new Highcharts.Chart({
+            chart: {
+                renderTo: 'container',
+                spacingTop: 5,
+                spacingLeft: 0,
+                spacingRight: 0,
+                spacingBottom: 0
+            },
+            tooltip: {
+                formatter: function() {
+                    var s = ['<b>Distance</b>: '+ Highcharts.numberFormat(this.x, 2, ".", ",") + ' mi'];
+
+                    $.each(this.points, function(i, point) {
+                      if (point.series.name === 'Altitude'){
+                        text = '<b>'+ point.series.name +'</b>: '+
+                            Highcharts.numberFormat(point.y, 0, ".", ",") +' ft';
+                      }
+                      else {
+                        text = '<b>'+ point.series.name +'</b>: '+ moment.utc(this.y*1000).format("HH:mm:ss");
+                      }
+                        s.push(text);
+                    });
+
+                    return s.join('<br>');
+                },
+                shared: true,
+                crosshairs: true,
+            },
+            xAxis: {
+              min: xmin,
+              max: xmax,
+              labels: {
+                  formatter: function(){
+                    return this.value + ' mi'
+                  }
+                },
+                ordinal: false
+            },
+            yAxis: [{
+                title: {
+                    text: ''
+                },
+                min: ymin,
+                max: ymax,
+                labels: {
+                  formatter: function(){
+                    return Highcharts.numberFormat(this.value, 0, ".", ",") + ' ft'
+                  }
+                }
+            },
+            {
+                title: {
+                    text: 'Time (s)'
+                },
+                labels: {
+                  formatter: function(){
+                    return moment.utc(this.value*1000).format("HH:mm:ss")
+                  }
+                },
+                opposite: true
+            }],
+            title: {
+                text: ''
+            },
+            plotOptions: {
+                    series: {
+                        compare: 'percent'
+                    }
+                },
+            series: series
+        });
+};
+
+function simRide(activities) {
+    
+    var count = 0;
+    spacing = 20;
+    timeStep = 100;
+    simInterval = window.setInterval(function() {
+      var icons = line.get('icons');
+      var isDone = 0;
+      for (var i = 0; i < activities.length; i++) {
+        var a = activities[i];
+        idx = Math.min(count, a.plot_distance.length - 1); 
+        offset = a.plot_distance[idx]*100.0/a.total_distance;
+        icons[i].offset = offset + '%';
+        if (count > a.plot_distance.length - 1){
+          isDone++;
+        }
+      }
+      line.set('icons', icons);
+      count = count + spacing;
+      if (isDone == activities.length){
+        clearInterval(simInterval);
+      }
+    }, timeStep);
+  }
+
+
+function getActivity(aid, uid, activityElement) {
+  $.post('/change', {
+        activity_id: aid,
+        athlete_id: uid
+    }).done(function(response){
+      switchActivity(response)
+    }).fail(function() {
+        console.log('fail');
+    });
+}
+
+function updateRiders() {
+  debugger;
+  tbody = document.getElementById('current-riders').getElementsByTagName('tbody')[0]
+  tbody.innerHTML = ''
+  for (var i = 0; i < activities.length; i++) {
+    tbody.innerHTML += '<tr><td><svg height="15" width="15" style="bottom: 0;"><circle cx="7" cy="7" r="7" fill="' + colors[i] + '" /></svg>' + activities[i]['athlete'] + '</td><td>' + activities[i]['moving_time_string'] + '</td></tr>';
+  }
+}
+
+function addRider(activity_id) {
+  console.log(activities[0])
+  $.post('/add_rider', {
+        activity_id: activity_id,
+        time_spacing: activities[0].plot_time[1]
+    }).done(function(response){
+      activities.push(response)
+      setMap(activities)
+      updateRiders()
+    }).fail(function() {
+        console.log('fail');
+    });
+}
+
+function deleteRoute(rid, uid, routeElement) {
+  $.post('/delete/route', {
+        route_id: rid,
+        athlete_id: uid
+    }).done(function(response){
+      var row = document.getElementById('route' + rid.toFixed());
+      row.parentNode.removeChild(row);
+    }).fail(function() {
+        console.log('fail');
+    });
+}
+
+function switchActivity(activity) {
+  document.getElementById("gauges").innerHTML = '<div style="height: 0px"></div>'
+  actual = activity.actual;
+  predicted = activity.predicted;
+  $(document.getElementById('activity_pred_time')).text(predicted['moving_time_string']);
+  if (predicted.type != 'route') {
+    $(document.getElementById('activity_rating')).text(actual['ride_rating'][1]);
+    $(document.getElementById('activity_desc')).text(actual['name']);
+    $(document.getElementById('activity_date')).text(' on ' + actual['date']);
+    $(document.getElementById('activity_start')).text('At ' + actual['start_time']);
+    $(document.getElementById('activity_moving_time')).text(actual['moving_time_string']);
+    activities = [actual, predicted];
+    updateRiders()
+    setMap(activities);
+  }
+  else {
+    $(document.getElementById('activity_rating')).text(predicted['ride_rating'][1]);
+    $(document.getElementById('activity_desc')).text(predicted['name']);
+    $(document.getElementById('activity_date')).text(' on ' + predicted['date']);
+    $(document.getElementById('activity_start')).text('At ' + predicted['start_time']);
+    $(document.getElementById('activity_moving_time')).text(actual['moving_time_string']);
+    activities = [predicted];
+    updateRiders()
+    setMap(activities);
+  }
+  
+  if (typeof simInterval !== 'undefined') {
+    clearInterval(simInterval)
+  }
+  if (typeof chartInterval !== 'undefined') {
+    clearInterval(chartInterval)
+  }
+  
+  // lineChart(a)
+}
+
+function uploadRoute(){
+  console.log('asdfdasf')
+  document.getElementById('route-upload').innerHTML = '<form enctype="multipart/form-data" action="/upload" method="POST" id="upload-form">' + 
+      '<input type="hidden" value="{{athlete.userid}}" name="athlete_id">' + 
+      '<p>Ride description: '+
+      '<input type="text" name="ride_title" size="3"></p>'+
+      '<input name="file" type="file" accept=".gpx"/><br />'+
+      '<input type="submit" value="Upload">'+
+      '</form>';
+  document.getElementById("route-upload").style.visibility = "visible";
+}
+
+      google.maps.event.addDomListener(window, 'load', initialize);
+
+    </script>
+    <style type="text/css">
+      .map { margin: 0 auto 0 auto; }
+      .wrapper {text-align: center;
+                padding: 5px 5px 5px 5px;
+               }
+      #dashboard {background-color: #F4F4F4;
+                  position: relative;
+                  padding: 0;
+                  border: 1px solid #A8A8A8;
+                  }
+      #dashboard p {margin-left: 5px;}
+      #table-dashboard {position: absolute;
+                        bottom: 0;
+                      width: 100%;
+                    color:#888896;}
+      #table-dashboard td {width: 33%;
+                        text-align: center;
+                        border: 1px solid #A8A8A8;
+                        font-size: small;
+                      background-color: #F4F4F4;}
+      #dashboard-header {background-color:#CACACD;
+                         display:block;
+                         padding: 5px;
+                         font-size: large;
+                         font-weight: bold;
+                         border: 1px solid #A8A8A8;}
+      #dashboard-prediction {font-size: medium;}
+
+    </style>
+    <div class="row">
+    <div class='span8 main' style="margin-left: 52px;">
+      <div class="wrapper">
+          <button id="play" onclick="simRide(activities)">Play Ride</button>
+      </div>
+      <div class="wrapper">
+          <button id="play" onclick="addRider(activities[0].id)">Add Rider</button>
+      </div>
+      <table class="table table-bordered">
+        <tr>
+          <td style="padding:0px;" width="50%" height="300px">
+            <div class="map" id="map-canvas" style="width:100%; height:100%"></div>
+          </td>
+          <td id="dashboard" width="50%">
+              <span id="dashboard-header"><img src="/static/img/logo_small.png" style="padding:5px; width:auto; height:20px;">{{athlete.name}}
+                <br><span id="activity_desc" style="font-size: small">{{activity.name}}</span>
+              <br><span id="activity_start" style="font-size: small">At {{activity.dt.strftime("%H:%M:%S %p")}}</span><span id="activity_date" style="font-size: small"> on {{activity.dt.strftime("%A %B %d, %Y")}}</span>
+              </span>
+              <table id="current-riders" class="table table-bordered" style="width: 100%">
+                <thead>
+                <tr style="background-color: #A8A8A8">
+                  <th colspan="1">Athletes</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody>
+              </tbody>
+              </table>
+
+                <table id="table-dashboard" cellpadding="0" cellspacing="0" style=>
+                  <tr>
+                  <td class="dashboard-cell">TIME<br><span id="timer" style="font-size:x-large"></span><br>HOURS</td>
+                  <td class="dashboard-cell">DISTANCE<br><span id="distance-diff" style="font-size:x-large"></span><br>MILES</td>
+                  <td class="dashboard-cell">PREDICTION<br><span id="stream-predict" style="font-size:x-large"></span><br>HOURS</td>
+                </tr>
+              </table>
+              <!-- <p>Time: <span id="timer"></span></p>
+              <p>Distance Diff: <span id="distance-diff"></span></p>
+              <p>New Predic ted Time: <span id="stream-predict"></span></p> -->
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <div id="gauges"></div>
+            <div id="container" style="min-width: 310px; height: 250px; max-width: 800px; margin: 0 auto"></div>
+          </td>
+        </tr>
+      </table>
+      
+      <br>
+      
+    </div>
+      <div class='span7 main'>
+
+      <div><h4 style="float: left;">Your routes</h4>
+      <div style="float: right;" id="route-upload"><p><a class='button' onclick="uploadRoute()">Upload a Route</a></p></div></div>
+      <table align="right" id="routes">
+        <thead>
+          <th>Ride Name</th>
+          <th>Date</th>
+          <th>Distance</th>
+          <th></th>
+          <th></th>
+        </thead>
+      {% for r in routes %}
+      <tr id="route{{r.id}}">
+        <td><a href="javascript:getActivity({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">{{r.name}}</a></td>
+        <td>{{r.dt.strftime("%B %d, %Y")}}</td>
+        <td>{{(r.total_distance / 1609.34)|round(0, 'floor')}}</td>
+        <td><a href="/compare/{{r.id}}/{{athlete.userid}}">See how you stack up<a/></td>
+        <td><a href="javascript:deleteRoute({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">delete</a></td>
+      </tr>
+      {% endfor %}
+      </table>
+      <hr width="100%">
+      <h4>Your completed activities</h4>
+      <table align="right" id="activities">
+        <thead>
+          <th>Ride Name</th>
+          <th>Date</th>
+          <th>Distance</th>
+          <th></th>
+        </thead>
+      {% for a in activities %}
+      <tr>
+        <td><a href="javascript:getActivity({{a.id}}, {{athlete.userid}}, '#activity{{ a.id }}');">{{a.name}}</a></td>
+        <td>{{a.dt.strftime("%B %d, %Y")}}</td>
+        <td>{{(a.total_distance / 1609.34)|round(0, 'floor')}}</td>
+        <td><a href="/compare/{{a.id}}/{{athlete.userid}}">See how you stack up<a/></td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+<script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
+
+    <script type="text/javascript" charset="utf-8">
+      // $(document).ready(function() {
+      //   $("table").tablecloth({
+      //     theme: "stats",
+      //     striped: true,
+      //     sortable: true,
+      //     condensed: true,
+      //     clean: true
+      //   });
+      // });
+      // $(document).ready(function() {
+      //     $('#routes').DataTable( {
+      //         bFilter: false,
+      //         bLengthChange: false,
+
+      //     } );
+      //     $('#activities').DataTable( {
+      //         bFilter: false,
+      //         bLengthChange: false
+      //     } );
+      // } );
+    </script>
+  <!-- </body> -->
+
+
+{% endblock %}

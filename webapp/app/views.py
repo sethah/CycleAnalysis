@@ -218,6 +218,36 @@ def rides(userid):
         routes=routes,
         activity = activity)
 
+@app.route('/rides2/<userid>', methods=['GET', 'POST'])
+def rides_two(userid):
+    """
+    Rides page shows a user's rides and displays predictions and a map
+    for one of their rides.
+    """
+
+    print 'creating user'
+    u = StravaUser(int(userid))
+    activities = []
+    routes = []
+    for a in u.activities:
+        if a.is_route:
+            routes.append(a)
+        else:
+            activities.append(a)
+
+    # pass a single activity with all the streams
+    activity = u.activities[0]
+    activity.init_streams()
+    d = pickle.load(open('model_%s.pkl' % u.userid, 'rb'))
+    activity.predict(d[u.userid]['model'])
+
+    return render_template(
+        'rides2.html',
+        athlete = u,
+        activities=activities,
+        routes=routes,
+        activity = activity)
+
 @app.route('/compare/<activity_id>/<userid>', methods=['GET', 'POST'])
 def compare_home(activity_id, userid):
     """Select which user to compare to for the given activity and userid"""
@@ -308,11 +338,36 @@ def change():
     a.predict(d[uid]['model'])
     print 'Predicted'
 
-    js = a.to_dict()
+    actual, predicted = a.to_dict2()
+    print actual.keys(), predicted.keys()
     if not a.is_route:
-        d, pd = truncate(js['plot_distance'], js['plot_predicted_distance'])
-        js['distance_diff'] = (np.array(d) - np.array(pd)).tolist()
-    return jsonify(js)
+        d, pd = truncate(actual['plot_distance'], predicted['plot_distance'])
+        actual['distance_diff'] = (np.array(d) - np.array(pd)).tolist()
+    
+    return jsonify({'actual': actual, 'predicted': predicted})
+
+@app.route('/add_rider', methods=['POST'])
+def add_rider():
+    activity_id = int(request.form.get('activity_id', 0))
+    time_spacing = float(request.form.get('time_spacing'))
+    print time_spacing
+    
+    new_user = StravaUser(6789642)
+
+    if int(activity_id) < 10000:
+        ride = StravaActivity(activity_id, new_user.userid, belongs_to='other', is_route=True, get_streams=True)
+    else:
+        ride = StravaActivity(activity_id, new_user.userid, belongs_to='other', get_streams=True)
+
+    the_dict = pickle.load(open('model_%s.pkl' % new_user.userid, 'rb'))
+    
+    ride.predict(the_dict[new_user.userid]['model'])
+    actual, predicted = ride.to_dict2(time_spacing)
+
+    # min_dim = min(len(other_ride_js['plot_predicted_distance']), len(ride_js['plot_distance']))
+    # other_ride_js['distance_diff'] = (np.array(other_ride_js['plot_predicted_distance'][:min_dim]) - np.array(ride_js['plot_distance'][:min_dim])).tolist()
+        
+    return jsonify(predicted)
 
 def truncate(a, b):
    min_dim = min(len(a), len(b))
