@@ -232,7 +232,6 @@ function simRide(a1, a2, startIndex) {
   }, 50);
 }
 
-
       google.maps.event.addDomListener(window, 'load', initialize);
 
     </script>
@@ -251,13 +250,11 @@ function simRide(a1, a2, startIndex) {
           <tr><td>{{ the_athlete.firstname }}'s Time:</td><td>{{ride.moving_time_string}}</td></tr>
         {% endif %}
         <tr><td>Your Predicted Time:</td><td><span id="activity_pred_time">{{other_ride.predicted_moving_time}}</span></td></tr>
-        <!-- <tr><td>Ride Rating:</td><td><span id="activity_rating"></span></td></tr> -->
       </table>
 
       <div class="wrapper">
           <button id="play" onclick="simRide(ride_js, other_ride_js, 0)">Play Ride</button>
       </div>
-      
       <div class="map" id="map-canvas" style="width:500px;height:380px;"></div>
       <div id="container" style="min-width: 310px; height: 400px; max-width: 800px; margin: 0 auto"></div>
     </div>

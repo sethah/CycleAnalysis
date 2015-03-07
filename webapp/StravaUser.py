@@ -22,7 +22,7 @@ class StravaUser(object):
 
     def __init__(self, athlete_id, get_streams=False, get_routes=True):
         """
-        INPUT: DECISIONTREE, INT, BOOL, BOOL
+        INPUT: StravaUser, INT, BOOL, BOOL
         OUTPUT: None
         Initialize a Strava user.
         
