@@ -44,10 +44,13 @@ class StravaActivity(object):
         """
         self.is_route = is_route
         self.belongs_to = belongs_to
-        if belongs_to == 'other':
-            self.init_from_other(activity_id, athlete_id, get_streams)
+        self.id = activity_id
+        self.athlete_id = athlete_id
+        self.athlete = self.get_athlete()
+        if self.belongs_to == 'other':
+            self.init_from_other(get_streams)
         else:
-            d = self.fetch_activity(activity_id, athlete_id, belongs_to)
+            d = self.fetch_activity()
             self.name = d['name']  # description of the ride
             self.dt = d['start_dt']  # timestamp of the ride's start
             self.total_distance = d['distance']
@@ -66,7 +69,27 @@ class StravaActivity(object):
                 self.init_streams()
                 self.center = self.get_bounds()
 
-    def fetch_activity(self, activity_id, athlete_id, belongs_to):
+    def get_athlete(self):
+        """
+        INPUT: StravaActivity
+        OUTPUT: DICTIONARY
+
+        Get the athlete from the database.
+        """
+        DB = StravaDB()
+        cols = ['id', 'firstname', 'lastname', 'sex', 'city',
+                'state', 'country']
+        q = """ SELECT %s
+                FROM athletes
+                WHERE id = %s
+            """ % (', '.join(cols), self.athlete_id)
+
+        DB.cur.execute(q)
+        athlete = DB.cur.fetchone()
+
+        return dict(zip(cols, athlete))
+
+    def fetch_activity(self):
         """
         INPUT: StravaActivity, INT, INT, BOOL, STRING
         OUTPUT: DICTIONARY
@@ -74,8 +97,7 @@ class StravaActivity(object):
         Get an activity from the database.
         """
         DB = StravaDB()
-        self.id = activity_id
-        self.athlete = athlete_id
+        
         
         if self.is_route:
             table = 'routes'
@@ -88,12 +110,12 @@ class StravaActivity(object):
                 'city', 'fitness10', 'fitness30', 'frequency10', 'frequency30',
                 'total_elevation_gain', 'distance']
 
-        if belongs_to == 'other':
+        if self.belongs_to == 'other':
             q = """ SELECT %s FROM %s WHERE id = %s
             """ % (', '.join(cols), table, self.id)
         else:
             q = """ SELECT %s FROM %s WHERE id = %s AND athlete_id = %s
-            """ % (', '.join(cols), table, self.id, self.athlete)
+            """ % (', '.join(cols), table, self.id, self.athlete_id)
 
         DB.cur.execute(q)
         results = DB.cur.fetchone()
@@ -117,7 +139,7 @@ class StravaActivity(object):
         if self.is_route:
             self.df = self.df.sort('distance')
 
-    def init_from_other(self, activity_id, athlete_id, get_streams, dt=None):
+    def init_from_other(self, get_streams, dt=None):
         """
         INPUT: StravaActivity, INT, INT, BOOL, DATETIME DATE
         OUTPUT: None
@@ -128,7 +150,7 @@ class StravaActivity(object):
         This method is used to create what is essentially a route from an activity
         that another user has done, but this user has not. There is no moving data.
         """
-        d = self.fetch_activity(activity_id, athlete_id, 'other')
+        d = self.fetch_activity()
         self.name = d['name']
         if dt == None:
             self.dt = datetime.now().date()
@@ -211,7 +233,7 @@ class StravaActivity(object):
         js['name'] = self.name
         js['date'] = datetime.strftime(self.dt, '%A %B %d, %Y')
         
-        js['athlete'] = self.athlete
+        js['athlete'] = self.athlete_id
         pt = self.df.predicted_time.values.tolist()
         stream_predict = self.streaming_predict()
         
@@ -428,7 +450,7 @@ class StravaActivity(object):
                 WHERE start_dt >= '%s'
                 AND start_dt < '%s'
                 AND athlete_id = %s
-            """ % (', '.join(cols), dt - timedelta(30), dt, self.athlete)
+            """ % (', '.join(cols), dt - timedelta(30), dt, self.athlete_id)
 
         results = DB.execute(q)
         difficulties10 = []

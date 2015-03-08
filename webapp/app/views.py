@@ -241,12 +241,21 @@ def rides_two(userid):
     d = pickle.load(open('model_%s.pkl' % u.userid, 'rb'))
     activity.predict(d[u.userid]['model'])
 
+    DB = StravaDB()
+    # get all users
+    q = """ SELECT
+                id, firstname, lastname, city, state
+            FROM athletes;
+        """
+    athletes = DB.execute(q)
+
     return render_template(
         'rides2.html',
         athlete = u,
         activities=activities,
         routes=routes,
-        activity = activity)
+        activity = activity,
+        athletes=athletes)
 
 @app.route('/compare/<activity_id>/<userid>', methods=['GET', 'POST'])
 def compare_home(activity_id, userid):
@@ -338,21 +347,53 @@ def change():
     a.predict(d[uid]['model'])
     print 'Predicted'
 
+    js = a.to_dict()
+    if not a.is_route:
+        d, pd = truncate(js['plot_distance'], js['plot_predicted_distance'])
+        js['distance_diff'] = (np.array(d) - np.array(pd)).tolist()
+    return jsonify(js)
+
+@app.route('/change2', methods=['POST'])
+def change2():
+    """
+    Get an activity or route from the database and return a 
+    json object containing the necessary vectors.
+    """
+
+    aid = int(request.form.get('activity_id', 0))
+    uid = int(request.form.get('athlete_id', 0))
+    print 'Initializing activity'
+    # TODO: FIX THIS AWFUL HACKY SHIT
+    if aid < 10000:
+        a = StravaActivity(aid, uid, get_streams=True, is_route=True)
+    else:
+        a = StravaActivity(aid, uid, get_streams=True)
+    
+    print 'Loading model'
+    d = pickle.load(open('model_%s.pkl' % uid, 'rb'))
+
+    print 'Predicting'
+    a.predict(d[uid]['model'])
+    print 'Predicted'
+
     actual, predicted = a.to_dict2()
     print actual.keys(), predicted.keys()
     if not a.is_route:
         d, pd = truncate(actual['plot_distance'], predicted['plot_distance'])
-        actual['distance_diff'] = (np.array(d) - np.array(pd)).tolist()
+        t, pt = truncate(actual['plot_time'], predicted['plot_time'])
+        predicted['distance_diff'] = (np.array(d) - np.array(pd)).tolist()
+        predicted['time_diff'] = (np.array(t) - np.interp(np.array(d), np.array(pd), np.array(pt))).tolist()
     
     return jsonify({'actual': actual, 'predicted': predicted})
 
 @app.route('/add_rider', methods=['POST'])
 def add_rider():
     activity_id = int(request.form.get('activity_id', 0))
+    athlete_id = int(request.form.get('athlete_id', 0))
     time_spacing = float(request.form.get('time_spacing'))
-    print time_spacing
+    the_rider_distance = json.loads(request.form.get('the_rider_distance'))
     
-    new_user = StravaUser(6789642)
+    new_user = StravaUser(athlete_id)
 
     if int(activity_id) < 10000:
         ride = StravaActivity(activity_id, new_user.userid, belongs_to='other', is_route=True, get_streams=True)
@@ -363,15 +404,29 @@ def add_rider():
     
     ride.predict(the_dict[new_user.userid]['model'])
     actual, predicted = ride.to_dict2(time_spacing)
+    d, pd = truncate(the_rider_distance, predicted['plot_distance'])
+    t, pt = truncate(the_rider_distance, predicted['plot_time'])
+    predicted['distance_diff'] = (np.array(d) - np.array(pd)).tolist()
+    predicted['time_diff'] = (np.array(pt) - np.interp(np.array(d), np.array(pd), np.array(pt))).tolist()
 
     # min_dim = min(len(other_ride_js['plot_predicted_distance']), len(ride_js['plot_distance']))
     # other_ride_js['distance_diff'] = (np.array(other_ride_js['plot_predicted_distance'][:min_dim]) - np.array(ride_js['plot_distance'][:min_dim])).tolist()
         
     return jsonify(predicted)
 
-def truncate(a, b):
-   min_dim = min(len(a), len(b))
-   return a[:min_dim], b[:min_dim]
+def truncate(a, b, keep_dim=0):
+    if keep_dim == 0:
+        if len(a) < len(b):
+            return a, b[:len(a)]
+        else:
+            return a, b + [b[-1]]*(len(a)-len(b))
+    else:
+        if len(b) < len(a):
+            return a[:len(b)], b
+        else:
+            return a + [a[-1]]*(len(b)-len(a)), b
+    # min_dim = min(len(a), len(b))
+    # return a[:min_dim], b[:min_dim]
 
 @app.route("/chart")
 def chart():
