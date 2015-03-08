@@ -10,7 +10,7 @@
 
 <script>
 var line;
-colors = ['#8A2BE2', '#DC143C', '#006400'];
+colors = ['#8A2BE2', '#DC143C', '#006400', '#00FFFF'];
 function initialize() {
   getActivity('{{activities[0].id}}', '{{athlete.userid}}', '#activity{{activities[0].id }}');
 }
@@ -431,25 +431,28 @@ function uploadRoute(){
       #dashboard-prediction {font-size: medium;}
       #current-riders {font-size: small;
                        }
-      #current-riders td {height: 100;
-                          padding:0;
-}
+      #current-riders th {padding-left: 5;
+                          padding-top: 0;
+                          padding-bottom: 0;}
+      #current-riders td {padding-left: 5;
+                          padding-top: 1;
+                          padding-bottom: 0;}
 
     </style>
     <div class="row">
-    <div class='span10 main' style="margin-left: 52px; background-color: green">
+    <div class='span8 main' style="margin-left: 52px;">
 
       <div class="wrapper">
           <button id="play" onclick="simRide(activities)">Play Ride</button>
       </div>
-      <table class="table table-bordered">
+      <table id="table-athletes" class="table table-bordered table-striped">
         <tr>
-          <td style="padding:0px;" width="40%" height="300px">
+          <td style="padding:0px;" width="45%" height="400px">
             <div class="map" id="map-canvas" style="width:100%; height:100%"></div>
           </td>
-          <td id="dashboard" width="60%">
+          <td id="dashboard" width="55%">
               <span id="dashboard-header"><img src="/static/img/logo_small.png" style="padding:5px; width:auto; height:20px;">{{athlete.name}}
-                <select id="myList" style="float: right;">
+                <select id="myList" style="float: right; width: 33%">
                   <option value="default" disabled="disabled" selected="selected">Add an athlete</option>
                   {% for athlete in athletes %}
                   <option value="{{athlete[0]}}">{{athlete[1] + ' ' + athlete[2]}}</option>
@@ -549,17 +552,17 @@ function uploadRoute(){
       //     clean: true
       //   });
       // });
-      // $(document).ready(function() {
-      //     $('#routes').DataTable( {
-      //         bFilter: false,
-      //         bLengthChange: false,
+      $(document).ready(function() {
+          $('#routes').DataTable( {
+              bFilter: false,
+              bLengthChange: false,
 
-      //     } );
-      //     $('#activities').DataTable( {
-      //         bFilter: false,
-      //         bLengthChange: false
-      //     } );
-      // } );
+          } );
+          $('#activities').DataTable( {
+              bFilter: false,
+              bLengthChange: false
+          } );
+      } );
     </script>
   <!-- </body> -->
 
