@@ -381,12 +381,12 @@ def change2():
     print 'Predicted'
 
     actual, predicted = a.to_dict2()
-    print actual.keys(), predicted.keys()
     if not a.is_route:
         d, pd = truncate(actual['plot_distance'], predicted['plot_distance'])
         t, pt = truncate(actual['plot_time'], predicted['plot_time'])
+        print t[-10:], pt[-10:]
         predicted['distance_diff'] = (np.array(d) - np.array(pd)).tolist()
-        predicted['time_diff'] = (np.array(t) - np.interp(np.array(d), np.array(pd), np.array(pt))).tolist()
+        predicted['time_diff'] = (np.array(pt) - np.interp(np.array(d), np.array(pd), np.array(pt))).tolist()
     
     return jsonify({'actual': actual, 'predicted': predicted})
 
@@ -411,6 +411,7 @@ def add_rider():
     actual, predicted = ride.to_dict2(time_spacing)
     d, pd = truncate(the_rider_distance, predicted['plot_distance'])
     t, pt = truncate(the_rider_distance, predicted['plot_time'])
+
     predicted['distance_diff'] = (np.array(d) - np.array(pd)).tolist()
     predicted['time_diff'] = (np.array(pt) - np.interp(np.array(d), np.array(pd), np.array(pt))).tolist()
 

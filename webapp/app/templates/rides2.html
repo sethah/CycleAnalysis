@@ -94,7 +94,12 @@ function lineChart(activities) {
       data: zip([activities[0].plot_distance, activities[0].plot_altitude]),
       lineWidth: 2
     }]
+  finishTimes = [];
   for (var i = 1; i < activities.length; i++) {
+    // debugger;
+    console.log(activities[0])
+    console.log(activities[0].plot_distance[Math.min(activities[i].plot_distance.length - 1, activities[0].plot_distance.length - 1)])
+    finishIndex = Math.min(activities[i].plot_distance.length - 1, activities[0].plot_distance.length - 1)
     series.push({
       type: 'spline',
       name: activities[i].display_name,
@@ -103,7 +108,9 @@ function lineChart(activities) {
       lineWidth: 2,
       color: colors[i]
     })
+    // finishTimes.push({x: activities[0].plot_distance[finishIndex], y: activities[0].plot_altitude[finishIndex], marker: {fillColor: colors[i], symbol: 'triangle'}});
   }
+  // series.push({data: finishTimes, lineWidth:0, showInLegend: false})
 
         chart = new Highcharts.Chart({
             chart: {
@@ -183,6 +190,18 @@ function lineChart(activities) {
             },
             series: series
         });
+  for (var i = 1; i < activities.length; i++) {
+    // debugger;
+    console.log(activities[0])
+    finishIndex = Math.min(activities[i].plot_distance.length - 1, activities[0].plot_distance.length - 1)
+    var p = chart.series[i].points[finishIndex];
+    p.update({
+        marker: {
+            symbol: 'triangle',
+            enabled: true
+        }
+    });
+  }
 };
 
 simActive = false;
@@ -408,7 +427,7 @@ function uploadRoute(){
                   {% endfor %}
                 </select></div>
                 <div style="background-color:#CACACD; display:inline; overflow:hidden;">
-                <div style="float:left;background-color:#CACACD;width:300px;"><strong id="activity_desc" style="font-size: small">{{activity.name}}</strong>
+                <div style="margin-left:5px;float:left;background-color:#CACACD;width:300px;"><strong id="activity_desc" style="font-size: small">{{activity.name}}</strong>
               <br><strong id="activity_start" style="font-size: small;background-color:#CACACD">At {{activity.dt.strftime("%I:%M:%S %p")}}</strong><strong id="activity_date" style="font-size: small"> on {{activity.dt.strftime("%A %B %d, %Y")}}</strong></div><div style="margin-left:300px;background-color:#CACACD;">
           <button id="play-ride" onclick="simRide(activities)">Play Ride</button></div><div style="clear:both;"></div></div></div>
               </span>
