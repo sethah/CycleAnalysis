@@ -382,7 +382,7 @@ class StravaActivity(object):
             predicted['type'] = 'activity'
             predicted['ride_rating'] = self.ride_score()
             predicted['moving_time'] = pt[-1]
-            predicted['start_time'] = datetime.strftime(self.dt, '%H:%M:%S %p')
+            predicted['start_time'] = datetime.strftime(self.dt, '%I:%M:%S %p')
             predicted['moving_time_string'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
             predicted['total_distance'] = self.total_distance / meters_per_mile
             predicted['plot_time'] = new_time_predicted.tolist()
@@ -390,7 +390,7 @@ class StravaActivity(object):
             actual['type'] = 'activity'
             actual['ride_rating'] = self.ride_score()
             actual['moving_time'] = t[-1]
-            actual['start_time'] = datetime.strftime(self.dt, '%H:%M:%S %p')
+            actual['start_time'] = datetime.strftime(self.dt, '%I:%M:%S %p')
             actual['moving_time_string'] = time.strftime('%H:%M:%S', time.gmtime(t[-1]))
             actual['total_distance'] = self.total_distance / meters_per_mile
             actual['plot_time'] = new_time.tolist()

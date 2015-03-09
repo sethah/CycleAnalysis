@@ -79,65 +79,6 @@ function removeCrosshair(x) {
     // chart.yAxis[0].removePlotLine('yPlotLine'+y);
 }
 
-function barGauge(xmax) {
-  console.log(xmax)
-  var chart = new Highcharts.Chart({
-            chart: {
-                renderTo: 'gauge-bar',
-                defaultSeriesType: 'bar',
-                animation:false,
-                plotBorderWidth: 2,
-                plotBorderColor: '#D8D8D8',
-                spacingTop: 0,
-                spacingLeft: 50,
-                spacingRight: 50,
-                spacingBottom: 0
-            },
-            tooltip: {
-              enabled: false,
-            },
-            credits: {
-                enabled: false
-            },
-            xAxis: {
-                labels: {
-                    enabled: false
-                },
-                tickLength: 0
-            },
-            title: {
-                text: 'Miles Behind'
-            },
-            legend: {
-                enabled: false
-            },
-            yAxis: {
-                title: {
-                    text: null
-                },
-                labels: {
-                    y: 20
-                },
-                min: -xmax,
-                max: xmax,
-                labels: {
-                  formatter: function(){
-                    return this.value + ' mi'
-                  }
-                },
-                tickInterval: 0.25,
-            },
-            plotOptions: {
-            },
-            series: [{
-                borderRadius: 3,
-                borderWidth: 1,
-                pointWidth: 50,
-                color: '#FFFF00',
-                data: [0]}]
-        });
-}
-
 function lineChart(activities) {
 
   var ymin = Math.min.apply(null, activities[0].plot_altitude)
@@ -156,27 +97,13 @@ function lineChart(activities) {
   for (var i = 1; i < activities.length; i++) {
     series.push({
       type: 'spline',
-      name: activities[i].athlete['firstname'],
+      name: activities[i].display_name,
       yAxis: 1,
       data: zip([activities[0].plot_distance, activities[i].time_diff]),
       lineWidth: 2,
       color: colors[i]
     })
   }
-  console.log(series)
-    // {
-    //   type: 'spline',
-    //   name: 'Streaming Prediction',
-    //   yAxis: 1,
-    //   data: data1,
-    //   lineWidth: 2
-    // },
-    // {
-    //   type: 'line',
-    //   name: 'Actual Time',
-    //   yAxis: 1,
-    //   data: [[-100, a.moving_time], [600, a.moving_time]]
-    // }]
 
         chart = new Highcharts.Chart({
             chart: {
@@ -192,15 +119,15 @@ function lineChart(activities) {
 
                     $.each(this.points, function(i, point) {
                       if (point.series.name === 'Altitude'){
-                        text = '<b>'+ point.series.name +'</b>: '+
+                        text = '<b>'+ point.series.name +':</b> '+
                             Highcharts.numberFormat(point.y, 0, ".", ",") +' ft';
                       }
                       else {
                         if (this.y < 0) {
-                          text = '<b>'+ point.series.name +'</b>: -'+ moment.utc(Math.abs(this.y)*1000).format("H:mm:ss");
+                          text = '<b>'+ point.series.name +':</b><p style="color:red"> -'+ moment.utc(Math.abs(this.y)*1000).format("H:mm:ss") + '</p>';
                         }
                         else {
-                          text = '<b>'+ point.series.name +'</b>: '+ moment.utc(this.y*1000).format("H:mm:ss");
+                          text = '<b>'+ point.series.name +':</b><p style="color:green"> +'+ moment.utc(this.y*1000).format("H:mm:ss") + '</p>';
                         }
                         
                       }
@@ -238,6 +165,17 @@ function lineChart(activities) {
                 title: {
                     text: 'Time (s)'
                 },
+                labels: {
+                  formatter: function(){
+                    if (this.value < 0) {
+                      text = moment.utc(Math.abs(this.value)*1000).format("H:mm:ss");
+                    }
+                    else {
+                      text = '-' + moment.utc(this.value*1000).format("H:mm:ss");
+                    }
+                    return text;
+                  }
+                },
                 opposite: true
             }],
             title: {
@@ -268,7 +206,7 @@ function simRide(activities) {
         offset = a.plot_distance[idx]*100.0/a.total_distance;
         icons[i].offset = offset + '%';
 
-        if (offset > maxOffset) {
+        if (offset > maxOffset && isDone === 0) {
           maxOffset = offset;
           maxIndex = i;
         }
@@ -296,7 +234,7 @@ function simRide(activities) {
       document.getElementById('timer').style.color = 'black';
       document.getElementById('distance-diff').innerHTML = activities[0].plot_distance[Math.min(count, activities[0].plot_distance.length - 1)].toFixed(1);
       document.getElementById('distance-diff').style.color = 'black';
-      document.getElementById('stream-predict').innerHTML = activities[maxIndex].athlete.firstname;
+      document.getElementById('stream-predict').innerHTML = activities[maxIndex].display_name;
       document.getElementById('stream-predict').style.color = colors[maxIndex];
       count = count + spacing;
       if (isDone == activities.length){
@@ -323,7 +261,9 @@ function updateRiders() {
   tbody.innerHTML = ''
   for (var i = 0; i < activities.length; i++) {
     var displayName = activities[i].athlete.firstname
-    if (i === 1){displayName += ' (p)'};
+    if ((i === 0) && (activities[i].type === 'activity')){displayName += ' (actual)'};
+    if ((i === 1) && (activities[i].type === 'activity')){displayName += ' (predicted)'};
+    activities[i].display_name = displayName;
     var timeDiff = activities[i].moving_time - activities[0].moving_time;
     var movingTimeString = moment.utc(Math.abs(activities[i].moving_time)*1000).format("H:mm:ss")
     console.log(activities[i].moving_time, activities[0].moving_time)
@@ -331,10 +271,10 @@ function updateRiders() {
       timeDiffString = '<p>-</p>'
     }
     else if (timeDiff < 0){
-      timeDiffString = '<p style="color: red;">-' + moment.utc(Math.abs(timeDiff)*1000).format("H:mm:ss") + '</p>';
+      timeDiffString = '<p style="color: green;">+' + moment.utc(Math.abs(timeDiff)*1000).format("H:mm:ss") + '</p>';
     }
     else {
-      timeDiffString = '<p style="color: green;">' + moment.utc(Math.abs(timeDiff)*1000).format("H:mm:ss") + '</p>';
+      timeDiffString = '<p style="color: red;">-' + moment.utc(Math.abs(timeDiff)*1000).format("H:mm:ss") + '</p>';
     }
     tbody.innerHTML += '<tr height="8"><td><svg height="15" width="15" style="bottom: 0;"><circle cx="7" cy="7" r="7" fill="' + colors[i] + '" /></svg>' + displayName + '</td><td>' + movingTimeString + '</td><td>' + timeDiffString + '</td></tr>';
   }
@@ -354,9 +294,9 @@ function addRider(activity_id, athlete_id) {
       else {
         activities.push(response)
       }
+      updateRiders()
       setMap(activities)
       lineChart(activities)
-      updateRiders()
     }).fail(function() {
         console.log('fail');
     });
@@ -435,7 +375,7 @@ function uploadRoute(){
           <td id="dashboard" width="55%">
             <div id="dashboard-header" style="background-color:#CACACD">
               <div>
-              <span><img src="/static/img/logo_small.png" style="padding:5px; width:auto; height:20px;">{{athlete.name}}
+              <span id="name"><img src="/static/img/logo_small.png" style="padding:5px; width:auto; height:20px;">{{athlete.name}}
                 <select id="myList" style="float: right; width: 33%">
                   <option value="default" disabled="disabled" selected="selected">Add an athlete</option>
                   {% for athlete in athletes %}
@@ -443,14 +383,14 @@ function uploadRoute(){
                   {% endfor %}
                 </select></div>
                 <div style="background-color:#CACACD; display:inline; overflow:hidden;">
-                <br><div style="float:left;background-color:#CACACD;width:300px;"><span id="activity_desc" style="font-size: small">{{activity.name}}</span>
-              <br><span id="activity_start" style="font-size: small;background-color:#CACACD">At {{activity.dt.strftime("%H:%M:%S %p")}}</span><span id="activity_date" style="font-size: small"> on {{activity.dt.strftime("%A %B %d, %Y")}}</span></div><div style="margin-left:300px;background-color:#CACACD;">
-          <button id="play-ride" onclick="simRide(activities)" >Play Ride</button></div><div style="clear:both;"></div></div></div>
+                <div style="float:left;background-color:#CACACD;width:300px;"><strong id="activity_desc" style="font-size: small">{{activity.name}}</strong>
+              <br><strong id="activity_start" style="font-size: small;background-color:#CACACD">At {{activity.dt.strftime("%I:%M:%S %p")}}</strong><strong id="activity_date" style="font-size: small"> on {{activity.dt.strftime("%A %B %d, %Y")}}</strong></div><div style="margin-left:300px;background-color:#CACACD;">
+          <button id="play-ride" onclick="simRide(activities)">Play Ride</button></div><div style="clear:both;"></div></div></div>
               </span>
-              <table id="current-riders" class="table table-bordered" style="width: 100%">
+              <table id="current-riders" style="width: 100%">
                 <thead>
                 <tr style="background-color: #A8A8A8">
-                  <th style="width: 33%" colspan="1">Athletes</th>
+                  <th style="width: 50%" colspan="1">Athletes</th>
                   <th>Time</th>
                   <th>Diff</th>
                 </tr>
@@ -491,7 +431,6 @@ function uploadRoute(){
           <th>Ride Name</th>
           <th>Date</th>
           <th colspan="2">Distance</th>
-          <th></th>
         </thead>
       {% if routes|length == 0 %}
         <tr><td colspan="5">No routes to display</td></tr>
@@ -527,11 +466,11 @@ function uploadRoute(){
     </table>
     <div id="pager" class="pager">
         <form>
-          <img src="http://mottie.github.com/tablesorter/addons/pager/icons/first.png" class="first"/>
-          <img src="http://mottie.github.com/tablesorter/addons/pager/icons/prev.png" class="prev"/>
+          <img src="/static/img/first.png" class="first"/>
+          <img src="/static/img/prev.png" class="prev"/>
           <input type="text" class="pagedisplay"/>
-          <img src="http://mottie.github.com/tablesorter/addons/pager/icons/next.png" class="next"/>
-          <img src="http://mottie.github.com/tablesorter/addons/pager/icons/last.png" class="last"/>
+          <img src="/static/img/next.png" class="next"/>
+          <img src="/static/img/last.png" class="last"/>
           <select class="pagesize">
             <option value="10"  selected="selected">10 per page</option>
             <option value="20">20 per page</option>
@@ -575,6 +514,16 @@ function uploadRoute(){
           condensed: true,
           striped: true,
           sortable: true,
+          clean: true,
+          cleanElements: "th td",
+          customClass: "my-table"
+        });
+        $("#current-riders").tablecloth({
+          theme: "stats",
+          bordered: true,
+          condensed: true,
+          striped: true,
+          sortable: false,
           clean: true,
           cleanElements: "th td",
           customClass: "my-table"

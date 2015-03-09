@@ -17,12 +17,11 @@
                   border: 1px solid #A8A8A8;
                   font-size: small;
                 background-color: #F4F4F4;}
-#dashboard-header > span {background-color:#CACACD;
+#dashboard-header #name {background-color:#CACACD;
                    display:block;
                    padding: 5px;
                    font-size: large;
-                   font-weight: bold;
-                   border: 1px solid #A8A8A8;}
+                   font-weight: bold;}
 #dashboard-prediction {font-size: medium;}
 #current-riders {font-size: small;
                  }
