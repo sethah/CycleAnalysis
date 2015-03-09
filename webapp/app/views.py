@@ -116,18 +116,22 @@ def upload_gpx():
     """
     uid = int(request.form.get('athlete_id', 0))
     ride_name = request.form.get('ride_title', 'New Route')
+    print request.form
+    print 'HEY!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
     if ride_name.strip() == '':
         ride_name = 'New Route'
+
     f = request.files['file']
 
     if f:
-         # Make the filename safe, remove unsupported chars
+        # Make the filename safe, remove unsupported chars
+        print f.filename
         filename = secure_filename(f.filename)
         fpath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         f.save(os.path.abspath(fpath))
         DB = StravaDB()
         DB.create_route(fpath, uid, ride_name)
-    return redirect(url_for('rides', userid=uid))
+    return redirect(url_for('rides_two', userid=uid))
 
 @app.route('/delete/route', methods=['POST'])
 def delete_route():
@@ -206,7 +210,7 @@ def rides(userid):
             activities.append(a)
 
     # pass a single activity with all the streams
-    activity = u.activities[0]
+    activity = u.activities[-1]
     activity.init_streams()
     d = pickle.load(open('model_%s.pkl' % u.userid, 'rb'))
     activity.predict(d[u.userid]['model'])
@@ -431,7 +435,7 @@ def truncate(a, b, keep_dim=0):
 
 @app.route("/chart")
 def chart():
-    return render_template('chart.html')
+    return render_template('dialog.html')
 
 @app.route("/train/<userid>")
 def train(userid):

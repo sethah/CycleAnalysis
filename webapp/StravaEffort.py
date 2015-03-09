@@ -386,6 +386,7 @@ class StravaActivity(object):
             predicted['moving_time_string'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
             predicted['total_distance'] = self.total_distance / meters_per_mile
             predicted['plot_time'] = new_time_predicted.tolist()
+            actual['streaming_predict'] = smooth(np.interp(new_time, t, stream_predict), 'scipy', window_len=200).tolist()
 
             actual['type'] = 'activity'
             actual['ride_rating'] = self.ride_score()

@@ -13,7 +13,7 @@
 var line;
 colors = ['#8A2BE2', '#DC143C', '#006400', '#00FFFF'];
 function initialize() {
-  getActivity('{{activities[0].id}}', '{{athlete.userid}}', '#activity{{activities[0].id }}');
+  getActivity('{{activities[-1].id}}', '{{athlete.userid}}', '#activity{{activities[-1].id }}');
 }
 
 function setMap(activities) {
@@ -194,18 +194,20 @@ function simRide(activities) {
     spacing = 20;
     timeStep = 100;
     idx = 0;
+    var maxOffset = 0;
+    var maxIndex = 0;
     simInterval = window.setInterval(function() {
       simActive = true;
       var icons = line.get('icons');
       var isDone = 0;
-      var maxOffset = 0;
-      var maxIndex = 0;
+      
       for (var i = 0; i < activities.length; i++) {
         var a = activities[i];
         idx = Math.min(count, a.plot_distance.length - 1); 
         offset = a.plot_distance[idx]*100.0/a.total_distance;
         icons[i].offset = offset + '%';
 
+        // track who is in the lead
         if (offset > maxOffset && isDone === 0) {
           maxOffset = offset;
           maxIndex = i;
@@ -228,14 +230,31 @@ function simRide(activities) {
         }
       }
       line.set('icons', icons);
-
+      if (activities.length === 2){
+        // if only self and predicted are viewed, show their streaming prediction
+        var stream_predict = activities[0].streaming_predict[Math.min(count, a.distance_diff.length - 1)];
+        if (stream_predict < activities[1].moving_time) {
+          stream_predict = moment.utc(stream_predict*1000).format("H:mm:ss")
+          stream_color = 'green'
+        }
+        else {
+          stream_predict = moment.utc(stream_predict*1000).format("H:mm:ss")
+          stream_color = 'red'
+        }
+        document.getElementById('stream-predict').innerHTML = stream_predict;
+        document.getElementById('stream-predict').style.color = stream_color;
+      }
+      else if (isDone === 0) {
+        // do not update this after the first rider finishes
+        document.getElementById('stream-predict').innerHTML = activities[maxIndex].display_name;
+        document.getElementById('stream-predict').style.color = colors[maxIndex];
+      }
 
       document.getElementById('timer').innerHTML = moment.utc(activities[0].plot_time[Math.min(count, activities[0].plot_time.length - 1)]*1000).format("H:mm:ss");
       document.getElementById('timer').style.color = 'black';
       document.getElementById('distance-diff').innerHTML = activities[0].plot_distance[Math.min(count, activities[0].plot_distance.length - 1)].toFixed(1);
       document.getElementById('distance-diff').style.color = 'black';
-      document.getElementById('stream-predict').innerHTML = activities[maxIndex].display_name;
-      document.getElementById('stream-predict').style.color = colors[maxIndex];
+      
       count = count + spacing;
       if (isDone == activities.length){
         clearInterval(simInterval);
@@ -276,7 +295,11 @@ function updateRiders() {
     else {
       timeDiffString = '<p style="color: red;">-' + moment.utc(Math.abs(timeDiff)*1000).format("H:mm:ss") + '</p>';
     }
-    tbody.innerHTML += '<tr height="8"><td><svg height="15" width="15" style="bottom: 0;"><circle cx="7" cy="7" r="7" fill="' + colors[i] + '" /></svg>' + displayName + '</td><td>' + movingTimeString + '</td><td>' + timeDiffString + '</td></tr>';
+    tbody.innerHTML += '<tr height="8"><td style="vertical-align: middle;"><svg height="15" width="15" style="bottom: 0;"><circle cx="7" cy="7" r="7" fill="' + colors[i] + '" /></svg> ' + displayName + '</td><td style="vertical-align: middle;">' + movingTimeString + '</td><td style="vertical-align: middle;">' + timeDiffString + '</td></tr>';
+  }
+  if (activities.length > 2) {
+    var cell = document.getElementById('table-dashboard').rows[0].cells[2]
+    cell.innerHTML = '<td class="dashboard-cell">IN THE LEAD<br><span id="stream-predict" style="font-size:x-large"></span><br></td>'
   }
 }
 
@@ -361,6 +384,8 @@ function uploadRoute(){
 }
 
 
+
+
       google.maps.event.addDomListener(window, 'load', initialize);
 
     </script>
@@ -403,7 +428,7 @@ function uploadRoute(){
                   <tr>
                   <td class="dashboard-cell">TIME<br><span id="timer" style="font-size:x-large"></span><br>HOURS</td>
                   <td class="dashboard-cell">DISTANCE<br><span id="distance-diff" style="font-size:x-large"></span><br>MILES</td>
-                  <td class="dashboard-cell">IN THE LEAD<br><span id="stream-predict" style="font-size:x-large"></span><br></td>
+                  <td class="dashboard-cell">PREDICTION<br><span id="stream-predict" style="font-size:x-large"></span><br>HOURS</td>
                 </tr>
               </table>
               <!-- <p>Time: <span id="timer"></span></p>
@@ -423,9 +448,25 @@ function uploadRoute(){
       
     </div>
       <div class='span7 main'>
+        <div id="dialog-form" title="Create new user">
+          <p class="validateTips">All form fields are required.</p>
+         
+          <form enctype="multipart/form-data" action="/upload" method="POST" id="upload-form">
+            <fieldset>
+              <label for="description">Ride description</label>
+              <input type="hidden" value="{{athlete.userid}}" name="athlete_id" id="upload-athlete">
+              <input type="text" name="ride_title" id="route-description" value="New Route" class="text ui-widget-content ui-corner-all">
+              <input name="file" id="gpx-file" type="file" accept=".gpx"/>
+         
+              <!-- Allow form submission with keyboard without duplicating the dialog button -->
+              <input type="submit" tabindex="-1" style="position:absolute; top:-1000px">
+              <div id="upload-status"></div>
+            </fieldset>
+          </form>
+        </div>
 
       <div><h4 style="float: left;">Your routes</h4>
-      <div style="float: right;" id="route-upload"><p><a class='button' onclick="uploadRoute()">Upload a Route</a></p></div></div>
+      <div style="float: right;" id="route-upload"><p><a onclick="formShow()" class='button'>Upload a Route</a></p></div></div>
       <table align="right" id="routes">
         <thead>
           <th>Ride Name</th>
@@ -506,6 +547,46 @@ function uploadRoute(){
       document.getElementById("myList").selectedIndex = 0;
 
     };
+
+    function formShow() {
+      console.log('formshow')
+      document.getElementById('dialog-form').style.display = 'block'
+    }
+
+    $(function() {
+      var dialog, form;
+      // var f = $('#gpx-file');
+      // var description = $("#route-description");
+      // var aid = $('#upload-athlete')
+      // var form_data = new FormData($('#upload-form'))
+      function addRoute() {
+        document.getElementById('upload-status').innerHTML = 'Upload in progress....'
+        document.getElementById('upload-form').submit();
+      }
+      dialog = $("#dialog-form").dialog({
+        autoOpen: false,
+        height: 300,
+        width: 350,
+        modal: true,
+        buttons: {
+          "Create Route": addRoute,
+          Cancel: function() {
+            dialog.dialog("close");
+          }
+        },
+        close: function() {
+          form[0].reset();
+        }
+      });
+      form = dialog.find( "form" ).on( "submit", function( event ) {
+        event.preventDefault();
+        // addUser();
+      });
+
+      $( "#route-upload" ).button().on( "click", function() {
+        dialog.dialog( "open" );
+      });
+    });
 
       $(document).ready(function() {
         $("#routes").tablecloth({
