@@ -127,7 +127,7 @@ def upload_gpx():
         f.save(os.path.abspath(fpath))
         DB = StravaDB()
         DB.create_route(fpath, uid, ride_name)
-    return redirect(url_for('rides', userid=4478600))
+    return redirect(url_for('rides', userid=uid))
 
 @app.route('/delete/route', methods=['POST'])
 def delete_route():
@@ -390,17 +390,18 @@ def change2():
 def add_rider():
     activity_id = int(request.form.get('activity_id', 0))
     athlete_id = int(request.form.get('athlete_id', 0))
+    the_dict = load_model(athlete_id)
+    if the_dict is None:
+        return ''
+
     time_spacing = float(request.form.get('time_spacing'))
     the_rider_distance = json.loads(request.form.get('the_rider_distance'))
     
     new_user = StravaUser(athlete_id)
-
     if int(activity_id) < 10000:
         ride = StravaActivity(activity_id, new_user.userid, belongs_to='other', is_route=True, get_streams=True)
     else:
         ride = StravaActivity(activity_id, new_user.userid, belongs_to='other', get_streams=True)
-
-    the_dict = pickle.load(open('model_%s.pkl' % new_user.userid, 'rb'))
     
     ride.predict(the_dict[new_user.userid]['model'])
     actual, predicted = ride.to_dict2(time_spacing)
@@ -436,12 +437,14 @@ def chart():
 def train(userid):
     return render_template('train.html', userid=userid)
 
-@app.route('/sleep', methods=['POST'])
-def sleep():
-    import time
-    time.sleep(5)
-
-    return 'Done!'
+def load_model(athlete_id):
+    fname = 'model_%s.pkl' % athlete_id
+    print fname
+    if os.path.isfile(fname):
+        return pickle.load(open(fname, 'rb'))
+    else:
+        print 'file does not exist'
+        return None
 
 if __name__ == '__main__':
     pass

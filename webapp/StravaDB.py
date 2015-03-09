@@ -313,7 +313,7 @@ class StravaDB(object):
              'frequency10': frequencies10,
              'frequency10': frequencies30,
              'name': name,
-             'total_elevation_gain': 0,
+             'total_elevation_gain': route.get_uphill_downhill().uphill,
              'athlete_id': athlete_id
             }
 

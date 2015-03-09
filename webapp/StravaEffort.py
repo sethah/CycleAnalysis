@@ -60,10 +60,7 @@ class StravaActivity(object):
             self.total_distance = d['distance']
             self.total_climb = d['total_elevation_gain']
 
-            self.fitness10 = d['fitness10']  # difficulty of rides in last 10 days
-            self.fitness30 = d['fitness30']
-            self.frequency10 = d['frequency10']  # number of rides in last 10 days
-            self.frequency30 = d['frequency30']
+            self.get_my_fitness()
 
             if get_streams:
                 self.init_streams()
@@ -152,10 +149,7 @@ class StravaActivity(object):
         """
         d = self.fetch_activity()
         self.name = d['name']
-        if dt == None:
-            self.dt = datetime.now().date()
-        else:
-            self.dt = dt
+        self.dt = d['start_dt']
         self.total_distance = d['distance']
         self.moving_time = 0
         self.moving_time_string = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
@@ -441,7 +435,7 @@ class StravaActivity(object):
         This method is used when the activity is a route.
         """
         DB = StravaDB()
-        dt = self.dt
+        dt = self.dt.date()
 
         cols = ['id', 'start_dt', 'distance', 'total_elevation_gain']
 
@@ -495,6 +489,9 @@ class StravaActivity(object):
         """
         n = self.df.shape[0]
         df = self.df.copy()
+        if 'predicted_time' in df.columns:
+            df.pop('predicted_time')
+            df.pop('predicted_velocity')
         df.pop('latitude')
         df.pop('longitude')
         # df.pop('velocity')

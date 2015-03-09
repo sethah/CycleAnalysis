@@ -1,4 +1,5 @@
-{% extends "base.html" %}
+{% extends "rides_header.html" %}
+{% set active_page = "personal" %}
 {% block content %}
 
     <style>
@@ -405,7 +406,7 @@ function simRide(a) {
         document.getElementById('timer').innerHTML = moment.utc(a.plot_time[Math.min(count, a.plot_time.length - 1)]*1000).format("H:mm:ss");
         document.getElementById('distance-diff').innerHTML = a.plot_predicted_distance[Math.min(count, a.plot_predicted_distance.length - 1)].toFixed(2);
         document.getElementById('distance-diff').style.color = 'black'
-        document.getElementById('timer').style.color = 'black';
+        
 
         if (count > pd.length){
           console.log('cleared')
@@ -558,19 +559,21 @@ function uploadRoute(){
         <thead>
           <th>Ride Name</th>
           <th>Date</th>
-          <th>Distance</th>
-          <th></th>
+          <th colspan="2">Distance</th>
           <th></th>
         </thead>
-      {% for r in routes %}
-      <tr id="route{{r.id}}">
-        <td><a href="javascript:getActivity({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">{{r.name}}</a></td>
-        <td>{{r.dt.strftime("%B %d, %Y")}}</td>
-        <td>{{(r.total_distance / 1609.34)|round(0, 'floor')}}</td>
-        <td><a href="/compare/{{r.id}}/{{athlete.userid}}">See how you stack up<a/></td>
-        <td><a href="javascript:deleteRoute({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">delete</a></td>
-      </tr>
-      {% endfor %}
+      {% if routes|length == 0 %}
+        <tr><td colspan="5">No routes to display</td></tr>
+      {% else %}
+        {% for r in routes %}
+        <tr id="route{{r.id}}">
+          <td><a href="javascript:getActivity({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">{{r.name}}</a></td>
+          <td>{{r.dt.strftime("%B %d, %Y")}}</td>
+          <td>{{(r.total_distance / 1609.34)|round(0, 'floor')}}</td>
+          <td><a href="javascript:deleteRoute({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">delete</a></td>
+        </tr>
+        {% endfor %}
+      {% endif %}
       </table>
       <hr width="100%">
       <h4>Your completed activities</h4>
@@ -579,14 +582,12 @@ function uploadRoute(){
           <th>Ride Name</th>
           <th>Date</th>
           <th>Distance</th>
-          <th></th>
         </thead>
       {% for a in activities %}
       <tr>
         <td><a href="javascript:getActivity({{a.id}}, {{athlete.userid}}, '#activity{{ a.id }}');">{{a.name}}</a></td>
         <td>{{a.dt.strftime("%B %d, %Y")}}</td>
         <td>{{(a.total_distance / 1609.34)|round(0, 'floor')}}</td>
-        <td><a href="/compare/{{a.id}}/{{athlete.userid}}">See how you stack up<a/></td>
       </tr>
       {% endfor %}
     </table>
@@ -595,26 +596,32 @@ function uploadRoute(){
 <script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
 
     <script type="text/javascript" charset="utf-8">
-      // $(document).ready(function() {
-      //   $("table").tablecloth({
-      //     theme: "stats",
-      //     striped: true,
-      //     sortable: true,
-      //     condensed: true,
-      //     clean: true
-      //   });
-      // });
-      // $(document).ready(function() {
-      //     $('#routes').DataTable( {
-      //         bFilter: false,
-      //         bLengthChange: false,
-
-      //     } );
-      //     $('#activities').DataTable( {
-      //         bFilter: false,
-      //         bLengthChange: false
-      //     } );
-      // } );
+      $(document).ready(function() {
+        $("#routes").tablecloth({
+          theme: "stats",
+          bordered: true,
+          condensed: true,
+          striped: true,
+          sortable: true,
+          clean: true,
+          cleanElements: "th td",
+          customClass: "my-table"
+        });
+        $("#activities").tablecloth({
+          theme: "stats",
+          bordered: true,
+          condensed: true,
+          striped: true,
+          sortable: true,
+          clean: true,
+          cleanElements: "th td",
+          customClass: "my-table"
+        });
+        $("#activities")
+        .tablesorter({
+          widthFixed: true})
+        .tablesorterPager({container: $("#pager")});
+      });
     </script>
   <!-- </body> -->
 

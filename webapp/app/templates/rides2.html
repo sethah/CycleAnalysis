@@ -1,4 +1,5 @@
-{% extends "base.html" %}
+{% extends "rides_header.html" %}
+{% set active_page = "compare" %}
 {% block content %}
 
     <style>
@@ -246,12 +247,17 @@ function lineChart(activities) {
         });
 };
 
+simActive = false;
 function simRide(activities) {
+  if (simActive) {
+    return;
+  }
     var count = 0;
     spacing = 20;
     timeStep = 100;
     idx = 0;
     simInterval = window.setInterval(function() {
+      simActive = true;
       var icons = line.get('icons');
       var isDone = 0;
       var maxOffset = 0;
@@ -295,6 +301,7 @@ function simRide(activities) {
       count = count + spacing;
       if (isDone == activities.length){
         clearInterval(simInterval);
+        simActive = false;
       }
     }, timeStep);
   }
@@ -315,7 +322,21 @@ function updateRiders() {
   tbody = document.getElementById('current-riders').getElementsByTagName('tbody')[0]
   tbody.innerHTML = ''
   for (var i = 0; i < activities.length; i++) {
-    tbody.innerHTML += '<tr height="8"><td><svg height="15" width="15" style="bottom: 0;"><circle cx="7" cy="7" r="7" fill="' + colors[i] + '" /></svg>' + activities[i].athlete.firstname + '</td><td>' + activities[i]['moving_time_string'] + '</td></tr>';
+    var displayName = activities[i].athlete.firstname
+    if (i === 1){displayName += ' (p)'};
+    var timeDiff = activities[i].moving_time - activities[0].moving_time;
+    var movingTimeString = moment.utc(Math.abs(activities[i].moving_time)*1000).format("H:mm:ss")
+    console.log(activities[i].moving_time, activities[0].moving_time)
+    if (i === 0){
+      timeDiffString = '<p>-</p>'
+    }
+    else if (timeDiff < 0){
+      timeDiffString = '<p style="color: red;">-' + moment.utc(Math.abs(timeDiff)*1000).format("H:mm:ss") + '</p>';
+    }
+    else {
+      timeDiffString = '<p style="color: green;">' + moment.utc(Math.abs(timeDiff)*1000).format("H:mm:ss") + '</p>';
+    }
+    tbody.innerHTML += '<tr height="8"><td><svg height="15" width="15" style="bottom: 0;"><circle cx="7" cy="7" r="7" fill="' + colors[i] + '" /></svg>' + displayName + '</td><td>' + movingTimeString + '</td><td>' + timeDiffString + '</td></tr>';
   }
 }
 
@@ -327,7 +348,12 @@ function addRider(activity_id, athlete_id) {
         time_spacing: activities[0].plot_time[1],
         the_rider_distance: JSON.stringify(activities[0].plot_distance)
     }).done(function(response){
-      activities.push(response)
+      if (response === ''){
+        alert('This user has not set up their profile.')
+      }
+      else {
+        activities.push(response)
+      }
       setMap(activities)
       lineChart(activities)
       updateRiders()
@@ -378,12 +404,8 @@ function switchActivity(activity) {
   
   if (typeof simInterval !== 'undefined') {
     clearInterval(simInterval)
+    simActive = false;
   }
-  if (typeof chartInterval !== 'undefined') {
-    clearInterval(chartInterval)
-  }
-  
-  // lineChart(a)
 }
 
 function uploadRoute(){
@@ -402,70 +424,35 @@ function uploadRoute(){
       google.maps.event.addDomListener(window, 'load', initialize);
 
     </script>
-    <style type="text/css">
-      .map { margin: 0 auto 0 auto; }
-      .wrapper {text-align: center;
-                padding: 5px 5px 5px 5px;
-               }
-      #dashboard {background-color: #F4F4F4;
-                  position: relative;
-                  padding: 0;
-                  border: 1px solid #A8A8A8;
-                  }
-      #dashboard p {margin-left: 5px;}
-      #table-dashboard {position: absolute;
-                        bottom: 0;
-                      width: 100%;
-                    color:#888896;}
-      #table-dashboard td {width: 33%;
-                        text-align: center;
-                        border: 1px solid #A8A8A8;
-                        font-size: small;
-                      background-color: #F4F4F4;}
-      #dashboard-header {background-color:#CACACD;
-                         display:block;
-                         padding: 5px;
-                         font-size: large;
-                         font-weight: bold;
-                         border: 1px solid #A8A8A8;}
-      #dashboard-prediction {font-size: medium;}
-      #current-riders {font-size: small;
-                       }
-      #current-riders th {padding-left: 5;
-                          padding-top: 0;
-                          padding-bottom: 0;}
-      #current-riders td {padding-left: 5;
-                          padding-top: 1;
-                          padding-bottom: 0;}
-
-    </style>
     <div class="row">
     <div class='span8 main' style="margin-left: 52px;">
 
-      <div class="wrapper">
-          <button id="play" onclick="simRide(activities)">Play Ride</button>
-      </div>
       <table id="table-athletes" class="table table-bordered table-striped">
         <tr>
           <td style="padding:0px;" width="45%" height="400px">
             <div class="map" id="map-canvas" style="width:100%; height:100%"></div>
           </td>
           <td id="dashboard" width="55%">
-              <span id="dashboard-header"><img src="/static/img/logo_small.png" style="padding:5px; width:auto; height:20px;">{{athlete.name}}
+            <div id="dashboard-header" style="background-color:#CACACD">
+              <div>
+              <span><img src="/static/img/logo_small.png" style="padding:5px; width:auto; height:20px;">{{athlete.name}}
                 <select id="myList" style="float: right; width: 33%">
                   <option value="default" disabled="disabled" selected="selected">Add an athlete</option>
                   {% for athlete in athletes %}
                   <option value="{{athlete[0]}}">{{athlete[1] + ' ' + athlete[2]}}</option>
                   {% endfor %}
-                </select>
-                <br><span id="activity_desc" style="font-size: small">{{activity.name}}</span>
-              <br><span id="activity_start" style="font-size: small">At {{activity.dt.strftime("%H:%M:%S %p")}}</span><span id="activity_date" style="font-size: small"> on {{activity.dt.strftime("%A %B %d, %Y")}}</span>
+                </select></div>
+                <div style="background-color:#CACACD; display:inline; overflow:hidden;">
+                <br><div style="float:left;background-color:#CACACD;width:300px;"><span id="activity_desc" style="font-size: small">{{activity.name}}</span>
+              <br><span id="activity_start" style="font-size: small;background-color:#CACACD">At {{activity.dt.strftime("%H:%M:%S %p")}}</span><span id="activity_date" style="font-size: small"> on {{activity.dt.strftime("%A %B %d, %Y")}}</span></div><div style="margin-left:300px;background-color:#CACACD;">
+          <button id="play-ride" onclick="simRide(activities)" >Play Ride</button></div><div style="clear:both;"></div></div></div>
               </span>
               <table id="current-riders" class="table table-bordered" style="width: 100%">
                 <thead>
                 <tr style="background-color: #A8A8A8">
                   <th style="width: 33%" colspan="1">Athletes</th>
                   <th>Time</th>
+                  <th>Diff</th>
                 </tr>
               </thead>
               <tbody>
@@ -503,47 +490,109 @@ function uploadRoute(){
         <thead>
           <th>Ride Name</th>
           <th>Date</th>
-          <th>Distance</th>
-          <th></th>
+          <th colspan="2">Distance</th>
           <th></th>
         </thead>
-      {% for r in routes %}
-      <tr id="route{{r.id}}">
-        <td><a href="javascript:getActivity({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">{{r.name}}</a></td>
-        <td>{{r.dt.strftime("%B %d, %Y")}}</td>
-        <td>{{(r.total_distance / 1609.34)|round(0, 'floor')}}</td>
-        <td><a href="/compare/{{r.id}}/{{athlete.userid}}">See how you stack up<a/></td>
-        <td><a href="javascript:deleteRoute({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">delete</a></td>
-      </tr>
-      {% endfor %}
+      {% if routes|length == 0 %}
+        <tr><td colspan="5">No routes to display</td></tr>
+      {% else %}
+        {% for r in routes %}
+        <tr id="route{{r.id}}">
+          <td><a href="javascript:getActivity({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">{{r.name}}</a></td>
+          <td>{{r.dt.strftime("%B %d, %Y")}}</td>
+          <td>{{(r.total_distance / 1609.34)|round(0, 'floor')}}</td>
+          <td><a href="javascript:deleteRoute({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">delete</a></td>
+        </tr>
+        {% endfor %}
+      {% endif %}
       </table>
       <hr width="100%">
+
       <h4>Your completed activities</h4>
+      
+      <div>
       <table align="right" id="activities">
         <thead>
           <th>Ride Name</th>
           <th>Date</th>
           <th>Distance</th>
-          <th></th>
         </thead>
       {% for a in activities %}
       <tr>
         <td><a href="javascript:getActivity({{a.id}}, {{athlete.userid}}, '#activity{{ a.id }}');">{{a.name}}</a></td>
         <td>{{a.dt.strftime("%B %d, %Y")}}</td>
         <td>{{(a.total_distance / 1609.34)|round(0, 'floor')}}</td>
-        <td><a href="/compare/{{a.id}}/{{athlete.userid}}">See how you stack up<a/></td>
       </tr>
       {% endfor %}
     </table>
+    <div id="pager" class="pager">
+        <form>
+          <img src="http://mottie.github.com/tablesorter/addons/pager/icons/first.png" class="first"/>
+          <img src="http://mottie.github.com/tablesorter/addons/pager/icons/prev.png" class="prev"/>
+          <input type="text" class="pagedisplay"/>
+          <img src="http://mottie.github.com/tablesorter/addons/pager/icons/next.png" class="next"/>
+          <img src="http://mottie.github.com/tablesorter/addons/pager/icons/last.png" class="last"/>
+          <select class="pagesize">
+            <option value="10"  selected="selected">10 per page</option>
+            <option value="20">20 per page</option>
+            <option value="40">40 per page</option>
+          </select>
+        </form>
+      </div>
+  </div>
+    
   </div>
 </div>
 <script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
 
     <script type="text/javascript" charset="utf-8">
     document.getElementById("myList").onchange = function() {
-       addRider(activities[0].id, this.value);
+      
+      if (activities.length >= 5){
+        alert("Maximum athletes allowed is 5")
+        document.getElementById("myList").selectedIndex = 0;
+        return;
+      }
+      isDuplicate = false;
+      for (var i = 0; i < activities.length; i++) {
+        if (this.value === activities[i].athlete.id.toFixed(0)) {
+          isDuplicate = true;
+          break;
+        }
+      }
+      if (!isDuplicate) {
+        addRider(activities[0].id, this.value);
+      }
+      else {alert("This rider is already added.")}
+      document.getElementById("myList").selectedIndex = 0;
+
     };
-      // $(document).ready(function() {
+
+      $(document).ready(function() {
+        $("#routes").tablecloth({
+          theme: "stats",
+          bordered: true,
+          condensed: true,
+          striped: true,
+          sortable: true,
+          clean: true,
+          cleanElements: "th td",
+          customClass: "my-table"
+        });
+        $("#activities").tablecloth({
+          theme: "stats",
+          bordered: true,
+          condensed: true,
+          striped: true,
+          sortable: true,
+          clean: true,
+          cleanElements: "th td",
+          customClass: "my-table"
+        });
+        $("#activities")
+        .tablesorter({
+          widthFixed: true})
+        .tablesorterPager({container: $("#pager")}); 
       //   $("table").tablecloth({
       //     theme: "stats",
       //     striped: true,
@@ -552,17 +601,17 @@ function uploadRoute(){
       //     clean: true
       //   });
       // });
-      $(document).ready(function() {
-          $('#routes').DataTable( {
-              bFilter: false,
-              bLengthChange: false,
+      // $(document).ready(function() {
+      //     $('#routes').DataTable( {
+      //         bFilter: false,
+      //         bLengthChange: false,
 
-          } );
-          $('#activities').DataTable( {
-              bFilter: false,
-              bLengthChange: false
-          } );
-      } );
+      //     } );
+      //     $('#activities').DataTable( {
+      //         bFilter: false,
+      //         bLengthChange: false
+      //     } );
+      });
     </script>
   <!-- </body> -->
 

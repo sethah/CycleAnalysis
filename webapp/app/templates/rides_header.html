@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% set active_page_main = "teams" %}
+{% block header %}
+
+{% set navigation_bar = [
+    ('rides', 'personal', 'Personal'),
+    ('rides_two', 'compare', 'Compare')
+] -%}
+
+    <div class="tabbable" style="margin-left: 25px;">
+
+        <ul class="nav nav-tabs">
+            {% for href, id, caption in navigation_bar %}
+                <li{% if id == active_page %} class="active"{% endif %}><a href="{{ url_for(href|e, userid=athlete.userid) }}">{{ caption|e }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+{% endblock %}
+{% block content %}{% endblock %}
