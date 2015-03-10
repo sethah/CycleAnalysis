@@ -82,7 +82,7 @@ class StravaAPI(object):
 
         return response.json()
 
-    def store_activities(self, start_dt=None, store_streams=True):
+    def store_activities(self, start_dt=None, store_streams=True, max_activities=50):
         """
         INPUT: StravaAPI, STRING, BOOLEAN
         OUTPUT: None
@@ -97,7 +97,9 @@ class StravaAPI(object):
         table = self.db.activities
         activities = self.list_activities(start_dt=start_dt)
         activities = self.fitness_score(activities)
-        for a in activities:
+        for i, a in enumerate(activities):
+            if i >= max_activities:
+                break
             if a['type'] != 'Ride':
                 continue
             try:

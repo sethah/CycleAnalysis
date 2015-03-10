@@ -249,9 +249,9 @@ function simRide(activities) {
         }
       }
       line.set('icons', icons);
-      if (activities.length === 2){
+      if (activities.length === 2 && activities[0].type != 'route'){
         // if only self and predicted are viewed, show their streaming prediction
-        var stream_predict = activities[0].streaming_predict[Math.min(count, a.distance_diff.length - 1)];
+        var stream_predict = activities[0].streaming_predict[Math.min(count, activities[0].streaming_predict.length - 1)];
         if (stream_predict < activities[1].moving_time) {
           stream_predict = moment.utc(stream_predict*1000).format("H:mm:ss")
           stream_color = 'green'
@@ -316,7 +316,7 @@ function updateRiders() {
     }
     tbody.innerHTML += '<tr height="8"><td style="vertical-align: middle;"><svg height="15" width="15" style="bottom: 0;"><circle cx="7" cy="7" r="7" fill="' + colors[i] + '" /></svg> ' + displayName + '</td><td style="vertical-align: middle;">' + movingTimeString + '</td><td style="vertical-align: middle;">' + timeDiffString + '</td></tr>';
   }
-  if (activities.length > 2) {
+  if (activities.length > 2 || activities[0].type === 'route') {
     var cell = document.getElementById('table-dashboard').rows[0].cells[2]
     cell.innerHTML = '<td class="dashboard-cell">IN THE LEAD<br><span id="stream-predict" style="font-size:x-large"></span><br></td>'
   }
@@ -467,7 +467,7 @@ function uploadRoute(){
       
     </div>
       <div class='span7 main'>
-        <div id="dialog-form" title="Create new user">
+        <div id="dialog-form" title="Upload new route">
           <p class="validateTips">All form fields are required.</p>
          
           <form enctype="multipart/form-data" action="/upload" method="POST" id="upload-form">

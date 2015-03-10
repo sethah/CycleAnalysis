@@ -32,7 +32,7 @@ function getData(uid){
 }
 
 function trainModel(uid){
-  document.getElementById("new-user-status").innerHTML = "We've got your data. Now we're customizing a model just for you. This may take a minute too!";
+  document.getElementById("new-user-status").innerHTML = "We've got your data. Now we're customizing a model just for you. This may take a minute!";
   document.getElementById("new-user-status").style.visibility = "visible";
   $.post('/fit', {
     userid: uid
@@ -53,7 +53,7 @@ function checkUser(uid) {
         console.log(response)
         if (response === "new") {
           // show new user stuff
-          document.getElementById("new-user").innerHTML = "Whoa, you're new here. Welcome to the site! We need to do a few things to get you started.";
+          document.getElementById("new-user").innerHTML = "You're new here. Welcome to the site! We need to do a few things to get you started.";
           document.getElementById("new-user").style.visibility = "visible";
           getData(uid);
         }

@@ -90,7 +90,8 @@ def fit():
     X = df[cols[np.where(cols!='velocity')]].values
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.3)
 
-    model = GradientBoostingRegressor(max_depth=3, min_samples_leaf=1000)
+    # model = GradientBoostingRegressor(max_depth=3, min_samples_leaf=1000)
+    model = RandomForestRegressor(max_depth=8)
     print 'Fitting model.......'
     model.fit(X_train, y_train)
     print 'Model fit!'

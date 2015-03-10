@@ -481,6 +481,17 @@ class StravaActivity(object):
 
         return np.array([sw, ne])
 
+    def distance_rolling_mean(self, mean_col, length=1):
+
+        new_distance = np.linspace(0, self.df.distance.iloc[-1], self.df.shape[0])
+        new_col = np.interp(new_distance, self.df.distance, self.df[mean_col])
+        dx = new_distance[1] - new_distance[0]
+        n = int(length * 1609.34 / dx)
+        rolling_mean = pd.stats.moments.rolling_mean(new_col, n)
+        rolling_mean = np.nan_to_num(rolling_mean)
+        rolling_mean_converted = np.interp(self.df.distance, new_distance, rolling_mean)
+        return rolling_mean_converted
+
     def make_df(self):
         """
         INPUT: StravaActivity
@@ -520,6 +531,9 @@ class StravaActivity(object):
         df['fitness30'] = [self.fitness30]*n
         df['frequency10'] = [self.frequency10]*n
         df['frequency30'] = [self.frequency30]*n
+        df['one_mile'] = self.distance_rolling_mean('grade')
+        # df['two_mile'] = self.distance_rolling_mean('grade', length=2)
+        # df['four_mile'] = self.distance_rolling_mean('grade', length=4)
 
         # if window != 0:
         #     for i in xrange(-window // 2, window // 2 + 1):
