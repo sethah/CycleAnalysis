@@ -214,20 +214,6 @@ function lineChart(activities) {
             },
             series: series
         });
-  // for (var i = 1; i < activities.length; i++) {
-  //   // debugger;
-  //   console.log(activities[0])
-  //   finishIndex = Math.min(activities[i].plot_distance.length - 1, activities[0].plot_distance.length - 1)
-  //   var p = chart.series[i].points[finishIndex];
-  //   console.log(activities[i].plot_time[finishIndex])
-  //   p.update({
-  //       marker: {
-  //           symbol: 'triangle',
-  //           enabled: true
-  //       }
-  //     });
-  // }
-
 };
 
 simActive = false;
@@ -320,6 +306,26 @@ function getActivity(aid, uid, activityElement) {
     });
 }
 
+function deleteRider(athlete_id) {
+  // var row = document.getElementById('dashboard-' + athlete_id);
+  // row.parentNode.removeChild(row);
+  var idx = -1;
+  for (var i = 0; i < activities.length; i++) {
+    console.log('some', activities[i].athlete.id, athlete_id)
+    if (activities[i].athlete.id === athlete_id) {
+      console.log('something', activities[i].athlete.id, athlete_id)
+      idx = i;
+      break;
+    }
+  }
+  if (idx != -1) {
+    activities.splice(idx, 1);
+    updateRiders();
+    lineChart(activities);
+    setMap(activities);
+  }
+}
+
 function updateRiders() {
   tbody = document.getElementById('current-riders').getElementsByTagName('tbody')[0]
   tbody.innerHTML = ''
@@ -340,7 +346,11 @@ function updateRiders() {
     else {
       timeDiffString = '<p style="color: red;">-' + moment.utc(Math.abs(timeDiff)*1000).format("H:mm:ss") + '</p>';
     }
-    tbody.innerHTML += '<tr height="8"><td style="vertical-align: middle;"><svg height="15" width="15" style="bottom: 0;"><circle cx="7" cy="7" r="7" fill="' + colors[i] + '" /></svg> <a href="' + activities[i].athlete.id + '">' + displayName + '</a></td><td style="vertical-align: middle;">' + movingTimeString + '</td><td style="vertical-align: middle;"><span style="display:inline-block;float:left;">' + timeDiffString + '</span><span><a style="font-size:x-small;float:right">remove</a></span></td></tr>';
+    linkText = '';
+    if (i > 1) {
+      linkText = '<a onclick=deleteRider(' + activities[i].athlete.id + ') style="font-size:x-small;float:right">remove</a>';
+    }
+    tbody.innerHTML += '<tr id="dashboard-' + activities[i].athlete.id + '" height="8"><td style="vertical-align: middle;"><svg height="15" width="15" style="bottom: 0;"><circle cx="7" cy="7" r="7" fill="' + colors[i] + '" /></svg> <a href="' + activities[i].athlete.id + '">' + displayName + '</a></td><td style="vertical-align: middle;">' + movingTimeString + '</td><td style="vertical-align: middle;"><span style="display:inline-block;float:left;">' + timeDiffString + '</span><span>' + linkText + '</span></td></tr>';
   }
   if (activities.length > 2 || activities[0].type === 'route') {
     var cell = document.getElementById('table-dashboard').rows[0].cells[2]
@@ -399,8 +409,8 @@ function switchActivity(activity) {
     document.getElementById('activity_summary').innerHTML = (actual['total_elevation_gain'] * 3.28084).toFixed(2) + ' ft, ' + actual['total_distance'].toFixed(2) + ' mi'
     $(document.getElementById('activity_moving_time')).text(actual['moving_time_string']);
     activities = [actual, predicted];
-    updateRiders()
-    lineChart(activities)
+    updateRiders();
+    lineChart(activities);
     setMap(activities);
   }
   else {
