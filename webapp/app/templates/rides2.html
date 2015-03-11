@@ -340,11 +340,15 @@ function updateRiders() {
     else {
       timeDiffString = '<p style="color: red;">-' + moment.utc(Math.abs(timeDiff)*1000).format("H:mm:ss") + '</p>';
     }
-    tbody.innerHTML += '<tr height="8"><td style="vertical-align: middle;"><svg height="15" width="15" style="bottom: 0;"><circle cx="7" cy="7" r="7" fill="' + colors[i] + '" /></svg> ' + displayName + '</td><td style="vertical-align: middle;">' + movingTimeString + '</td><td style="vertical-align: middle;">' + timeDiffString + '</td></tr>';
+    tbody.innerHTML += '<tr height="8"><td style="vertical-align: middle;"><svg height="15" width="15" style="bottom: 0;"><circle cx="7" cy="7" r="7" fill="' + colors[i] + '" /></svg> <a href="' + activities[i].athlete.id + '">' + displayName + '</a></td><td style="vertical-align: middle;">' + movingTimeString + '</td><td style="vertical-align: middle;"><span style="display:inline-block;float:left;">' + timeDiffString + '</span><span><a style="font-size:x-small;float:right">remove</a></span></td></tr>';
   }
   if (activities.length > 2 || activities[0].type === 'route') {
     var cell = document.getElementById('table-dashboard').rows[0].cells[2]
     cell.innerHTML = '<td class="dashboard-cell">IN THE LEAD<br><span id="stream-predict" style="font-size:x-large"></span><br></td>'
+  }
+  else {
+    var cell = document.getElementById('table-dashboard').rows[0].cells[2]
+    cell.innerHTML = '<td class="dashboard-cell">DISTANCE<br><span id="stream-predict" style="font-size:x-large"></span><br>HOURS</td>'
   }
 }
 
@@ -462,7 +466,7 @@ function uploadRoute(){
               <table id="current-riders" style="width: 100%">
                 <thead>
                 <tr style="background-color: #A8A8A8">
-                  <th style="width: 50%" colspan="1">Athletes</th>
+                  <th style="width: 40%" colspan="1">Athletes</th>
                   <th>Time</th>
                   <th>Diff</th>
                 </tr>
@@ -519,18 +523,17 @@ function uploadRoute(){
           <th>Ride Name</th>
           <th>Date</th>
           <th>Distance</th>
-          <th colspan="2">Climb</th>
+          <th>Climb</th>
         </thead>
       {% if routes|length == 0 %}
         <tr><td colspan="5">No routes to display</td></tr>
       {% else %}
         {% for r in routes %}
         <tr id="route{{r.id}}">
-          <td><a href="javascript:getActivity({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">{{r.name}}</a></td>
+          <td><a href="javascript:getActivity({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">{{r.name}}</a> <a href="javascript:deleteRoute({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">(delete)</a></td>
           <td>{{r.dt.strftime("%B %d, %Y")}}</td>
-          <td>{{(r.total_distance / 1609.34)|round(0, 'floor')}}</td>
-          <td>{{'{0:,}'.format((r.total_climb * 3.28084) | int)}}</td>
-          <td><a href="javascript:deleteRoute({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">delete</a></td>
+          <td>{{'{0:,}'.format((r.total_distance / 1609.34))| int}} mi</td>
+          <td>{{'{0:,}'.format((r.total_climb * 3.28084) | int)}} ft</td>
         </tr>
         {% endfor %}
       {% endif %}
@@ -551,8 +554,8 @@ function uploadRoute(){
       <tr>
         <td><a href="javascript:getActivity({{a.id}}, {{athlete.userid}}, '#activity{{ a.id }}');">{{a.name}}</a></td>
         <td>{{a.dt.strftime("%B %d, %Y")}}</td>
-        <td>{{(a.total_distance / 1609.34)|round(0, 'floor')}}</td>
-        <td>{{'{0:,}'.format((a.total_climb * 3.28084) | int)}}</td>
+        <td>{{'{0:,}'.format((a.total_distance / 1609.34))| int}} mi</td>
+        <td>{{'{0:,}'.format((a.total_climb * 3.28084) | int)}} ft</td>
       </tr>
       {% endfor %}
     </table>
