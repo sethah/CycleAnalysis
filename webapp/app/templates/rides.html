@@ -1,5 +1,5 @@
 {% extends "rides_header.html" %}
-{% set active_page = "personal" %}
+{% set active_page = "compare" %}
 {% block content %}
 
     <style>
@@ -11,12 +11,12 @@
 
 <script>
 var line;
-
+colors = ['#8A2BE2', '#DC143C', '#006400', '#00FFFF'];
 function initialize() {
-  getActivity('{{activities[0].id}}', '{{athlete.userid}}', '#activity{{activities[0].id }}');
+  getActivity('{{activities[-1].id}}', '{{athlete.userid}}', '#activity{{activities[-1].id }}');
 }
 
-function setMap(a) {
+function setMap(activities) {
 
   var mapOptions = {
     mapTypeId: google.maps.MapTypeId.TERRAIN
@@ -26,39 +26,25 @@ function setMap(a) {
       mapOptions);
 
   var coords = [];
-
+  
+  // set the map with the first activity
+  a = activities[0]
   for (var i = 0; i < a.latitude.length; i++) {
     coords.push(new google.maps.LatLng(a.latitude[i], a.longitude[i]));
   }
 
-  var lineSymbol = {
-    path: google.maps.SymbolPath.CIRCLE,
-    scale: 8,
-    strokeColor: '#FF7519'
-  };
-
-  var lineSymbolA = {
-    path: google.maps.SymbolPath.CIRCLE,
-    scale: 8,
-    strokeColor: '#5C005C'
-  };
-
-var mapIcons;
-if (a['type'] != 'route'){
-  mapIcons = [{
-    icon: lineSymbol,
-    offset: '0%'
-  },
-  {
-      icon: lineSymbolA,
-      offset: '0%'
-    }]
+  var lineSymbols = [];
+  var mapIcons = []
+  for (var i = 0; i < activities.length; i++) {
+    var lineSymbol = {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 8,
+      strokeColor: colors[i]
+    };
+    mapIcon = {icon: lineSymbol, offset: '0%'};
+    mapIcons.push(mapIcon) 
   }
-else {mapIcons = mapIcons = [{
-    icon: lineSymbol,
-    offset: '0%'
-  }]
-}
+  
   line = new google.maps.Polyline({
     path: coords,
     strokeColor: '#1da1cc',
@@ -66,11 +52,10 @@ else {mapIcons = mapIcons = [{
     map: map
   });
 
-  var sw = new google.maps.LatLng(a['center'][0][0], a['center'][0][1])
-  var ne = new google.maps.LatLng(a['center'][1][0], a['center'][1][1])
+  var sw = new google.maps.LatLng(a.center[0][0], a.center[0][1])
+  var ne = new google.maps.LatLng(a.center[1][0], a.center[1][1])
   var bounds = new google.maps.LatLngBounds(sw, ne)
   map.fitBounds(bounds);
-
 }
 
 google.load('visualization', '1.0', {'packages':['corechart']});
@@ -94,118 +79,54 @@ function removeCrosshair(x) {
     // chart.yAxis[0].removePlotLine('yPlotLine'+y);
 }
 
-function barGauge(xmax) {
-  console.log(xmax)
-  var chart = new Highcharts.Chart({
-            chart: {
-                renderTo: 'gauge-bar',
-                defaultSeriesType: 'bar',
-                animation:false,
-                plotBorderWidth: 2,
-                plotBorderColor: '#D8D8D8',
-                spacingTop: 0,
-                spacingLeft: 50,
-                spacingRight: 50,
-                spacingBottom: 0
-            },
-            tooltip: {
-              enabled: false,
-            },
-            credits: {
-                enabled: false
-            },
-            xAxis: {
-                labels: {
-                    enabled: false
-                },
-                tickLength: 0
-            },
-            title: {
-                text: 'Miles Behind'
-            },
-            legend: {
-                enabled: false
-            },
-            yAxis: {
-                title: {
-                    text: null
-                },
-                labels: {
-                    y: 20
-                },
-                min: -xmax,
-                max: xmax,
-                labels: {
-                  formatter: function(){
-                    return this.value + ' mi'
-                  }
-                },
-                tickInterval: 0.25,
-            },
-            plotOptions: {
-            },
-            series: [{
-                borderRadius: 3,
-                borderWidth: 1,
-                pointWidth: 50,
-                color: '#FFFF00',
-                data: [0]}]
-        });
-}
-
-function lineChart(a) {
-
-    if (a['type'] == 'route'){
-      data = zip([a.plot_predicted_distance, a.plot_predicted_altitude]);
-      var ymin = Math.min.apply(null, a.plot_predicted_altitude)
-      var ymax = Math.max.apply(null, a.plot_predicted_altitude)
-      var xmin = Math.min.apply(null, a.plot_predicted_distance)
-      var xmax = Math.max.apply(null, a.plot_predicted_distance)
-      var series = [{     
-          type: 'area',
-          name: 'Altitude',
-          yAxis: 0,
-          // tooltip: {
-          //   pointFormatter: function(){
-          //     return '<b>'+ this.series.name +'</b>: '+ Highcharts.numberFormat(this.y, 0, ".", ",") +'<br/>';
-          //   }
-          // },
-          fillOpacity: 0.5,
-          data: data,
-          lineWidth: 2
-        }]
+function lineChart(activities) {
+  var ymin = Math.min.apply(null, activities[0].plot_altitude)
+  var ymax = Math.max.apply(null, activities[0].plot_altitude)
+  var xmin = Math.min.apply(null, activities[0].plot_distance)
+  var xmax = Math.max.apply(null, activities[0].plot_distance)
+  var series = [
+    {     
+      type: 'area',
+      id: 'altitude',
+      name: 'Altitude',
+      yAxis: 0,
+      fillOpacity: 0.5,
+      data: zip([activities[0].plot_distance, activities[0].plot_altitude]),
+      lineWidth: 2
+    }]
+  finishTimes = [];
+  flagData = [];
+  for (var i = 1; i < activities.length; i++) {
+    // debugger;
+    console.log(activities[0])
+    console.log(activities[0].plot_distance[Math.min(activities[i].plot_distance.length - 1, activities[0].plot_distance.length - 1)])
+    finishIndex = Math.min(activities[i].plot_distance.length - 1, activities[0].plot_distance.length - 1)
+    if (finishIndex !== activities[0].plot_distance.length - 1){
+      flagData.push({x: activities[0].plot_distance[finishIndex], text: activities[i].display_name + ' finished at ' + moment.utc(Math.abs(activities[i].plot_time[finishIndex])*1000).format("H:mm:ss"), title: activities[i].athlete.firstname})
     }
-    else {
-      data = zip([a.plot_distance, a.plot_altitude]);
-      data1 = zip([a.plot_distance, a.streaming_predict]);
-      var ymin = Math.min.apply(null, a.plot_altitude)
-      var ymax = Math.max.apply(null, a.plot_altitude)
-      var xmin = Math.min.apply(null, a.plot_distance)
-      var xmax = Math.max.apply(null, a.plot_distance)
-      var series = [
-        {     
-          type: 'area',
-          name: 'Altitude',
-          yAxis: 0,
-          fillOpacity: 0.5,
-          data: data,
-          lineWidth: 2
-        },
-        {
-          type: 'spline',
-          name: 'Streaming Prediction',
-          yAxis: 1,
-          data: data1,
-          lineWidth: 2
-        },
-        {
-          type: 'line',
-          name: 'Actual Time',
-          yAxis: 1,
-          data: [[-100, a.moving_time], [600, a.moving_time]]
-        }]
-    }
-    console.log(series)
+    
+    series.push({
+      type: 'spline',
+      name: activities[i].display_name,
+      yAxis: 1,
+      data: zip([activities[0].plot_distance, activities[i].time_diff]),
+      lineWidth: 2,
+      color: colors[i],
+      allowPointSelect: true
+    })
+    // finishTimes.push({x: activities[0].plot_distance[finishIndex], y: activities[0].plot_altitude[finishIndex], marker: {fillColor: colors[i], symbol: 'triangle'}});
+  }
+  flagSeries = {
+    type: 'flags',
+    name: 'flags',
+    data: flagData,
+    yAxis: 0,
+    shape: 'squarepin',
+    showInLegend: false
+  }
+  series.push(flagSeries)
+  // series.push({data: finishTimes, lineWidth:0, showInLegend: false})
+
         chart = new Highcharts.Chart({
             chart: {
                 renderTo: 'container',
@@ -216,15 +137,30 @@ function lineChart(a) {
             },
             tooltip: {
                 formatter: function() {
+                  if (this.point){
+                    return this.point.text;
+                  }
                     var s = ['<b>Distance</b>: '+ Highcharts.numberFormat(this.x, 2, ".", ",") + ' mi'];
+                    // console.log(this)
+                    s.push('<b>Time</b>: '+ moment.utc(Math.abs(activities[0].plot_time[this.points[0].point.index])*1000).format("H:mm:ss"))
 
                     $.each(this.points, function(i, point) {
                       if (point.series.name === 'Altitude'){
-                        text = '<b>'+ point.series.name +'</b>: '+
+                        text = '<b>'+ point.series.name +':</b> '+
                             Highcharts.numberFormat(point.y, 0, ".", ",") +' ft';
                       }
                       else {
-                        text = '<b>'+ point.series.name +'</b>: '+ moment.utc(this.y*1000).format("HH:mm:ss");
+                        if (typeof this.point.custom !== 'undefined'){
+                          text = point.series.name + ' finished at ' + moment.utc(Math.abs(this.point.custom)*1000).format("H:mm:ss");
+                        }
+                        else if (this.y < 0) {
+                          text = '<b>'+ point.series.name +':</b><p style="color:red"> -'+ moment.utc(Math.abs(this.y)*1000).format("H:mm:ss") + '</p>';
+                        }
+
+                        else {
+                          text = '<b>'+ point.series.name +':</b><p style="color:green"> +'+ moment.utc(this.y*1000).format("H:mm:ss") + '</p>';
+                        }
+                        
                       }
                         s.push(text);
                     });
@@ -262,7 +198,13 @@ function lineChart(a) {
                 },
                 labels: {
                   formatter: function(){
-                    return moment.utc(this.value*1000).format("HH:mm:ss")
+                    if (this.value < 0) {
+                      text = '-' + moment.utc(Math.abs(this.value)*1000).format("H:mm:ss");
+                    }
+                    else {
+                      text = moment.utc(this.value*1000).format("H:mm:ss");
+                    }
+                    return text;
                   }
                 },
                 opposite: true
@@ -270,73 +212,59 @@ function lineChart(a) {
             title: {
                 text: ''
             },
-            plotOptions: {
-                    series: {
-                        compare: 'percent'
-                    }
-                },
             series: series
         });
 };
 
-function simRide(a) {
-    
-    if (a.type != 'route') {
-      document.getElementById("gauges").style.width="auto";
-      document.getElementById("gauges").style.height="100px";
-      document.getElementById("gauges").style.textAlign="center";
-      document.getElementById("gauges").innerHTML = '<div id="gauge-bar" style="height: 70px;margin:0px auto;"></div>';
-      var xmin = Math.min.apply(null, a.distance_diff)
-      var xmax = Math.max.apply(null, a.distance_diff)
-      xmax = Math.max(Math.abs(xmin), Math.abs(xmax))
-      xmax = Math.round(xmax*2)/2;
-      barGauge(xmax)
-    }
-    
+simActive = false;
+function simRide(activities) {
+  if (simActive) {
+    return;
+  }
     var count = 0;
-    d = a['plot_distance'];
-    pd = a['plot_predicted_distance'];
-    var duration = moment.duration(0, 'seconds');
-    pidx = 0;
-    idx = 0;
-
     spacing = 20;
     timeStep = 100;
-
+    idx = 0;
+    var maxOffset = 0;
+    var maxIndex = 0;
     simInterval = window.setInterval(function() {
-      var isDone = false
+      simActive = true;
       var icons = line.get('icons');
+      var isDone = 0;
+      
+      for (var i = 0; i < activities.length; i++) {
+        var a = activities[i];
+        idx = Math.min(count, a.plot_distance.length - 1); 
+        offset = a.plot_distance[idx]*100.0/a.total_distance;
+        icons[i].offset = offset + '%';
 
-      if (a['type'] != 'route'){
+        // track who is in the lead
+        if (offset > maxOffset && isDone === 0) {
+          maxOffset = offset;
+          maxIndex = i;
+        }
+
         if (count != 0){
-          removeCrosshair(a.plot_distance[idx])
-          removeCrosshair(a.plot_predicted_distance[pidx])
+          if (idx % spacing != 0) {
+            removeCrosshair(a.plot_distance[idx - idx % spacing])
+          }
+          else {
+            removeCrosshair(a.plot_distance[idx - spacing])
+          }
         }
-        idx = Math.min(count, d.length -1)
-        pidx = Math.min(count, pd.length -1)
-        offset = d[idx]*100.0/a.total_distance
-        poffset = pd[pidx]*100.0/a.total_distance
 
-        icons[0].offset = offset + '%';
-        icons[1].offset = poffset + '%';
+        addCrosshair(a.plot_distance[idx], colors[i])
         
-        addCrosshair(a.plot_distance[idx], '#FF7519')
-        addCrosshair(a.plot_predicted_distance[pidx], '#5C005C')
-
-        var diff = a.distance_diff[Math.min(count, a.distance_diff.length - 1)];
-        if (diff >= 0) {
-          diff = '+' + diff.toFixed(2)
-          diff_color = 'green'
+        if (count > a.plot_distance.length - 1){
+          removeCrosshair(a.plot_distance[idx])
+          isDone++;
         }
-        else {
-          diff = diff.toFixed(2)
-          diff_color = 'red'
-        }
-        document.getElementById('distance-diff').innerHTML = diff;
-        document.getElementById('distance-diff').style.color = diff_color;
-
-        var stream_predict = a.streaming_predict[Math.min(count, a.distance_diff.length - 1)];
-        if (stream_predict < a.predicted_total_time) {
+      }
+      line.set('icons', icons);
+      if (activities.length === 2 && activities[0].type != 'route'){
+        // if only self and predicted are viewed, show their streaming prediction
+        var stream_predict = activities[0].streaming_predict[Math.min(count, activities[0].streaming_predict.length - 1)];
+        if (stream_predict < activities[1].moving_time) {
           stream_predict = moment.utc(stream_predict*1000).format("H:mm:ss")
           stream_color = 'green'
         }
@@ -346,78 +274,26 @@ function simRide(a) {
         }
         document.getElementById('stream-predict').innerHTML = stream_predict;
         document.getElementById('stream-predict').style.color = stream_color;
-        document.getElementById('timer').innerHTML = moment.utc(a.plot_time[Math.min(count, a.plot_time.length - 1)]*1000).format("H:mm:ss");
-        document.getElementById('timer').style.color = 'black';
-
-        gauge = $('#gauge-bar').highcharts();
-          if (gauge) {
-              var transition = false;
-              if (idx != 0){
-                var previousDiff = a.distance_diff[idx - spacing];
-              }
-              else {
-                var previousDiff = 0;
-              }
-              if (a.distance_diff[idx] >= -xmax*0.25 && previousDiff < -xmax*0.25) {
-                // red to yellow
-                gauge.series[0].options.color = '#FFFF00';
-                transition = true;
-              }
-              else if (a.distance_diff[idx] >= xmax*0.25 && previousDiff < xmax*0.25) {
-                // yellow to green
-                gauge.series[0].options.color = '#393';
-                transition = true;
-              }
-              else if (previousDiff >= xmax*0.25 && a.distance_diff[idx] < xmax*0.25) {
-                // green to yellow
-                gauge.series[0].options.color = '#FFFF00';
-                transition = true;
-              }
-              else if (previousDiff >= -xmax*0.25 && a.distance_diff[idx] < -xmax*0.25) {
-                //yellow to red
-                gauge.series[0].options.color = '#F00';
-                transition = true;
-              }
-              if (transition){
-                gauge.series[0].update(gauge.series[0].options);
-              }
-              point = gauge.series[0].points[0];
-              point.update(a.distance_diff[idx]);
-            }
-        
-
-        if ((count > d.length) & (count > pd.length)) {
-          removeCrosshair(a.plot_distance[idx])
-          removeCrosshair(a.plot_predicted_distance[pidx])
-          console.log('cleared')
-          clearInterval(simInterval)
-        }
       }
-      else {
-        if (count != 0){
-          removeCrosshair(a.plot_predicted_distance[pidx])
-        }
-
-        pidx = Math.min(count, pd.length - 1);
-        poffset = pd[pidx]*100.0/a.total_distance
-        icons[0].offset = poffset + '%';
-        addCrosshair(a.plot_predicted_distance[pidx], '#5C005C')
-        document.getElementById('stream-predict').innerHTML = 'NA';
-        document.getElementById('timer').innerHTML = moment.utc(a.plot_time[Math.min(count, a.plot_time.length - 1)]*1000).format("H:mm:ss");
-        document.getElementById('distance-diff').innerHTML = a.plot_predicted_distance[Math.min(count, a.plot_predicted_distance.length - 1)].toFixed(2);
-        document.getElementById('distance-diff').style.color = 'black'
-        
-
-        if (count > pd.length){
-          console.log('cleared')
-          removeCrosshair(a.plot_predicted_distance[pidx])
-          clearInterval(simInterval)
-        }
+      else if (isDone === 0) {
+        // do not update this after the first rider finishes
+        document.getElementById('stream-predict').innerHTML = activities[maxIndex].display_name;
+        document.getElementById('stream-predict').style.color = colors[maxIndex];
       }
-      line.set('icons', icons);
+
+      document.getElementById('timer').innerHTML = moment.utc(activities[0].plot_time[Math.min(count, activities[0].plot_time.length - 1)]*1000).format("H:mm:ss");
+      document.getElementById('timer').style.color = 'black';
+      document.getElementById('distance-diff').innerHTML = activities[0].plot_distance[Math.min(count, activities[0].plot_distance.length - 1)].toFixed(1);
+      document.getElementById('distance-diff').style.color = 'black';
+      
       count = count + spacing;
-  }, timeStep);
-}
+      if (isDone == activities.length){
+        clearInterval(simInterval);
+        simActive = false;
+      }
+    }, timeStep);
+  }
+
 
 function getActivity(aid, uid, activityElement) {
   $.post('/change', {
@@ -425,6 +301,84 @@ function getActivity(aid, uid, activityElement) {
         athlete_id: uid
     }).done(function(response){
       switchActivity(response)
+    }).fail(function() {
+        console.log('fail');
+    });
+}
+
+function deleteRider(athlete_id) {
+  // var row = document.getElementById('dashboard-' + athlete_id);
+  // row.parentNode.removeChild(row);
+  var idx = -1;
+  for (var i = 0; i < activities.length; i++) {
+    console.log('some', activities[i].athlete.id, athlete_id)
+    if (activities[i].athlete.id === athlete_id) {
+      console.log('something', activities[i].athlete.id, athlete_id)
+      idx = i;
+      break;
+    }
+  }
+  if (idx != -1) {
+    activities.splice(idx, 1);
+    updateRiders();
+    lineChart(activities);
+    setMap(activities);
+  }
+}
+
+function updateRiders() {
+  tbody = document.getElementById('current-riders').getElementsByTagName('tbody')[0]
+  tbody.innerHTML = ''
+  for (var i = 0; i < activities.length; i++) {
+    var displayName = activities[i].athlete.firstname
+    if ((i === 0) && (activities[i].type === 'activity')){displayName += ' (actual)'};
+    if ((i === 1) && (activities[i].type === 'activity')){displayName += ' (predicted)'};
+    activities[i].display_name = displayName;
+    var timeDiff = activities[i].moving_time - activities[0].moving_time;
+    var movingTimeString = moment.utc(Math.abs(activities[i].moving_time)*1000).format("H:mm:ss")
+    console.log(activities[i].moving_time, activities[0].moving_time)
+    if (i === 0){
+      timeDiffString = '<p>-</p>'
+    }
+    else if (timeDiff < 0){
+      timeDiffString = '<p style="color: green;">+' + moment.utc(Math.abs(timeDiff)*1000).format("H:mm:ss") + '</p>';
+    }
+    else {
+      timeDiffString = '<p style="color: red;">-' + moment.utc(Math.abs(timeDiff)*1000).format("H:mm:ss") + '</p>';
+    }
+    linkText = '';
+    if (i > 1) {
+      linkText = '<a onclick=deleteRider(' + activities[i].athlete.id + ') style="font-size:x-small;float:right">remove</a>';
+    }
+    tbody.innerHTML += '<tr id="dashboard-' + activities[i].athlete.id + '" height="8"><td style="vertical-align: middle;"><svg height="15" width="15" style="bottom: 0;"><circle cx="7" cy="7" r="7" fill="' + colors[i] + '" /></svg> <a href="' + activities[i].athlete.id + '">' + displayName + '</a></td><td style="vertical-align: middle;">' + movingTimeString + '</td><td style="vertical-align: middle;"><span style="display:inline-block;float:left;">' + timeDiffString + '</span><span>' + linkText + '</span></td></tr>';
+  }
+  if (activities.length > 2 || activities[0].type === 'route') {
+    var cell = document.getElementById('table-dashboard').rows[0].cells[2]
+    cell.innerHTML = '<td class="dashboard-cell">IN THE LEAD<br><span id="stream-predict" style="font-size:x-large"></span><br></td>'
+  }
+  else {
+    var cell = document.getElementById('table-dashboard').rows[0].cells[2]
+    cell.innerHTML = '<td class="dashboard-cell">DISTANCE<br><span id="stream-predict" style="font-size:x-large"></span><br>HOURS</td>'
+  }
+}
+
+function addRider(activity_id, athlete_id) {
+  console.log(activities[0])
+  $.post('/add_rider', {
+        activity_id: activity_id,
+        athlete_id: athlete_id,
+        time_spacing: activities[0].plot_time[1],
+        the_rider_distance: JSON.stringify(activities[0].plot_distance)
+    }).done(function(response){
+      if (response === ''){
+        alert('This user has not set up their profile.')
+      }
+      else {
+        activities.push(response)
+      }
+      updateRiders()
+      setMap(activities)
+      lineChart(activities)
     }).fail(function() {
         console.log('fail');
     });
@@ -442,24 +396,40 @@ function deleteRoute(rid, uid, routeElement) {
     });
 }
 
-function switchActivity(a) {
+function switchActivity(activity) {
   document.getElementById("gauges").innerHTML = '<div style="height: 0px"></div>'
-  activity = a
-  $(document.getElementById('activity_desc')).text(a['name']);
-  $(document.getElementById('activity_date')).text(' on ' + a['date']);
-  $(document.getElementById('activity_start')).text('At ' + a['start_time']);
-  $(document.getElementById('activity_rating')).text(a['ride_rating'][1]);
+  actual = activity.actual;
+  predicted = activity.predicted;
+  $(document.getElementById('activity_pred_time')).text(predicted['moving_time_string']);
+  if (predicted.type != 'route') {
+    $(document.getElementById('activity_rating')).text(actual['ride_rating'][1]);
+    $(document.getElementById('activity_desc')).text(actual['name']);
+    $(document.getElementById('activity_date')).text(' on ' + actual['date']);
+    $(document.getElementById('activity_start')).text('At ' + actual['start_time']);
+    document.getElementById('activity_summary').innerHTML = (actual['total_elevation_gain'] * 3.28084).toFixed(2) + ' ft, ' + actual['total_distance'].toFixed(2) + ' mi'
+    $(document.getElementById('activity_moving_time')).text(actual['moving_time_string']);
+    activities = [actual, predicted];
+    updateRiders();
+    lineChart(activities);
+    setMap(activities);
+  }
+  else {
+    $(document.getElementById('activity_rating')).text(predicted['ride_rating'][1]);
+    $(document.getElementById('activity_desc')).text(predicted['name']);
+    $(document.getElementById('activity_date')).text(' on ' + predicted['date']);
+    $(document.getElementById('activity_start')).text('At ' + predicted['start_time']);
+    $(document.getElementById('activity_moving_time')).text(actual['moving_time_string']);
+    document.getElementById('activity_summary').innerHTML = (predicted['total_elevation_gain'] * 3.28084).toFixed(2) + ' ft, ' + predicted['total_distance'].toFixed(2) + ' mi'
+    activities = [predicted];
+    updateRiders()
+    lineChart(activities)
+    setMap(activities);
+  }
   
-  $(document.getElementById('activity_moving_time')).text(a['moving_time_string']);
-  $(document.getElementById('activity_pred_time')).text(a['predicted_total_time_string']);
   if (typeof simInterval !== 'undefined') {
     clearInterval(simInterval)
+    simActive = false;
   }
-  if (typeof chartInterval !== 'undefined') {
-    clearInterval(chartInterval)
-  }
-  setMap(a)
-  lineChart(a)
 }
 
 function uploadRoute(){
@@ -474,59 +444,46 @@ function uploadRoute(){
   document.getElementById("route-upload").style.visibility = "visible";
 }
 
+
+
+
       google.maps.event.addDomListener(window, 'load', initialize);
 
     </script>
-    <style type="text/css">
-      .map { margin: 0 auto 0 auto; }
-      .wrapper {text-align: center;
-                padding: 5px 5px 5px 5px;
-               }
-      #dashboard {background-color: #F4F4F4;
-                  position: relative;
-                  padding: 0;
-                  border: 1px solid #A8A8A8;
-                  }
-      #dashboard p {margin-left: 5px;}
-      #table-dashboard {position: absolute;
-                        bottom: 0;
-                      width: 100%;
-                    color:#888896;}
-      #table-dashboard td {width: 33%;
-                        text-align: center;
-                        border: 1px solid #A8A8A8;
-                        font-size: small;
-                      background-color: #F4F4F4;}
-      #dashboard-header {background-color:#CACACD;
-                         display:block;
-                         padding: 5px;
-                         font-size: large;
-                         font-weight: bold;
-                         border: 1px solid #A8A8A8;}
-      #dashboard-prediction {font-size: medium;}
-
-    </style>
     <div class="row">
     <div class='span8 main' style="margin-left: 52px;">
 
-      <table class="table table-bordered">
+      <table id="table-athletes" class="table table-bordered table-striped">
         <tr>
-          <td style="padding:0px;" width="50%" height="300px">
+          <td style="padding:0px;" width="45%" height="400px">
             <div class="map" id="map-canvas" style="width:100%; height:100%"></div>
           </td>
-          <td id="dashboard" width="50%">
-              <span id="dashboard-header"><img src="/static/img/logo_small.png" style="padding:5px; width:auto; height:20px;">{{athlete.name}}
-                <br><span id="activity_desc" style="font-size: small">{{activity.name}}</span>
-              <br><span id="activity_start" style="font-size: small">At {{activity.dt.strftime("%H:%M:%S %p")}}</span><span id="activity_date" style="font-size: small"> on {{activity.dt.strftime("%A %B %d, %Y")}}</span>
+          <td id="dashboard" width="55%">
+            <div id="dashboard-header" style="background-color:#CACACD">
+              <div>
+              <span id="name"><img src="/static/img/logo_small.png" style="padding:5px; width:auto; height:20px;">{{athlete.name}}
+                <select id="myList" style="float: right; width: 33%">
+                  <option value="default" disabled="disabled" selected="selected">Add an athlete</option>
+                  {% for athlete in athletes %}
+                  <option value="{{athlete[0]}}">{{athlete[1] + ' ' + athlete[2]}}</option>
+                  {% endfor %}
+                </select></div>
+                <div style="background-color:#CACACD; display:inline; overflow:hidden;">
+                <div style="margin-left:5px;float:left;background-color:#CACACD;width:300px;"><strong id="activity_desc" style="font-size: small">{{activity.name}}</strong>
+              <br><strong id="activity_start" style="font-size: small;background-color:#CACACD">At {{activity.dt.strftime("%I:%M:%S %p")}}</strong><strong id="activity_date" style="font-size: small"> on {{activity.dt.strftime("%A %B %d, %Y")}}</strong><br><strong id="activity_summary" style="font-size: small;">{{ '{0:,}'.format((activity.total_climb * 3.28084) | int) }} ft, {{activity.total_distance}} mi</strong></div><div style="margin-left:300px;background-color:#CACACD;">
+          <button id="play-ride" onclick="simRide(activities)">Play Ride</button></div><div style="clear:both;"></div></div></div>
               </span>
-              <p>
-                <div class="wrapper">
-                    <button id="play" onclick="simRide(activity)">Play Ride</button>
-                </div>
-              <br>
-              <p id="dashboard-prediction">Predicted Time: <span id="activity_pred_time">{{activity.predicted_moving_time}}</span>
-              <br>Total Time: <span id="activity_moving_time">{{activity.moving_time_string}}</span> 
-              <br>Ride Rating: <span id="activity_rating"></span></p></p>
+              <table id="current-riders" style="width: 100%">
+                <thead>
+                <tr style="background-color: #A8A8A8">
+                  <th style="width: 40%" colspan="1">Athletes</th>
+                  <th>Time</th>
+                  <th>Diff</th>
+                </tr>
+              </thead>
+              <tbody>
+              </tbody>
+              </table>
 
                 <table id="table-dashboard" cellpadding="0" cellspacing="0" style=>
                   <tr>
@@ -552,50 +509,149 @@ function uploadRoute(){
       
     </div>
       <div class='span7 main'>
+        <div id="dialog-form" title="Upload new route">
+          <p class="validateTips">All form fields are required.</p>
+         
+          <form enctype="multipart/form-data" action="/upload" method="POST" id="upload-form">
+            <fieldset>
+              <label for="description">Ride description</label>
+              <input type="hidden" value="{{athlete.userid}}" name="athlete_id" id="upload-athlete">
+              <input type="text" name="ride_title" id="route-description" value="New Route" class="text ui-widget-content ui-corner-all">
+              <input name="file" id="gpx-file" type="file" accept=".gpx"/>
+         
+              <!-- Allow form submission with keyboard without duplicating the dialog button -->
+              <input type="submit" tabindex="-1" style="position:absolute; top:-1000px">
+              <div id="upload-status"></div>
+            </fieldset>
+          </form>
+        </div>
 
       <div><h4 style="float: left;">Your routes</h4>
-      <div style="float: right;" id="route-upload"><p><a class='button' onclick="uploadRoute()">Upload a Route</a></p></div></div>
+      <div style="float: right;" id="route-upload"><p><a onclick="formShow()" class='button'>Upload a Route</a></p></div></div>
       <table align="right" id="routes">
         <thead>
           <th>Ride Name</th>
           <th>Date</th>
-          <th colspan="2">Distance</th>
-          <th></th>
+          <th>Distance</th>
+          <th>Climb</th>
         </thead>
       {% if routes|length == 0 %}
         <tr><td colspan="5">No routes to display</td></tr>
       {% else %}
         {% for r in routes %}
         <tr id="route{{r.id}}">
-          <td><a href="javascript:getActivity({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">{{r.name}}</a></td>
+          <td><a href="javascript:getActivity({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">{{r.name}}</a> <a href="javascript:deleteRoute({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">(delete)</a></td>
           <td>{{r.dt.strftime("%B %d, %Y")}}</td>
-          <td>{{(r.total_distance / 1609.34)|round(0, 'floor')}}</td>
-          <td><a href="javascript:deleteRoute({{r.id}}, {{athlete.userid}}, '#activity{{ r.id }}');">delete</a></td>
+          <td>{{'{0:,}'.format((r.total_distance / 1609.34))| int}} mi</td>
+          <td>{{'{0:,}'.format((r.total_climb * 3.28084) | int)}} ft</td>
         </tr>
         {% endfor %}
       {% endif %}
       </table>
       <hr width="100%">
+
       <h4>Your completed activities</h4>
+      
+      <div>
       <table align="right" id="activities">
         <thead>
           <th>Ride Name</th>
           <th>Date</th>
           <th>Distance</th>
+          <th>Climb</th>
         </thead>
       {% for a in activities %}
       <tr>
         <td><a href="javascript:getActivity({{a.id}}, {{athlete.userid}}, '#activity{{ a.id }}');">{{a.name}}</a></td>
         <td>{{a.dt.strftime("%B %d, %Y")}}</td>
-        <td>{{(a.total_distance / 1609.34)|round(0, 'floor')}}</td>
+        <td>{{'{0:,}'.format((a.total_distance / 1609.34))| int}} mi</td>
+        <td>{{'{0:,}'.format((a.total_climb * 3.28084) | int)}} ft</td>
       </tr>
       {% endfor %}
     </table>
+    <div id="pager" class="pager">
+        <form>
+          <img src="/static/img/first.png" class="first"/>
+          <img src="/static/img/prev.png" class="prev"/>
+          <input type="text" class="pagedisplay"/>
+          <img src="/static/img/next.png" class="next"/>
+          <img src="/static/img/last.png" class="last"/>
+          <select class="pagesize">
+            <option value="10"  selected="selected">10 per page</option>
+            <option value="20">20 per page</option>
+            <option value="40">40 per page</option>
+          </select>
+        </form>
+      </div>
+  </div>
+    
   </div>
 </div>
 <script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
 
     <script type="text/javascript" charset="utf-8">
+    document.getElementById("myList").onchange = function() {
+      
+      if (activities.length >= 5){
+        alert("Maximum athletes allowed is 5")
+        document.getElementById("myList").selectedIndex = 0;
+        return;
+      }
+      isDuplicate = false;
+      for (var i = 0; i < activities.length; i++) {
+        if (this.value === activities[i].athlete.id.toFixed(0)) {
+          isDuplicate = true;
+          break;
+        }
+      }
+      if (!isDuplicate) {
+        addRider(activities[0].id, this.value);
+      }
+      else {alert("This rider is already added.")}
+      document.getElementById("myList").selectedIndex = 0;
+
+    };
+
+    function formShow() {
+      console.log('formshow')
+      document.getElementById('dialog-form').style.display = 'block'
+    }
+
+    $(function() {
+      var dialog, form;
+      // var f = $('#gpx-file');
+      // var description = $("#route-description");
+      // var aid = $('#upload-athlete')
+      // var form_data = new FormData($('#upload-form'))
+      function addRoute() {
+        document.getElementById('upload-status').innerHTML = 'Upload in progress....'
+        document.getElementById('upload-form').submit();
+      }
+      dialog = $("#dialog-form").dialog({
+        autoOpen: false,
+        height: 300,
+        width: 350,
+        modal: true,
+        buttons: {
+          "Create Route": addRoute,
+          Cancel: function() {
+            dialog.dialog("close");
+          }
+        },
+        close: function() {
+          form[0].reset();
+        }
+      });
+      form = dialog.find( "form" ).on( "submit", function( event ) {
+        event.preventDefault();
+        // addUser();
+      });
+
+      $( "#route-upload" ).button().on( "click", function() {
+        dialog.dialog( "open" );
+      });
+    });
+
       $(document).ready(function() {
         $("#routes").tablecloth({
           theme: "stats",
@@ -603,6 +659,16 @@ function uploadRoute(){
           condensed: true,
           striped: true,
           sortable: true,
+          clean: true,
+          cleanElements: "th td",
+          customClass: "my-table"
+        });
+        $("#current-riders").tablecloth({
+          theme: "stats",
+          bordered: true,
+          condensed: true,
+          striped: true,
+          sortable: false,
           clean: true,
           cleanElements: "th td",
           customClass: "my-table"
@@ -620,7 +686,25 @@ function uploadRoute(){
         $("#activities")
         .tablesorter({
           widthFixed: true})
-        .tablesorterPager({container: $("#pager")});
+        .tablesorterPager({container: $("#pager")}); 
+      //   $("table").tablecloth({
+      //     theme: "stats",
+      //     striped: true,
+      //     sortable: true,
+      //     condensed: true,
+      //     clean: true
+      //   });
+      // });
+      // $(document).ready(function() {
+      //     $('#routes').DataTable( {
+      //         bFilter: false,
+      //         bLengthChange: false,
+
+      //     } );
+      //     $('#activities').DataTable( {
+      //         bFilter: false,
+      //         bLengthChange: false
+      //     } );
       });
     </script>
   <!-- </body> -->

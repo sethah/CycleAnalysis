@@ -38,7 +38,7 @@ function trainModel(uid){
     userid: uid
   }).done(function(response){
     document.getElementById("new-user-status").innerHTML = "Model complete!"
-    window.location.href = "/rides2/" + uid
+    window.location.href = "/rides/" + uid
   }).fail(function(){
       document.getElementById('new-user-status').innerHTML = 'Something went wrong! Ugh.';
       console.log('fail')
@@ -63,7 +63,7 @@ function checkUser(uid) {
           trainModel(uid);
         }
         else {
-          window.location.href = "/rides2/" + uid
+          window.location.href = "/rides/" + uid
         }
     }).fail(function() {
       document.getElementById('new-user').innerHTML = 'Something went wrong! Ugh.';

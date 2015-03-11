@@ -211,36 +211,6 @@ def rides(userid):
             activities.append(a)
 
     # pass a single activity with all the streams
-    activity = u.activities[-1]
-    activity.init_streams()
-    d = pickle.load(open('model_%s.pkl' % u.userid, 'rb'))
-    activity.predict(d[u.userid]['model'])
-
-    return render_template(
-        'rides.html',
-        athlete = u,
-        activities=activities,
-        routes=routes,
-        activity = activity)
-
-@app.route('/rides2/<userid>', methods=['GET', 'POST'])
-def rides_two(userid):
-    """
-    Rides page shows a user's rides and displays predictions and a map
-    for one of their rides.
-    """
-
-    print 'creating user'
-    u = StravaUser(int(userid))
-    activities = []
-    routes = []
-    for a in u.activities:
-        if a.is_route:
-            routes.append(a)
-        else:
-            activities.append(a)
-
-    # pass a single activity with all the streams
     activity = u.activities[0]
     activity.init_streams()
     d = pickle.load(open('model_%s.pkl' % u.userid, 'rb'))
@@ -255,111 +225,15 @@ def rides_two(userid):
     athletes = DB.execute(q)
 
     return render_template(
-        'rides2.html',
+        'rides.html',
         athlete = u,
         activities=activities,
         routes=routes,
         activity = activity,
         athletes=athletes)
 
-@app.route('/compare/<activity_id>/<userid>', methods=['GET', 'POST'])
-def compare_home(activity_id, userid):
-    """Select which user to compare to for the given activity and userid"""
-
-    DB = StravaDB()
-    # get all users
-    q = """ SELECT
-                id, firstname, lastname, city, state
-            FROM athletes;
-        """
-    athletes = DB.execute(q)
-
-    return render_template('compare_home.html', activity_id=activity_id, this_athlete=userid, athletes=athletes)
-
-@app.route('/compare/<activity_id>/<userid>/<otherid>', methods=['GET', 'POST'])
-def compare(activity_id, userid, otherid):
-    """
-    This page compares an existing activity or route for one user to 
-    the predictions for another user.
-    """
-
-    print 'creating user'
-    the_user = StravaUser(int(userid))
-    other_user = StravaUser(int(otherid))
-
-    if int(activity_id) < 10000:
-        the_ride = StravaActivity(activity_id, the_user.userid, get_streams=True, is_route=True)
-        print the_ride, 'asdf'
-        the_other_ride = StravaActivity(activity_id, other_user.userid, belongs_to='other', is_route=True, get_streams=True)
-    else:
-        the_ride = StravaActivity(activity_id, the_user.userid, get_streams=True)
-        the_other_ride = StravaActivity(activity_id, other_user.userid, belongs_to='other', get_streams=True)
-
-    the_dict = pickle.load(open('model_%s.pkl' % the_user.userid, 'rb'))
-    other_dict = pickle.load(open('model_%s.pkl' % other_user.userid, 'rb'))
-    
-    the_ride.predict(the_dict[the_user.userid]['model'])
-    the_other_ride.predict(other_dict[other_user.userid]['model'])
-    if the_ride.moving_time > the_other_ride.predicted_moving_time:
-        ride_js = the_ride.to_dict()
-        other_ride_js = the_other_ride.to_dict(ride_js['plot_time'][1] - ride_js['plot_time'][0])
-    else:
-        other_ride_js = the_other_ride.to_dict()
-        ride_js = the_ride.to_dict(other_ride_js['plot_time'][1] - other_ride_js['plot_time'][0])
-
-    # ride_js = the_ride.to_dict()
-    # other_ride_js = the_other_ride.to_dict()
-
-    if not the_ride.is_route:
-        d, pd = truncate(ride_js['plot_distance'], other_ride_js['plot_predicted_distance'])
-    else:
-        d, pd = truncate(ride_js['plot_predicted_distance'], other_ride_js['plot_predicted_distance'])
-    print len(d), len(pd), 'asdfas'
-    other_ride_js['distance_diff'] = (np.array(d) - np.array(pd)).tolist()
-
-    # min_dim = min(len(other_ride_js['plot_predicted_distance']), len(ride_js['plot_distance']))
-    # other_ride_js['distance_diff'] = (np.array(other_ride_js['plot_predicted_distance'][:min_dim]) - np.array(ride_js['plot_distance'][:min_dim])).tolist()
-        
-    return render_template(
-        'compare.html',
-        the_athlete = the_user,
-        the_other_athlete=other_user,
-        ride=the_ride,
-        other_ride=the_other_ride,
-        ride_js=json.dumps(ride_js),
-        other_ride_js=json.dumps(other_ride_js))
-
 @app.route('/change', methods=['POST'])
 def change():
-    """
-    Get an activity or route from the database and return a 
-    json object containing the necessary vectors.
-    """
-
-    aid = int(request.form.get('activity_id', 0))
-    uid = int(request.form.get('athlete_id', 0))
-    print 'Initializing activity'
-    # TODO: FIX THIS AWFUL HACKY SHIT
-    if aid < 10000:
-        a = StravaActivity(aid, uid, get_streams=True, is_route=True)
-    else:
-        a = StravaActivity(aid, uid, get_streams=True)
-    
-    print 'Loading model'
-    d = pickle.load(open('model_%s.pkl' % uid, 'rb'))
-
-    print 'Predicting'
-    a.predict(d[uid]['model'])
-    print 'Predicted'
-
-    js = a.to_dict()
-    if not a.is_route:
-        d, pd = truncate(js['plot_distance'], js['plot_predicted_distance'])
-        js['distance_diff'] = (np.array(d) - np.array(pd)).tolist()
-    return jsonify(js)
-
-@app.route('/change2', methods=['POST'])
-def change2():
     """
     Get an activity or route from the database and return a 
     json object containing the necessary vectors.
@@ -439,10 +313,6 @@ def truncate(a, b, keep_dim=0):
 def chart():
     return render_template('dialog.html')
 
-@app.route("/train/<userid>")
-def train(userid):
-    return render_template('train.html', userid=userid)
-
 def load_model(athlete_id):
     fname = 'model_%s.pkl' % athlete_id
     print fname
@@ -451,6 +321,14 @@ def load_model(athlete_id):
     else:
         print 'file does not exist'
         return None
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return render_template('500.html'), 500
 
 if __name__ == '__main__':
     pass

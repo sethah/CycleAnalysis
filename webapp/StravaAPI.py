@@ -98,13 +98,18 @@ class StravaAPI(object):
         table = self.db.activities
         activities = self.list_activities(start_dt=start_dt)
         activities = self.fitness_score(activities)
+        cnt = 0;
         for i, a in enumerate(activities):
-            if i >= max_activities:
+            # for now, only look at distances > 15 miles
+            if a['distance'] < 24000:
+                continue
+            if cnt >= max_activities:
                 break
             if a['type'] != 'Ride':
                 continue
             try:
                 self.store_activity(a, store_streams=store_streams)
+                cnt += 1
             except:
                 print 'failed storing activity %s' % a['start_date_local']
                 continue
