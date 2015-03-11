@@ -79,7 +79,8 @@ class StravaAPI(object):
         before = calendar.timegm(time.gmtime())
         payload = {'before': before, 'after': after, 'per_page': 100}
         response = self.execute(url, payload)
-
+        print response
+        print payload
         return response.json()
 
     def store_activities(self, start_dt=None, store_streams=True, max_activities=50):
@@ -139,6 +140,7 @@ class StravaAPI(object):
              'max_speed': a['max_speed'],
              'name': a['name'],
              'total_elevation_gain': a['total_elevation_gain'],
+             'athlete_count': a['athlete_count'],
              'athlete_id': a['athlete']['id']
         }
         if store_streams:

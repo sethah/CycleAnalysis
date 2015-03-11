@@ -59,6 +59,7 @@ class StravaActivity(object):
             self.city = d['city']
             self.total_distance = d['distance']
             self.total_climb = d['total_elevation_gain']
+            self.athlete_count = d['athlete_count']
 
             self.get_my_fitness()
 
@@ -100,12 +101,12 @@ class StravaActivity(object):
             table = 'routes'
             cols = ['id', 'athlete_id', 'start_dt', 'name',
                 'city', 'fitness10', 'fitness30', 'frequency10', 'frequency30',
-                'total_elevation_gain', 'distance']
+                'total_elevation_gain', 'distance', 'athlete_count']
         else:
             table = 'activities'
             cols = ['id', 'athlete_id', 'start_dt', 'name', 'moving_time',
                 'city', 'fitness10', 'fitness30', 'frequency10', 'frequency30',
-                'total_elevation_gain', 'distance']
+                'total_elevation_gain', 'distance', 'athlete_count']
 
         if self.belongs_to == 'other':
             q = """ SELECT %s FROM %s WHERE id = %s
@@ -132,7 +133,10 @@ class StravaActivity(object):
                 'velocity', 'grade', 'altitude', 'latitude', 'longitude']
         q = """SELECT %s FROM streams WHERE activity_id = %s""" % (', '.join(cols), self.id)
         self.df = pd.read_sql(q, DB.conn)
-        self.moving_time = self.df.time.iloc[-1] - self.df.time.iloc[0]
+        try:
+            self.moving_time = self.df.time.iloc[-1] - self.df.time.iloc[0]
+        except:
+            raise
         if self.is_route:
             self.df = self.df.sort('distance')
 
@@ -149,13 +153,14 @@ class StravaActivity(object):
         """
         d = self.fetch_activity()
         self.name = d['name']
-        self.dt = d['start_dt']
+        self.dt = datetime.now()
         self.total_distance = d['distance']
         self.moving_time = 0
         self.moving_time_string = time.strftime('%H:%M:%S', time.gmtime(self.moving_time))
         self.city = d['city']
         self.total_distance = d['distance']
         self.total_climb = d['total_elevation_gain']
+        self.athlete_count = 1
 
         self.get_my_fitness()
 
@@ -351,6 +356,8 @@ class StravaActivity(object):
             predicted['moving_time_string'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
             predicted['start_time'] = 'NA'
             predicted['total_distance'] = self.total_distance / meters_per_mile
+            predicted['total_elevation_gain'] = self.total_climb
+            # predicted['athlete_count'] = self.athlete_count
         else:
             
             actual['name'] = self.name
@@ -386,7 +393,10 @@ class StravaActivity(object):
             predicted['moving_time_string'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
             predicted['total_distance'] = self.total_distance / meters_per_mile
             predicted['plot_time'] = new_time_predicted.tolist()
+            # predicted['athlete_count'] = self.athlete_count
             actual['streaming_predict'] = smooth(np.interp(new_time, t, stream_predict), 'scipy', window_len=200).tolist()
+            actual['total_elevation_gain'] = self.total_climb
+            # actual['athlete_count'] = self.athlete_count
 
             actual['type'] = 'activity'
             actual['ride_rating'] = self.ride_score()
@@ -527,6 +537,7 @@ class StravaActivity(object):
         df['time'] = df['time'] - df['time'].iloc[0]
         df['distance'] = df['distance'] - df['distance'].iloc[0]
         df['ride_difficulty'] = [df['distance'].iloc[-1]*climb[-1]]*n
+        # df['athlete_count'] = [self.athlete_count]*n
         df['fitness10'] = [self.fitness10]*n
         df['fitness30'] = [self.fitness30]*n
         df['frequency10'] = [self.frequency10]*n

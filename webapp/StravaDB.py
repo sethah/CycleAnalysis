@@ -314,6 +314,7 @@ class StravaDB(object):
              'frequency10': frequencies30,
              'name': name,
              'total_elevation_gain': route.get_uphill_downhill().uphill,
+             'athlete_count': 1,
              'athlete_id': athlete_id
             }
 

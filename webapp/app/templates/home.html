@@ -38,7 +38,7 @@ function trainModel(uid){
     userid: uid
   }).done(function(response){
     document.getElementById("new-user-status").innerHTML = "Model complete!"
-    window.location.href = "/rides/" + uid
+    window.location.href = "/rides2/" + uid
   }).fail(function(){
       document.getElementById('new-user-status').innerHTML = 'Something went wrong! Ugh.';
       console.log('fail')
@@ -76,7 +76,7 @@ function checkUser(uid) {
 <div class='span2 main'></div>
 <div class='span9 main'>
 <div style="color: white; text-align: center" class="row">
-  <h1>Ghost Rider</h1>
+  <h1>Cyclitics</h1>
   <strong id="text-rotating">Find out where you stand. Any course. Any time.</strong>
 </div>
 <h3 style="color: white;">Current Athletes</h3>

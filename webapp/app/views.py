@@ -91,7 +91,7 @@ def fit():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.3)
 
     # model = GradientBoostingRegressor(max_depth=3, min_samples_leaf=1000)
-    model = RandomForestRegressor(max_depth=8)
+    model = RandomForestRegressor(max_depth=20, min_samples_split=50)
     print 'Fitting model.......'
     model.fit(X_train, y_train)
     print 'Model fit!'
@@ -163,7 +163,7 @@ def get_data():
     """Retrieve a user's data from the Strava API"""
 
     uid = request.form.get('userid', None)
-    u = StravaUser(int(uid))
+    u = StravaUser(int(uid), get_routes=False)
     u.get_activities()
 
     return str(len(u.activities))
