@@ -132,7 +132,7 @@ def upload_gpx():
         f.save(os.path.abspath(fpath))
         DB = StravaDB()
         DB.create_route(fpath, uid, ride_name)
-    return redirect(url_for('rides_two', userid=uid))
+    return redirect(url_for('rides', userid=uid))
 
 @app.route('/delete/route', methods=['POST'])
 def delete_route():

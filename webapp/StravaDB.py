@@ -300,6 +300,11 @@ class StravaDB(object):
         frequencies10 = len(difficulties10)
         frequencies30 = len(difficulties30)
 
+        elevations = [point.elevation for point in route.points]
+        ediff = np.diff(elevations)
+        ediff = np.where(ediff > 1000, 0, ediff)
+        climb = np.sum(ediff[np.where(ediff > 0)])
+
 
         d = {'start_dt': dt,
              'timezone': None,
@@ -313,7 +318,7 @@ class StravaDB(object):
              'frequency10': frequencies10,
              'frequency10': frequencies30,
              'name': name,
-             'total_elevation_gain': route.get_uphill_downhill().uphill,
+             'total_elevation_gain': climb,
              'athlete_count': 1,
              'athlete_id': athlete_id
             }

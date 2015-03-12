@@ -358,7 +358,7 @@ function updateRiders() {
   }
   else {
     var cell = document.getElementById('table-dashboard').rows[0].cells[2]
-    cell.innerHTML = '<td class="dashboard-cell">DISTANCE<br><span id="stream-predict" style="font-size:x-large"></span><br>HOURS</td>'
+    cell.innerHTML = '<td class="dashboard-cell">PREDICTION<br><span id="stream-predict" style="font-size:x-large"></span><br>HOURS</td>'
   }
 }
 
@@ -397,7 +397,6 @@ function deleteRoute(rid, uid, routeElement) {
 }
 
 function switchActivity(activity) {
-  document.getElementById("gauges").innerHTML = '<div style="height: 0px"></div>'
   actual = activity.actual;
   predicted = activity.predicted;
   $(document.getElementById('activity_pred_time')).text(predicted['moving_time_string']);
