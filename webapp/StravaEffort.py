@@ -4,7 +4,6 @@ from SignalProc import weighted_average, smooth, diff, vel_to_time
 from datetime import datetime
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 import matplotlib.pyplot as plt
-from PlotTools import PlotTool
 from StravaDB import StravaDB
 from datetime import datetime, timedelta, date
 import pymongo
@@ -516,6 +515,7 @@ class StravaActivity(object):
             df.pop('predicted_velocity')
         df.pop('latitude')
         df.pop('longitude')
+
         # df.pop('velocity')
         df.pop('activity_id')
         df.pop('athlete_id')
@@ -529,20 +529,22 @@ class StravaActivity(object):
         alt_diff = np.diff(df['altitude'])
         climb = np.cumsum(np.where(alt_diff < 0, 0, alt_diff))
         climb = np.append([0], climb)
-        grade_smooth = smooth(self.df.grade, 'scipy', window_len=np.min([300, self.df.shape[0]]))
+        grade_smooth = smooth(self.df.grade, 'scipy', window_len=np.min([20, self.df.shape[0]]))
         df['grade_smooth'] = grade_smooth
-        grade_very_smooth = smooth(self.df.grade, 'scipy', window_len=np.min([500, self.df.shape[0]]))
+        grade_very_smooth = smooth(self.df.grade, 'scipy', window_len=np.min([50, self.df.shape[0]]))
         df['grade_very_smooth'] = grade_very_smooth
         df['climb'] = climb
         df['time'] = df['time'] - df['time'].iloc[0]
         df['distance'] = df['distance'] - df['distance'].iloc[0]
         df['ride_difficulty'] = [df['distance'].iloc[-1]*climb[-1]]*n
+        df['variability'] = [df['grade'].std()]*n
         # df['athlete_count'] = [self.athlete_count]*n
         df['fitness10'] = [self.fitness10]*n
         df['fitness30'] = [self.fitness30]*n
         df['frequency10'] = [self.frequency10]*n
         df['frequency30'] = [self.frequency30]*n
         df['one_mile'] = self.distance_rolling_mean('grade')
+        df['recent'] = self.distance_rolling_mean('grade', 0.1)
         # df['two_mile'] = self.distance_rolling_mean('grade', length=2)
         # df['four_mile'] = self.distance_rolling_mean('grade', length=4)
 
@@ -554,6 +556,7 @@ class StravaActivity(object):
 
         #     df.rename(columns={'grade': 'grade_0'}, inplace=True)
         df.pop('time')
+        # df.pop('grade')
         # df.pop('ride_difficulty')
         # df.pop('distance')
         df.pop('altitude')

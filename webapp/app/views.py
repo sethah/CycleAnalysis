@@ -117,8 +117,7 @@ def upload_gpx():
     """
     uid = int(request.form.get('athlete_id', 0))
     ride_name = request.form.get('ride_title', 'New Route')
-    print request.form
-    print 'HEY!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+
     if ride_name.strip() == '':
         ride_name = 'New Route'
 

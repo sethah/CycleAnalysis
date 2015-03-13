@@ -9,7 +9,6 @@ from StravaEffort import StravaActivity
 from StravaDB import StravaDB
 from StravaAPI import StravaAPI
 import matplotlib.pyplot as plt
-from PlotTools import PlotTool
 import seaborn as sns
 import pickle
 from itertools import izip
