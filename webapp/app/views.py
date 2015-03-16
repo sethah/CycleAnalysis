@@ -22,7 +22,9 @@ import os.path
 from werkzeug import secure_filename
 
 
-# CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
+# CLIENT = pymongo.MongoClient(
+#     """mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava"""
+#     )
 # MONGODB = CLIENT.strava
 DB = StravaDB()
 
@@ -83,21 +85,23 @@ def fit():
     user = StravaUser(uid, get_streams=True, get_routes=False)
 
     indices = np.arange(len(user.activities))
-    train_indices = np.random.choice(indices, size=int(len(user.activities)*0.75), replace=False)
+    train_indices = np.random.choice(indices,
+                                     size=int(len(user.activities)*0.75),
+                                     replace=False)
     test_indices = np.setdiff1d(indices, train_indices)
-    
+
     df = user.make_df(train_indices)
     y = df['velocity'].values
     cols = df.columns
-    X = df[cols[np.where(cols!='velocity')]].values
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.3)
+    X = df[cols[np.where(cols != 'velocity')]].values
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
 
     model = GradientBoostingRegressor(n_estimators=100, max_depth=3)
     # model = RandomForestRegressor(max_depth=20, min_samples_split=50)
     print 'Fitting model.......'
     model.fit(X_train, y_train)
     print 'Model fit!'
-    
+
     print 'Loading pickle'
     if os.path.isfile('model_%s.pkl' % user.userid):
         d = pickle.load(open('model_%s.pkl' % user.userid, 'rb'))
@@ -232,17 +236,17 @@ def rides(userid):
 
     return render_template(
         'rides.html',
-        athlete = u,
+        athlete=u,
         activities=activities,
         routes=routes,
-        activity = activity,
+        activity=activity,
         athletes=athletes)
 
 
 @app.route('/change', methods=['POST'])
 def change():
     """
-    Get an activity or route from the database and return a 
+    Get an activity or route from the database and return a
     json object containing the necessary vectors.
     """
 
@@ -254,7 +258,7 @@ def change():
         a = StravaActivity(aid, uid, get_streams=True, is_route=True)
     else:
         a = StravaActivity(aid, uid, get_streams=True)
-    
+
     print 'Loading model'
     d = pickle.load(open('model_%s.pkl' % uid, 'rb'))
 
@@ -268,8 +272,10 @@ def change():
         t, pt = truncate(actual['plot_time'], predicted['plot_time'])
         print t[-10:], pt[-10:]
         predicted['distance_diff'] = (np.array(d) - np.array(pd)).tolist()
-        predicted['time_diff'] = (np.array(pt) - np.interp(np.array(d), np.array(pd), np.array(pt))).tolist()
-    
+        predicted['time_diff'] = (np.array(pt) -
+                                  np.interp(np.array(d),
+                                  np.array(pd), np.array(pt))).tolist()
+
     return jsonify({'actual': actual, 'predicted': predicted})
 
 
@@ -283,24 +289,24 @@ def add_rider():
 
     time_spacing = float(request.form.get('time_spacing'))
     the_rider_distance = json.loads(request.form.get('the_rider_distance'))
-    
+
     new_user = StravaUser(athlete_id)
     if int(activity_id) < 10000:
         ride = StravaActivity(activity_id, new_user.userid, belongs_to='other', is_route=True, get_streams=True)
     else:
         ride = StravaActivity(activity_id, new_user.userid, belongs_to='other', get_streams=True)
-    
+
     ride.predict(the_dict[new_user.userid]['model'])
     actual, predicted = ride.to_dict2(time_spacing)
     d, pd = truncate(the_rider_distance, predicted['plot_distance'])
     t, pt = truncate(the_rider_distance, predicted['plot_time'])
 
     predicted['distance_diff'] = (np.array(d) - np.array(pd)).tolist()
-    predicted['time_diff'] = (np.array(pt) - np.interp(np.array(d), np.array(pd), np.array(pt))).tolist()
+    predicted['time_diff'] = (np.array(pt) -
+                              np.interp(np.array(d),
+                                        np.array(pd),
+                                        np.array(pt))).tolist()
 
-    # min_dim = min(len(other_ride_js['plot_predicted_distance']), len(ride_js['plot_distance']))
-    # other_ride_js['distance_diff'] = (np.array(other_ride_js['plot_predicted_distance'][:min_dim]) - np.array(ride_js['plot_distance'][:min_dim])).tolist()
-        
     return jsonify(predicted)
 
 

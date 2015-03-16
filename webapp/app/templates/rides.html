@@ -401,11 +401,24 @@ function switchActivity(activity) {
   predicted = activity.predicted;
   $(document.getElementById('activity_pred_time')).text(predicted['moving_time_string']);
   if (predicted.type != 'route') {
-    $(document.getElementById('activity_rating')).text(actual['ride_rating'][1]);
+    var rating = actual['ride_rating'][0];
+    var rating_color;
+    if (rating < 2) {
+      rating_color = 'red';
+    }
+    else if (rating > 3) {
+      rating_color = 'green';
+    }
+    else {
+      rating_color = 'yellow';
+    }
+    document.getElementById('activity_rating').innerHTML = 'Rating: ' + actual['ride_rating'][1] + ', ' + actual['ride_rating'][0];
+    document.getElementById('activity_rating').style.backgroundColor = rating_color;
+    document.getElementById('activity_rating').style.color = 'white';
     $(document.getElementById('activity_desc')).text(actual['name']);
     $(document.getElementById('activity_date')).text(' on ' + actual['date']);
     $(document.getElementById('activity_start')).text('At ' + actual['start_time']);
-    document.getElementById('activity_summary').innerHTML = (actual['total_elevation_gain'] * 3.28084).toFixed(2) + ' ft, ' + actual['total_distance'].toFixed(2) + ' mi'
+    document.getElementById('activity_summary').innerHTML = (actual['total_elevation_gain'] * 3.28084).toFixed(0).toLocaleString() + ' ft, ' + actual['total_distance'].toFixed(1) + ' mi'
     $(document.getElementById('activity_moving_time')).text(actual['moving_time_string']);
     activities = [actual, predicted];
     updateRiders();
@@ -437,7 +450,7 @@ function uploadRoute(){
       '<input type="hidden" value="{{athlete.userid}}" name="athlete_id">' + 
       '<p>Ride description: '+
       '<input type="text" name="ride_title" size="3"></p>'+
-      '<input name="file" type="file" accept=".gpx"/><br />'+
+      '<input name="file" type="file" accept=".gpx"/><br>'+
       '<input type="submit" value="Upload">'+
       '</form>';
   document.getElementById("route-upload").style.visibility = "visible";
@@ -468,9 +481,23 @@ function uploadRoute(){
                   {% endfor %}
                 </select></div>
                 <div style="background-color:#CACACD; display:inline; overflow:hidden;">
-                <div style="margin-left:5px;float:left;background-color:#CACACD;width:300px;"><strong id="activity_desc" style="font-size: small">{{activity.name}}</strong>
-              <br><strong id="activity_start" style="font-size: small;background-color:#CACACD">At {{activity.dt.strftime("%I:%M:%S %p")}}</strong><strong id="activity_date" style="font-size: small"> on {{activity.dt.strftime("%A %B %d, %Y")}}</strong><br><strong id="activity_summary" style="font-size: small;">{{ '{0:,}'.format((activity.total_climb * 3.28084) | int) }} ft, {{activity.total_distance}} mi</strong></div><div style="margin-left:300px;background-color:#CACACD;">
-          <button id="play-ride" onclick="simRide(activities)">Play Ride</button></div><div style="clear:both;"></div></div></div>
+                <div style="margin-left:5px;float:left;background-color:#CACACD;width:300px;">
+                <strong id="activity_desc" style="font-size: small">{{activity.name}}</strong>
+                <br>
+                <strong id="activity_start" style="font-size: small;background-color:#CACACD">At {{activity.dt.strftime("%I:%M:%S %p")}}</strong>
+                <strong id="activity_date" style="font-size: small"> on {{activity.dt.strftime("%A %B %d, %Y")}}</strong>
+                <br>
+                <span>
+                  <strong id="activity_summary" style="font-size: small;">{{ '{0:,}'.format((activity.total_climb * 3.28084) | int) }} ft, {{activity.total_distance}} mi</strong>
+                  <strong id="activity_rating" style="font-size: small;padding: 3px;">
+                  </strong>
+                </span>
+              </div>
+              <div style="margin-left:300px;background-color:#CACACD;">
+                <button id="play-ride" onclick="simRide(activities)">Play Ride</button>
+              </div>
+            <div style="clear:both;"></div></div>
+          </div>
               </span>
               <table id="current-riders" style="width: 100%">
                 <thead>
