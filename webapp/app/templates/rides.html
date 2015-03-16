@@ -11,7 +11,7 @@
 
 <script>
 var line;
-colors = ['#8A2BE2', '#DC143C', '#006400', '#00FFFF'];
+colors = ['#8A2BE2', '#DC143C', '#006400', '#00FFFF', '#800000'];
 function initialize() {
   getActivity('{{activities[-1].id}}', '{{athlete.userid}}', '#activity{{activities[-1].id }}');
 }
@@ -410,15 +410,15 @@ function switchActivity(activity) {
       rating_color = 'green';
     }
     else {
-      rating_color = 'yellow';
+      rating_color = 'black';
     }
     document.getElementById('activity_rating').innerHTML = 'Rating: ' + actual['ride_rating'][1] + ', ' + actual['ride_rating'][0];
-    document.getElementById('activity_rating').style.backgroundColor = rating_color;
-    document.getElementById('activity_rating').style.color = 'white';
+    // document.getElementById('activity_rating').style.backgroundColor = rating_color;
+    document.getElementById('activity_rating').style.color = rating_color;
     $(document.getElementById('activity_desc')).text(actual['name']);
     $(document.getElementById('activity_date')).text(' on ' + actual['date']);
     $(document.getElementById('activity_start')).text('At ' + actual['start_time']);
-    document.getElementById('activity_summary').innerHTML = (actual['total_elevation_gain'] * 3.28084).toFixed(0).toLocaleString() + ' ft, ' + actual['total_distance'].toFixed(1) + ' mi'
+    document.getElementById('activity_summary').innerHTML = (actual['total_elevation_gain'] * 3.28084).toFixed(0).toLocaleString() + ' ft | ' + actual['total_distance'].toFixed(1) + ' mi |'
     $(document.getElementById('activity_moving_time')).text(actual['moving_time_string']);
     activities = [actual, predicted];
     updateRiders();
@@ -431,7 +431,7 @@ function switchActivity(activity) {
     $(document.getElementById('activity_date')).text(' on ' + predicted['date']);
     $(document.getElementById('activity_start')).text('At ' + predicted['start_time']);
     $(document.getElementById('activity_moving_time')).text(actual['moving_time_string']);
-    document.getElementById('activity_summary').innerHTML = (predicted['total_elevation_gain'] * 3.28084).toFixed(2) + ' ft, ' + predicted['total_distance'].toFixed(2) + ' mi'
+    document.getElementById('activity_summary').innerHTML = (predicted['total_elevation_gain'] * 3.28084).toFixed(2) + ' ft | ' + predicted['total_distance'].toFixed(2) + ' mi |'
     activities = [predicted];
     updateRiders()
     lineChart(activities)
@@ -488,7 +488,7 @@ function uploadRoute(){
                 <strong id="activity_date" style="font-size: small"> on {{activity.dt.strftime("%A %B %d, %Y")}}</strong>
                 <br>
                 <span>
-                  <strong id="activity_summary" style="font-size: small;">{{ '{0:,}'.format((activity.total_climb * 3.28084) | int) }} ft, {{activity.total_distance}} mi</strong>
+                  <strong id="activity_summary" style="font-size: small;">{{ '{0:,}'.format((activity.total_climb * 3.28084) | int) }} ft | {{activity.total_distance}} mi |</strong>
                   <strong id="activity_rating" style="font-size: small;padding: 3px;">
                   </strong>
                 </span>
