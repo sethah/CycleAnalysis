@@ -17,6 +17,7 @@ feet_per_meter = 3.280
 
 DB = StravaDB()
 
+
 class StravaActivity(object):
 
     def __init__(self, activity_id, athlete_id, get_streams=False, is_route=False, belongs_to='athlete'):
@@ -28,15 +29,15 @@ class StravaActivity(object):
 
         activity_id is the integer id assigned to this activity by Strava. If the
         activity is a route, then this id was assigned automatically by the database.
-        
+
         athlete_id is the integer id of the parent StravaUser
-        
+
         get_streams is a Boolean which indicates a Boolean which indicates whether to get the raw data
         streams for the user.
-        
+
         is_route is a Boolean which indicates if this is a ride that the user has not done
         yet and thus does not have time/velocity streams.
-        
+
         belongs_to is a Boolean which indicates whether this activity belongs to the parent
         StravaUser. If belongs_to == 'other', then this athlete does not have time/velocity
         streams and the activity is treated like a route.
@@ -94,18 +95,19 @@ class StravaActivity(object):
         Get an activity from the database.
         """
         DB = StravaDB()
-        
-        
+
         if self.is_route:
             table = 'routes'
             cols = ['id', 'athlete_id', 'start_dt', 'name',
-                'city', 'fitness10', 'fitness30', 'frequency10', 'frequency30',
-                'total_elevation_gain', 'distance', 'athlete_count']
+                    'city', 'fitness10', 'fitness30', 'frequency10',
+                    'frequency30', 'total_elevation_gain', 'distance',
+                    'athlete_count']
         else:
             table = 'activities'
             cols = ['id', 'athlete_id', 'start_dt', 'name', 'moving_time',
-                'city', 'fitness10', 'fitness30', 'frequency10', 'frequency30',
-                'total_elevation_gain', 'distance', 'athlete_count']
+                    'city', 'fitness10', 'fitness30', 'frequency10',
+                    'frequency30', 'total_elevation_gain', 'distance',
+                    'athlete_count']
 
         if self.belongs_to == 'other':
             q = """ SELECT %s FROM %s WHERE id = %s
@@ -185,13 +187,13 @@ class StravaActivity(object):
 
         Construct feature dataframe and predict time and velocity.
 
-        model is a scikit-learn model object. 
+        model is a scikit-learn model object.
         """
         df = self.make_df()
 
         df.pop('velocity')
         X = df.values
-        pred = model.predict(X)        
+        pred = model.predict(X)
         self.df['predicted_velocity'] = pred
         self.df['predicted_time'] = vel_to_time(self.df.predicted_velocity, self.df.distance)
         self.predicted_moving_time = time.strftime('%H:%M:%S', time.gmtime(self.df['predicted_time'].iloc[-1]))
@@ -212,7 +214,6 @@ class StravaActivity(object):
         predict = t - pt + pt[-1]
         return predict
 
-
     def to_dict(self, time_spacing=None):
         """
         INPUT: StravaActivity, FLOAT
@@ -230,17 +231,16 @@ class StravaActivity(object):
         js = {}
         js['name'] = self.name
         js['date'] = datetime.strftime(self.dt, '%A %B %d, %Y')
-        
+
         js['athlete'] = self.athlete_id
         pt = self.df.predicted_time.values.tolist()
         stream_predict = self.streaming_predict()
-        
+
         # time, distance, altitude in the correct units
         d = (self.df.distance.values - self.df.distance.values[0]) / meters_per_mile
         t = (self.df.time.values - self.df.time.values[0])
         alt = (self.df.altitude.values * feet_per_meter).tolist()
         v = (self.df.velocity.values) / meters_per_mile * 3600
-        
 
         num_samples = 5000
         if self.is_route or self.belongs_to == 'other':
@@ -270,13 +270,12 @@ class StravaActivity(object):
             else:
                 new_time = np.arange(0, t[-1], time_spacing)
                 new_time_predicted = np.arange(0, pt[-1], time_spacing)
-            
 
             # convert the predicted distance and altitude to the new time axis
             js['plot_predicted_distance'] = np.interp(new_time_predicted, pt, d).tolist()
             js['plot_predicted_altitude'] = np.interp(new_time_predicted, pt, alt).tolist()
             js['plot_predicted_velocity'] = np.interp(new_time_predicted, pt, self.df.predicted_velocity.values / meters_per_mile * 3600).tolist()
-            
+
             js['type'] = 'activity'
             js['ride_rating'] = self.ride_score()
             js['moving_time'] = t[-1]
@@ -289,20 +288,20 @@ class StravaActivity(object):
         js['plot_altitude'] = np.interp(new_time, t, alt).tolist()
         js['plot_velocity'] = np.interp(new_time, t, v).tolist()
         js['streaming_predict'] = smooth(np.interp(new_time, t, stream_predict), 'scipy', window_len=200).tolist()
-        
+
         # it doesn't matter that the latlng values do not correspond to the other vectors
         # because of the way the google maps markers are moved on a polyline
         js['latitude'] = self.df.latitude.values.tolist()
         js['longitude'] = self.df.longitude.values.tolist()
         js['center'] = self.get_bounds().tolist()
-        
+
         js['total_distance'] = self.total_distance / meters_per_mile
         js['predicted_total_time'] = pt[-1]
         js['predicted_total_time_string'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
         js['id'] = self.id
-        
 
         return js
+
     def to_dict2(self, time_spacing=None):
         """
         INPUT: StravaActivity, FLOAT
@@ -317,7 +316,7 @@ class StravaActivity(object):
         actual time vectors have the same spacing. They are not the same
         length, however.
         """
-       
+
         predicted = {}
         actual = {}
         predicted['name'] = self.name
@@ -330,11 +329,11 @@ class StravaActivity(object):
 
         pt = self.df.predicted_time.values.tolist()
         stream_predict = self.streaming_predict()
-        
+
         # time, distance, altitude in the correct units
         d = (self.df.distance.values - self.df.distance.values[0]) / meters_per_mile
         alt = (self.df.altitude.values * feet_per_meter).tolist()
-        
+
         num_samples = 5000
         if self.is_route or self.belongs_to == 'other':
             # we convert the time to evenly spaced samples
@@ -358,7 +357,7 @@ class StravaActivity(object):
             predicted['total_elevation_gain'] = self.total_climb
             # predicted['athlete_count'] = self.athlete_count
         else:
-            
+
             actual['name'] = self.name
             actual['date'] = datetime.strftime(self.dt, '%A %B %d, %Y')
             actual['athlete'] = self.athlete
@@ -378,13 +377,13 @@ class StravaActivity(object):
             actual['plot_time'] = new_time.tolist()
             actual['plot_distance'] = np.interp(new_time, t, d).tolist()
             actual['plot_altitude'] = np.interp(new_time, t, alt).tolist()
-            actual['plot_velocity'] = np.interp(new_time, t, v).tolist()            
+            actual['plot_velocity'] = np.interp(new_time, t, v).tolist()
 
             # convert the predicted distance and altitude to the new time axis
             predicted['plot_distance'] = np.interp(new_time_predicted, pt, d).tolist()
             predicted['plot_altitude'] = np.interp(new_time_predicted, pt, alt).tolist()
             predicted['plot_velocity'] = np.interp(new_time_predicted, pt, self.df.predicted_velocity.values / meters_per_mile * 3600).tolist()
-            
+
             predicted['type'] = 'activity'
             predicted['ride_rating'] = self.ride_score()
             predicted['moving_time'] = pt[-1]

@@ -7,8 +7,9 @@ import gpxpy
 import pandas as pd
 import collections
 
-CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
-MongoDB = CLIENT.strava
+# CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
+# MongoDB = CLIENT.strava
+
 
 class StravaDB(object):
 
@@ -32,14 +33,14 @@ class StravaDB(object):
         """
         if local:
             self.conn = sql.connect(host="127.0.0.1",
-                              user="root",
-                              passwd="abc123",
-                              db="hendris$strava")
+                                    user="root",
+                                    passwd="abc123",
+                                    db="hendris$strava")
         else:
             self.conn = sql.connect(host="127.0.0.1",
-                                  user="hendris",
-                                  passwd="abc123",
-                                  db="hendris$strava")
+                                    user="hendris",
+                                    passwd="abc123",
+                                    db="hendris$strava")
         self.conn.autocommit(False)
         self.cur = self.conn.cursor()
 
@@ -144,21 +145,20 @@ class StravaDB(object):
 
         Strava by default includes the non-moving time in the streams.
         These can be removed using the BOOLEAN stream 'moving', however,
-        there are still times where the athlete is not moving but the 
+        there are still times where the athlete is not moving but the
         'moving' vector indicates otherwise. Use a heuristic to determine
         if they are moving and correct for that.
         """
         not_moving = np.where(~moving)[0]
         for ind in not_moving:
-            time[ind:] -= (time[ind] - \
-                                         time[ind -1])
+            time[ind:] -= (time[ind] - time[ind - 1])
 
         dd = np.diff(distance)
         dt = np.diff(time)
         not_moving = np.where(dd/dt < 1)[0]
         for ind in not_moving:
             ind += 1
-            time[ind:] -= (time[ind] - time[ind -1])
+            time[ind:] -= (time[ind] - time[ind - 1])
 
         return time, distance
 
@@ -176,8 +176,8 @@ class StravaDB(object):
         altitude = np.array(stream_dict['altitude']['data'])
         latlng = np.array(stream_dict['latlng']['data'])
         moving = np.array(stream_dict['moving']['data'])
-        latitude = latlng[:,0]
-        longitude = latlng[:,1]
+        latitude = latlng[:, 0]
+        longitude = latlng[:, 1]
         time, distance = self.get_moving(moving, distance, time)
 
         new_time = np.linspace(time[0], time[-1], time.shape[0])
@@ -251,7 +251,7 @@ class StravaDB(object):
 
         seg_frame = pd.DataFrame(d)
         seg_frame['grade'] = np.append(np.diff(seg_frame['altitude']), 0) * 100 / \
-                        np.append(np.diff(seg_frame['distance']), 0.01)
+            np.append(np.diff(seg_frame['distance']), 0.01)
         return seg_frame.sort('distance')
 
     def create_route(self, gpx_file, athlete_id, name):
@@ -305,7 +305,6 @@ class StravaDB(object):
         ediff = np.where(ediff > 1000, 0, ediff)
         climb = np.sum(ediff[np.where(ediff > 0)])
 
-
         d = {'start_dt': dt,
              'timezone': None,
              'city': None,
@@ -321,7 +320,7 @@ class StravaDB(object):
              'total_elevation_gain': climb,
              'athlete_count': 1,
              'athlete_id': athlete_id
-            }
+             }
 
         self.insert_values('routes', d)
         self.cur.execute("""SELECT LAST_INSERT_ID();""")
@@ -363,11 +362,10 @@ class StravaDB(object):
         values = [val_dict[k] for k in keys]
         q = """ INSERT INTO {table} ({keys})
                 VALUES ({placeholders})
-            """.format(
-                      table = table_name,
-                      keys = ', '.join(keys),
-                      placeholders = ', '.join([ "%s" for v in values ])
-                      )
+            """.format(table=table_name,
+                       keys=', '.join(keys),
+                       placeholders=', '.join(["%s" for v in values])
+                       )
         try:
             self.cur.execute(q, values)
             self.conn.commit()

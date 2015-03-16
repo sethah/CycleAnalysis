@@ -9,7 +9,9 @@ from StravaDB import StravaDB
 import traceback
 import MySQLdb
 
+
 ACCESS_TOKEN = '535848c783c374e8f33549d22f089c1ce0d56cd6'
+
 
 class StravaAPI(object):
 
@@ -20,7 +22,8 @@ class StravaAPI(object):
 
         Initialize a StravaAPI object.
 
-        access_token is the access token for the user who's data will be retrieved.
+        access_token is the access token for the user who's data will be
+        retrieved.
 
         This class is used to interface with the Strava API. A client id and
         access token are required. These are provided by Strava after registering
@@ -52,7 +55,7 @@ class StravaAPI(object):
         INPUT: StravaAPI, STRING
         OUTPUT: JSON
 
-        Retrieve an access key from the Strava API. 
+        Retrieve an access key from the Strava API.
 
         code is a string provided by the Strava authentication page and can be
         exchanged for an access key for the authorized user.
@@ -98,7 +101,7 @@ class StravaAPI(object):
         table = self.db.activities
         activities = self.list_activities(start_dt=start_dt)
         activities = self.fitness_score(activities)
-        cnt = 0;
+        cnt = 0
         for i, a in enumerate(activities):
             # for now, only look at distances > 15 miles
             if a['distance'] < 24000:
@@ -147,7 +150,7 @@ class StravaAPI(object):
              'total_elevation_gain': a['total_elevation_gain'],
              'athlete_count': a['athlete_count'],
              'athlete_id': a['athlete']['id']
-        }
+             }
         if store_streams:
             data = DB.process_streams(self.get_stream(a['id']), a['athlete']['id'], a['id'])
             print len(data)
@@ -163,11 +166,10 @@ class StravaAPI(object):
             DB.insert_values('activities', d)
         except MySQLdb.IntegrityError:
             print traceback.format_exc()
-        
 
         print 'Stored activity for %s on %s' % (
-                                                a['athlete']['id'],
-                                                a['start_date'])
+            a['athlete']['id'],
+            a['start_date'])
 
     def fitness_score(self, activities):
         """
@@ -217,7 +219,7 @@ class StravaAPI(object):
     def get_stream(self, stream_id, types=None, stream_type='activity'):
         payload = {'resolution': 'high'}
         if types is None:
-            types = ['time','latlng','distance','altitude', 'moving',
+            types = ['time', 'latlng', 'distance', 'altitude', 'moving',
                      'velocity_smooth', 'moving', 'grade_smooth']
 
         if stream_type == 'activity':
@@ -228,7 +230,7 @@ class StravaAPI(object):
         response = self.execute(url, payload)
         try:
             data = response.json()
-            data = {x['type']:x for x in data}
+            data = {x['type']: x for x in data}
         except:
             print response.json()
             raise
@@ -251,13 +253,13 @@ class StravaAPI(object):
 
     def get_effort_streams(self, effort_id, types=None):
         if types is None:
-            types = ['time','latlng','distance','altitude',
+            types = ['time', 'latlng', 'distance', 'altitude',
                      'watts', 'velocity_smooth', 'moving', 'grade_smooth']
         payload = {'resolution': 'medium'}
         url = 'segment_efforts/%s/streams/%s' % (effort_id, ','.join(types))
         response = self.execute(url, payload)
         data = response.json()
-        data = {x['type']:x for x in data}
+        data = {x['type']: x for x in data}
 
         return data
 
