@@ -17,6 +17,7 @@ from itertools import izip
 meters_per_mile = 1609.34
 feet_per_meter = 3.280
 
+
 class StravaUser(object):
 
     def __init__(self, athlete_id, get_streams=False, get_routes=True):
@@ -24,7 +25,7 @@ class StravaUser(object):
         INPUT: StravaUser, INT, BOOL, BOOL
         OUTPUT: None
         Initialize a Strava user.
-        
+
         athlete_id is an integer id for a Strava app athlete.
         get_streams is a Boolean which indicates whether to get the raw data
         streams for the user.
@@ -43,7 +44,8 @@ class StravaUser(object):
         Get the user's attributes from the database.
         """
         DB = StravaDB()
-        cols = ['id', 'firstname', 'lastname', 'sex', 'city', 'state', 'country', 'access_token']
+        cols = ['id', 'firstname', 'lastname', 'sex', 'city',
+                'state', 'country', 'access_token']
         q = """SELECT * FROM athletes WHERE id = %s""" % self.userid
         DB.cur.execute(q)
         athlete = DB.cur.fetchone()
@@ -54,7 +56,6 @@ class StravaUser(object):
         self.access_token = athlete['access_token']
         if 'model' in athlete:
             self.model = pickle.loads(athlete['model'])
-
 
     def load_activities(self, get_streams, get_routes):
         """
@@ -85,7 +86,8 @@ class StravaUser(object):
                 """ % self.userid
             results = DB.execute(q)
             for route in results:
-                r = StravaActivity(route[0], self.userid, get_streams, is_route=True)
+                r = StravaActivity(route[0], self.userid, get_streams,
+                                   is_route=True)
                 self.activities.append(r)
 
     def get_activities(self):
@@ -108,7 +110,7 @@ class StravaUser(object):
 
         Make a dataframe of time samples to be used for predictions.
 
-        indices is a 1D numpy array which indicates which activities to 
+        indices is a 1D numpy array which indicates which activities to
         use for predictions.
         """
         if indices is None:

@@ -22,11 +22,12 @@ import os.path
 from werkzeug import secure_filename
 
 
-CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
-MONGODB = CLIENT.strava
+# CLIENT = pymongo.MongoClient("mongodb://sethah:abc123@ds049161.mongolab.com:49161/strava")
+# MONGODB = CLIENT.strava
 DB = StravaDB()
 
 app.config['UPLOAD_FOLDER'] = 'app/uploads/'  # this breaks on pythonanywhere
+
 
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/index')
@@ -43,6 +44,7 @@ def index():
     athletes = DB.execute(q)
 
     return render_template('home.html', athletes=athletes)
+
 
 @app.route('/token_exchange', methods=['GET', 'POST'])
 def token_exchange():
@@ -90,8 +92,8 @@ def fit():
     X = df[cols[np.where(cols!='velocity')]].values
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.3)
 
-    # model = GradientBoostingRegressor(max_depth=3, min_samples_leaf=1000)
-    model = RandomForestRegressor(max_depth=20, min_samples_split=50)
+    model = GradientBoostingRegressor(n_estimators=100, max_depth=3)
+    # model = RandomForestRegressor(max_depth=20, min_samples_split=50)
     print 'Fitting model.......'
     model.fit(X_train, y_train)
     print 'Model fit!'
@@ -108,6 +110,7 @@ def fit():
     print 'Pickle dumped'
 
     return str(len(user.activities))
+
 
 @app.route('/upload', methods=['POST'])
 def upload_gpx():
@@ -133,6 +136,7 @@ def upload_gpx():
         DB.create_route(fpath, uid, ride_name)
     return redirect(url_for('rides', userid=uid))
 
+
 @app.route('/delete/route', methods=['POST'])
 def delete_route():
     """Delete an uploaded route from the database"""
@@ -157,6 +161,7 @@ def delete_route():
 
     return ''
 
+
 @app.route('/get-data', methods=['POST'])
 def get_data():
     """Retrieve a user's data from the Strava API"""
@@ -166,6 +171,7 @@ def get_data():
     u.get_activities()
 
     return str(len(u.activities))
+
 
 @app.route('/check', methods=['POST'])
 def check():
@@ -191,6 +197,7 @@ def check():
         return 'predict'
 
     return 'good'
+
 
 @app.route('/rides/<userid>', methods=['GET', 'POST'])
 def rides(userid):
@@ -231,6 +238,7 @@ def rides(userid):
         activity = activity,
         athletes=athletes)
 
+
 @app.route('/change', methods=['POST'])
 def change():
     """
@@ -264,6 +272,7 @@ def change():
     
     return jsonify({'actual': actual, 'predicted': predicted})
 
+
 @app.route('/add_rider', methods=['POST'])
 def add_rider():
     activity_id = int(request.form.get('activity_id', 0))
@@ -294,6 +303,7 @@ def add_rider():
         
     return jsonify(predicted)
 
+
 def truncate(a, b, keep_dim=0):
     if keep_dim == 0:
         if len(a) < len(b):
@@ -305,12 +315,12 @@ def truncate(a, b, keep_dim=0):
             return a[:len(b)], b
         else:
             return a + [a[-1]]*(len(b)-len(a)), b
-    # min_dim = min(len(a), len(b))
-    # return a[:min_dim], b[:min_dim]
+
 
 @app.route("/chart")
 def chart():
     return render_template('dialog.html')
+
 
 def load_model(athlete_id):
     fname = 'model_%s.pkl' % athlete_id
@@ -321,13 +331,16 @@ def load_model(athlete_id):
         print 'file does not exist'
         return None
 
+
 @app.errorhandler(404)
 def not_found_error(error):
     return render_template('404.html'), 404
 
+
 @app.errorhandler(500)
 def internal_error(error):
     return render_template('500.html'), 500
+
 
 if __name__ == '__main__':
     pass
