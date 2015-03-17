@@ -1,17 +1,11 @@
 import numpy as np
 import pandas as pd
-import pymongo
-from SignalProc import weighted_average, smooth, diff
-from sklearn.cross_validation import train_test_split, cross_val_score
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from datetime import datetime, timedelta
 from StravaEffort import StravaActivity
 from StravaDB import StravaDB
 from StravaAPI import StravaAPI
-import matplotlib.pyplot as plt
-import seaborn as sns
 import pickle
-from itertools import izip
 
 # global vars
 meters_per_mile = 1609.34

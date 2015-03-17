@@ -118,9 +118,8 @@ class StravaActivity(object):
 
         DB.cur.execute(q)
         results = DB.cur.fetchone()
-        d = dict(zip(cols, results))
 
-        return d
+        return dict(zip(cols, results))
 
     def init_streams(self):
         """
@@ -515,16 +514,12 @@ class StravaActivity(object):
         df.pop('latitude')
         df.pop('longitude')
 
-        # df.pop('velocity')
         df.pop('activity_id')
         df.pop('athlete_id')
         df['grade'] = smooth(df['grade'], 'scipy')
         df['altitude'] = smooth(df['altitude'], 'scipy', window_len=22)
         df['velocity'] = smooth(df['velocity'], 'scipy', window_len=100)
-        # df['time_int'] = np.append(np.diff(df['time']), 0)
-        # df['dist_int'] = np.append(np.diff(df['distance']), 0)
 
-        # self.df['filtered_grade'] = smooth(self.df['grade'], 'scipy')
         alt_diff = np.diff(df['altitude'])
         climb = np.cumsum(np.where(alt_diff < 0, 0, alt_diff))
         climb = np.append([0], climb)
@@ -537,27 +532,14 @@ class StravaActivity(object):
         df['distance'] = df['distance'] - df['distance'].iloc[0]
         df['ride_difficulty'] = [df['distance'].iloc[-1]*climb[-1]]*n
         df['variability'] = [df['grade'].std()]*n
-        # df['athlete_count'] = [self.athlete_count]*n
         df['fitness10'] = [self.fitness10]*n
         df['fitness30'] = [self.fitness30]*n
         df['frequency10'] = [self.frequency10]*n
         df['frequency30'] = [self.frequency30]*n
         df['one_mile'] = self.distance_rolling_mean('grade')
         df['recent'] = self.distance_rolling_mean('grade', 0.1)
-        # df['two_mile'] = self.distance_rolling_mean('grade', length=2)
-        # df['four_mile'] = self.distance_rolling_mean('grade', length=4)
 
-        # if window != 0:
-        #     for i in xrange(-window // 2, window // 2 + 1):
-        #         if i == 0:
-        #             continue
-        #         df['%s_%s' % ('grade', -i)] = df['grade'].shift(i)
-
-        #     df.rename(columns={'grade': 'grade_0'}, inplace=True)
         df.pop('time')
-        # df.pop('grade')
-        # df.pop('ride_difficulty')
-        # df.pop('distance')
         df.pop('altitude')
         df.fillna(0, inplace=True)
         return df
@@ -565,7 +547,3 @@ class StravaActivity(object):
     def __repr__(self):
         return '<%s, %s, %s, %s>' % \
             (self.name, self.dt, self.city, self.total_distance)
-
-
-if __name__ == '__main__':
-    pass

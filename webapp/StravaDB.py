@@ -22,7 +22,7 @@ class StravaDB(object):
         """
         self.get_cursor()
 
-    def get_cursor(self, local=True):
+    def get_cursor(self, host='127.0.0.1', user='root', passwd='abc123', db='hendris$strava'):
         """
         INPUT: StravaDB, BOOLEAN
         OUTPUT: None
@@ -31,16 +31,10 @@ class StravaDB(object):
 
         local indicates whether to use local or hosted database.
         """
-        if local:
-            self.conn = sql.connect(host="127.0.0.1",
-                                    user="root",
-                                    passwd="abc123",
-                                    db="hendris$strava")
-        else:
-            self.conn = sql.connect(host="127.0.0.1",
-                                    user="hendris",
-                                    passwd="abc123",
-                                    db="hendris$strava")
+        self.conn = sql.connect(host="127.0.0.1",
+                                user="root",
+                                passwd="abc123",
+                                db="hendris$strava")
         self.conn.autocommit(False)
         self.cur = self.conn.cursor()
 
