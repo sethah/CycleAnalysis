@@ -412,8 +412,7 @@ function switchActivity(activity) {
     else {
       rating_color = 'black';
     }
-    document.getElementById('activity_rating').innerHTML = 'Rating: ' + actual['ride_rating'][1] + ', ' + actual['ride_rating'][0];
-    // document.getElementById('activity_rating').style.backgroundColor = rating_color;
+    document.getElementById('activity_rating').innerHTML = 'Rating: ' + actual['ride_rating'][1];
     document.getElementById('activity_rating').style.color = rating_color;
     $(document.getElementById('activity_desc')).text(actual['name']);
     $(document.getElementById('activity_date')).text(' on ' + actual['date']);

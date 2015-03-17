@@ -354,7 +354,6 @@ class StravaActivity(object):
             predicted['start_time'] = 'NA'
             predicted['total_distance'] = self.total_distance / meters_per_mile
             predicted['total_elevation_gain'] = self.total_climb
-            # predicted['athlete_count'] = self.athlete_count
         else:
 
             actual['name'] = self.name
@@ -390,10 +389,8 @@ class StravaActivity(object):
             predicted['moving_time_string'] = time.strftime('%H:%M:%S', time.gmtime(pt[-1]))
             predicted['total_distance'] = self.total_distance / meters_per_mile
             predicted['plot_time'] = new_time_predicted.tolist()
-            # predicted['athlete_count'] = self.athlete_count
             actual['streaming_predict'] = smooth(np.interp(new_time, t, stream_predict), 'scipy', window_len=200).tolist()
             actual['total_elevation_gain'] = self.total_climb
-            # actual['athlete_count'] = self.athlete_count
 
             actual['type'] = 'activity'
             actual['ride_rating'] = self.ride_score()
@@ -420,16 +417,17 @@ class StravaActivity(object):
         This method compares the actual time to the predicted time
         to evaluate and score a rider's performance.
         """
-        ratings = ['Poor', 'Below Average', 'Average', 'Good', 'Great!', 'Excellent']
+        ratings = ['Poor', 'Below Average', 'Average', 'Good',
+                   'Great!', 'Excellent']
         scores = range(len(ratings))
-        criteria = np.array([0.5, 0.3, 0, -0.2, -0.3, -0.4])
+        criteria = np.array([0.2, 0.1, 0, -0.05, -0.1, -0.15])
         if self.predicted_moving_time is not None:
             predicted_time = self.df.predicted_time.iloc[-1]
-            print predicted_time, self.moving_time
-            performance = (self.moving_time - predicted_time) / predicted_time
+            moving_time = self.df.time.iloc[-1] - self.df.time.iloc[0]
+            performance = (moving_time - predicted_time) / predicted_time
 
             tmp = criteria-performance
-            ind = np.argmin(np.where(tmp < 0, 999, tmp))
+            ind = np.argmin(np.abs(tmp))
 
         return (scores[ind], ratings[ind])
 

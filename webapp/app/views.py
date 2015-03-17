@@ -270,7 +270,6 @@ def change():
     if not a.is_route:
         d, pd = truncate(actual['plot_distance'], predicted['plot_distance'])
         t, pt = truncate(actual['plot_time'], predicted['plot_time'])
-        print t[-10:], pt[-10:]
         predicted['distance_diff'] = (np.array(d) - np.array(pd)).tolist()
         predicted['time_diff'] = (np.array(pt) -
                                   np.interp(np.array(d),
