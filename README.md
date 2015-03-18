@@ -1,13 +1,20 @@
 #Ghost Rider
 
-Cyclitics app is live at [http://www.cyclitics.co](www.cyclitics.co)
+Cyclitics app is live at [www.cyclitics.co](http://www.cyclitics.co)
 
 ###A novel prediction for cycling performance.
 
 ##Project Summary
+
+###Table of Contents
+* [Data Collection and Storage](#h1)
+* [Feature engineering and signal processing](#h2)
+* [Model development](#h3)
+* [Visualization and web development](#h4)
+
 This app is used to make predictions for cyclist's performances on any course based on past data (taken from [Strava](https://strava.com)). The app uses predictions on past rides to develop a novel performance metric for cyclists. Users can add themselves or other users to *_any ride_* to see how they stack up against their peers. A dynamic, in-ride pacing tool also provides instant feedback on a rider's performance and allows the rider to adjust their pace dynamically, and intelligently.
 
-###Data collection and storage
+### <a id="h1"></a> Data collection and storage
 **model_dev.ipynb, StravaAPI.py, StravaDB.py**
 
 The StravaAPI module can be used to connect to and query Strava's API, as long as the required registration credentials exist. The StravaDB module can be used to create, structure, and store the API data in a MySQL database.
@@ -90,7 +97,7 @@ Strava calls a logged workout or ride "activities." Each user has their own acti
 | moving      | tinyint(1) | NO   |     | NULL    |       |
 
 
-###Feature engineering and signal processing
+### <a id="h2"></a> Feature engineering and signal processing
 **StravaEffort.py**
 
 It is not a surprise that the most predictive feature of rider velocity is the grade of the road. This feature is provided by Strava, but it is simply the derivative of altitude with respect to distance. A major problem with this is that the altitude observation is innacurate and noisy, which makes the derivative even noisier. Because the grade is noisy and somewhat innacurate, it is more useful to use a filtered version of the grade. Exactly how heavily filtered the grade ought to be is an interesting question, but as the filter is applied, each point contains more and more information about the past and future points - which is feature engineering in and of itself. It is useful to have a feature that is an aggregate of past and future points (a moving average).
@@ -101,7 +108,7 @@ Some seasonal factors are also important. Rider fitness is quantified by a 10 an
 
 Features are created in the StravaActivity.make_df() method, which constructs a feature/target dataframe for the current activity.
 
-###Model development
+### <a id="h3"></a> Model development
 **model_dev.ipynb, StravaEffort.py, StravaUser.py**
 
 Model development involves testing out different regression models and understanding the tradeoffs for each. Models were primarily evaluated by considering the r-squared value for the test sets. Entire activities were withheld in a test set - roughly 20% of a user's activities are withheld. The remaining 80% of activities were combined and then a train test split was performed on each with a 75% train and a 25% test split. Random forest, gradient boosting, support vector, and linear regression models were tested, with random forest and gradient boosting models achieving the best results. While random forest and gradient boosting perform similarly, the gradient boosting models require less memory and can be stored and opened more easily than random forest models. Stored models are opened and used for predictions regularly when the users use the cyclitics app, so having a model that takes up less space is important.
@@ -109,7 +116,7 @@ Model development involves testing out different regression models and understan
 The models are trained when a user visits the site in the fit() page in views.py.
 
 
-###Visualization and web development
+### <a id="h4"></a> Visualization and web development
 **app/**
 
 The web app provides a user interface for riders to provide their Strava data to the app and then view their predictions on their own dashboard. Each user can go to their dashboard and view all their past rides and compare with their predictions. They can also upload new routes (rides) in the form of gpx files which provide distance, altitude, and lat/lng points. They can then view their predictions on the new route. Any rider can be added to any ride (past or new), and they will see their prediction on that ride (regardless if they have done the ride before).
