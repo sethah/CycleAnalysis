@@ -1,6 +1,6 @@
 #Ghost Rider
 
-Cyclitics app is live at [www.cyclitics.co](www.cyclitics.co)
+Cyclitics app is live at [http://www.cyclitics.co](www.cyclitics.co)
 
 ###A novel prediction for cycling performance.
 
